@@ -4,8 +4,7 @@ import glob
 import importlib
 from tracr.compiler import compiling
 from tracr.rasp import rasp
-from benchmark.defaults import default_max_seq_len, default_bos
-from string import numerical
+from benchmark.defaults import default_max_seq_len, default_bos, default_vocab
 
 
 if __name__ == "__main__":
@@ -28,7 +27,7 @@ if __name__ == "__main__":
     
       model = compiling.compile_rasp_to_model(
           program,
-          vocab=set(numerical),
+          vocab=default_vocab,
           max_seq_len=default_max_seq_len,
           compiler_bos=default_bos,
       )
