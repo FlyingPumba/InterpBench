@@ -1,6 +1,8 @@
 [submodule "submodules/tracr"]
 	path = submodules/tracr
 	url = git@github.com:FlyingPumba/tracr.git
+	ignore = untracked
 [submodule "submodules/Automatic-Circuit-Discovery"]
 	path = submodules/Automatic-Circuit-Discovery
 	url = git@github.com:ArthurConmy/Automatic-Circuit-Discovery.git
+	ignore = untracked
