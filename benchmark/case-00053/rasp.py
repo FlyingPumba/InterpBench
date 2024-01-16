@@ -1,4 +1,5 @@
 from tracr.rasp import rasp
+from benchmark.common_programs import make_length
 
 
 def get_program() -> rasp.SOp:
@@ -14,7 +15,7 @@ def make_token_positional_balance_analyzer(sop: rasp.SOp) -> rasp.SOp:
       >> ["front", "front", "center", "rear", "rear"]
     """
     position = rasp.indices
-    total_length = rasp.LengthType()
+    total_length = make_length()
     balance = rasp.SequenceMap(
         lambda pos, length: "front" if pos < length / 3 else ("rear" if pos > 2 * length / 3 else "center"),
         position, total_length)

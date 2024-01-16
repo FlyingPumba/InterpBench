@@ -4,5 +4,5 @@ from benchmark.common_programs import make_sort
 
 @only_non_causal
 def get_program() -> rasp.SOp:
-  return make_sort(rasp.tokens, rasp.tokens, 5, 1)
+  return make_sort(rasp.tokens, rasp.tokens, 10, 1)
 

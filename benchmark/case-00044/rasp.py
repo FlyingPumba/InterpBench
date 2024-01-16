@@ -1,5 +1,5 @@
 from tracr.rasp import rasp
-from benchmark.common_programs import make_unique_token_extractor
+from benchmark.common_programs import make_unique_token_extractor, make_length
 
 
 def get_program() -> rasp.SOp:
@@ -15,7 +15,7 @@ def make_lexical_density_calculator(sop: rasp.SOp) -> rasp.SOp:
       >> 0.75
     """
     unique_words = make_unique_token_extractor(sop)
-    total_words = rasp.LengthType()
+    total_words = make_length()
     unique_word_count = rasp.SelectorWidth(rasp.Select(unique_words, unique_words, rasp.Comparison.TRUE))
     # note map only works for one input, so we have to use Select if we want the lambda x,y
     temp = rasp.SequenceMap(lambda x, y: x / y, unique_word_count, total_words)

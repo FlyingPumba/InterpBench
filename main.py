@@ -2,9 +2,15 @@
 import os
 import glob
 import importlib
+import jax
+import logging
 from tracr.compiler import compiling
 from benchmark.defaults import default_max_seq_len, default_bos, default_vocab
 
+# The default of float16 can lead to discrepancies between outputs of
+# the compiled model and the RASP program.
+jax.config.update('jax_default_matmul_precision', 'float32')
+logging.basicConfig(level=logging.ERROR)
 
 if __name__ == "__main__":
   # list all cases in the benchmark directory

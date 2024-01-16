@@ -4,4 +4,4 @@ from benchmark.common_programs import make_frac_prevs
 
 @causal_and_regular
 def get_program() -> rasp.SOp:
-  return make_frac_prevs(rasp.tokens)
+  return make_frac_prevs(rasp.tokens == "x")

@@ -9,7 +9,6 @@ from utils.hooked_tracr_transformer import HookedTracrTransformer
 # The default of float16 can lead to discrepancies between outputs of
 # the compiled model and the RASP program.
 jax.config.update('jax_default_matmul_precision', 'float32')
-
 logging.basicConfig(level=logging.ERROR)
 
 class HookedTracrTransformerTest(unittest.TestCase):

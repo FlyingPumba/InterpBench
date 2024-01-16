@@ -192,8 +192,8 @@ def make_sort(vals: rasp.SOp, keys: rasp.SOp, max_seq_len: int,
   Returns:
     Output SOp of sort program.
   """
-  keys = rasp.SequenceMap(lambda x, i: x + min_key * i / max_seq_len, keys,
-                          rasp.indices)
+  keys = rasp.SequenceMap(lambda x, i: x + min_key * i / max_seq_len,
+                          keys, rasp.indices)
   return make_sort_unique(vals, keys)
 
 @causal_and_regular

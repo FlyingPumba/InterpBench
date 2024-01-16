@@ -1,5 +1,5 @@
 from tracr.rasp import rasp
-from benchmark.common_programs import make_hist
+from benchmark.common_programs import make_hist, make_length
 
 
 def get_program() -> rasp.SOp:
@@ -15,7 +15,7 @@ def make_token_frequency_classifier(sop: rasp.SOp) -> rasp.SOp:
       >> ["frequent", "common", "frequent", "rare", "frequent", "common"]
     """
     frequency = make_hist()
-    total_tokens = rasp.LengthType()
+    total_tokens = make_length()
     frequency_classification = rasp.SequenceMap(
         lambda freq, total: "frequent" if freq > total / 2 else ("common" if freq > total / 4 else "rare"),
         frequency, total_tokens)
