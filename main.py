@@ -3,7 +3,6 @@ import os
 import glob
 import importlib
 from tracr.compiler import compiling
-from tracr.rasp import rasp
 from benchmark.defaults import default_max_seq_len, default_bos, default_vocab
 
 
