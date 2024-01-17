@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -15,3 +18,7 @@ def make_token_reversal_with_exclusion(sop: rasp.SOp, exclude: str) -> rasp.SOp:
     """
     reversal = rasp.Map(lambda x: x[::-1] if x != exclude else x, sop)
     return reversal
+
+
+def get_vocab() -> Set:
+  return vocabs.get_words_vocab()

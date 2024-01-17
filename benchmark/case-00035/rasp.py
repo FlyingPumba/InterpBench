@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -18,3 +21,7 @@ def make_token_capitalization_alternator(sop: rasp.SOp) -> rasp.SOp:
 
     alternator = rasp.Map(alternate_capitalization, sop)
     return alternator
+
+
+def get_vocab() -> Set:
+  return vocabs.get_words_vocab()

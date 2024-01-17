@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -18,3 +21,7 @@ def make_numeric_token_range_filter(sop: rasp.SOp, min_val: int, max_val: int) -
 
     range_filter = rasp.Map(in_range, sop)
     return range_filter
+
+
+def get_vocab() -> Set:
+  return vocabs.get_str_numbers_vocab(0, 100)

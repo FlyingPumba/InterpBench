@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.common_programs import make_length
 
@@ -22,3 +25,7 @@ def make_token_position_encoding() -> rasp.SOp:
         lambda start_idx, end_idx: (start_idx, end_idx),
         rasp.indices, make_length() - rasp.indices - 1).named("position_encoding")
     return position_encoding
+
+
+def get_vocab() -> Set:
+  return vocabs.get_ascii_letters_vocab(count=3)

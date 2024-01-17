@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -17,3 +20,7 @@ def make_token_anagram_identifier(sop: rasp.SOp, target: str) -> rasp.SOp:
     anagram_identifier = rasp.Map(
         lambda x: sorted(x) == sorted_target, sop)
     return anagram_identifier
+
+
+def get_vocab() -> Set:
+  return vocabs.get_words_vocab().union({"listen"})

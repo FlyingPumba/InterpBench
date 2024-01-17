@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.program_evaluation_type import causal_and_regular
 
@@ -24,3 +27,7 @@ def make_count(sop, token):
   """
   return rasp.SelectorWidth(rasp.Select(
       sop, sop, lambda k, q: k == token)).named(f"count_{token}")
+
+
+def get_vocab() -> Set:
+  return vocabs.get_ascii_letters_vocab(count=3)

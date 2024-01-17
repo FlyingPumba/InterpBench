@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.program_evaluation_type import only_non_causal
 from benchmark.common_programs import make_hist, make_sort
@@ -26,3 +29,7 @@ def make_sort_freq(max_seq_len: int) -> rasp.SOp:
   hist = -1 * make_hist().named("hist")
   return make_sort(
       rasp.tokens, hist, max_seq_len=max_seq_len, min_key=1).named("sort_freq")
+
+
+def get_vocab() -> Set:
+  return vocabs.get_str_digits_vocab()

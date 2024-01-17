@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -16,3 +19,7 @@ def make_numeric_range_tagging(sop: rasp.SOp, lower_bound: int, upper_bound: int
     range_tagging = rasp.Map(
         lambda x: lower_bound <= int(x) <= upper_bound if x.isdigit() else False, sop)
     return range_tagging
+
+
+def get_vocab() -> Set:
+  return vocabs.get_str_numbers_vocab(min=0, max=30)

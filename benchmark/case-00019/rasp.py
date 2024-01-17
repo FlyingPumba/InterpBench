@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.common_programs import shift_by
 
@@ -25,3 +28,11 @@ def make_sequential_duplicate_removal(sop: rasp.SOp) -> rasp.SOp:
     duplicate_removal_sop = rasp.SequenceMap(
         lambda x, y: x if x != y else None, sop, shifted_sop).named("sequential_duplicate_removal")
     return duplicate_removal_sop
+
+
+def get_vocab() -> Set:
+  return vocabs.get_ascii_letters_vocab(count=3)
+
+
+def get_max_seq_len() -> int:
+  return 15

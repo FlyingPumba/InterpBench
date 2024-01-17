@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -17,3 +20,7 @@ def make_leading_token_identification(sop: rasp.SOp) -> rasp.SOp:
         rasp.Select(rasp.indices, rasp.indices, rasp.Comparison.EQ),
         sop, default=None).named("first_occurrence")
     return first_occurrence
+
+
+def get_vocab() -> Set:
+  return vocabs.get_ascii_letters_vocab(count=3)

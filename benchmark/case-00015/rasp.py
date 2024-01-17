@@ -1,10 +1,12 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.program_evaluation_type import causal_and_regular
-from benchmark.common_programs import make_hist
 
 @causal_and_regular
 def get_program() -> rasp.SOp:
-  return None
+  return make_nary_sequencemap(lambda x, y, z: x + y - z, rasp.tokens, rasp.tokens, rasp.indices)
 
 @causal_and_regular
 def make_nary_sequencemap(f, *sops):
@@ -28,3 +30,11 @@ def make_nary_sequencemap(f, *sops):
     values = rasp.SequenceMap(
         lambda x, y: (*x, y) if isinstance(x, tuple) else (x, y), values, sop)
   return rasp.Map(lambda args: f(*args), values)
+
+
+def get_vocab() -> Set:
+  return vocabs.get_int_digits_vocab(count=5)
+
+
+def get_max_seq_len() -> int:
+  return 5

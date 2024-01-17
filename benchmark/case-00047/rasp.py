@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.common_programs import shift_by
 
@@ -17,3 +20,7 @@ def make_sequential_gap_filler(sop: rasp.SOp, filler: str) -> rasp.SOp:
     next_token = shift_by(-1, sop)
     gap_filler = rasp.SequenceMap(lambda x, y: filler if x is None and y is not None else x, sop, next_token)
     return gap_filler
+
+
+def get_vocab() -> Set:
+  return vocabs.get_words_vocab()

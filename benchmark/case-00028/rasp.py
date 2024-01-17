@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -15,3 +18,7 @@ def make_token_mirroring(sop: rasp.SOp) -> rasp.SOp:
     """
     mirrored_sop = rasp.Map(lambda x: x[::-1] if x is not None else None, sop)
     return mirrored_sop
+
+
+def get_vocab() -> Set:
+  return vocabs.get_words_vocab()

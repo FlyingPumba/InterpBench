@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.common_programs import shift_by
 
@@ -24,8 +27,12 @@ def make_token_counter(sop: rasp.SOp, target_token: rasp.Value) -> rasp.SOp:
     """
     token_equals = rasp.Map(lambda x: x == target_token, sop).named("token_equals")
     pre_agg = rasp.Select(rasp.indices, rasp.indices, rasp.Comparison.LEQ).named("pre_agg")
-    count_sop = rasp.numerical(rasp.Aggregate(
+    count_sop = rasp.Aggregate(
         pre_agg,
-        token_equals, default=0)).named("count_sop")
+        token_equals).named("count_sop")
     count_sop = rasp.Map(lambda x: x if x is not None else 0, count_sop).named("count_sop")
     return count_sop
+
+
+def get_vocab() -> Set:
+  return vocabs.get_ascii_letters_vocab(count=3)

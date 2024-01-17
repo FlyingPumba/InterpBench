@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -21,3 +24,7 @@ def make_vowel_consonant_ratio(sop: rasp.SOp) -> rasp.SOp:
 
     ratio_calculator = rasp.Map(calc_ratio, sop)
     return ratio_calculator
+
+
+def get_vocab() -> Set:
+  return vocabs.get_words_vocab()

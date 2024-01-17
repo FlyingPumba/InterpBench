@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.common_programs import make_reverse
 
@@ -25,3 +28,7 @@ def make_palindrome_detection(sop: rasp.SOp) -> rasp.SOp:
     palindrome_sop = rasp.SequenceMap(
         lambda x, y: x == y, sop, reversed_sop).named("palindrome_detection")
     return palindrome_sop
+
+
+def get_vocab() -> Set:
+  return vocabs.get_ascii_letters_vocab(count=3)

@@ -1,22 +1,31 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
-from benchmark.common_programs import make_hist, make_length
+from benchmark.common_programs import shift_by
 
 
 def get_program() -> rasp.SOp:
-  return make_token_frequency_deviation(rasp.tokens)
+  return make_token_alternation_checker(rasp.tokens)
 
-def make_token_frequency_deviation(sop: rasp.SOp) -> rasp.SOp:
+def make_token_alternation_checker(sop: rasp.SOp) -> rasp.SOp:
     """
-    Calculates the deviation of each token's frequency from the average frequency in the sequence.
+    Checks if tokens alternate between two types.
 
     Example usage:
-      frequency_deviation = make_token_frequency_deviation(rasp.tokens)
-      frequency_deviation(["a", "b", "a", "c", "a", "b"])
-      >> [0.33, -0.33, 0.33, -0.66, 0.33, -0.33]
+      alternation_checker = make_token_alternation_checker(rasp.tokens)
+      alternation_checker(["cat", "dog", "cat", "dog"])
+      >> [True, True, True, True]
     """
-    hist = make_hist()
-    average_freq = rasp.Aggregate(
-        rasp.Select(rasp.indices, rasp.indices, rasp.Comparison.TRUE),
-        rasp.numerical(hist), default=0) / make_length()
-    freq_deviation = rasp.Map(lambda x: x - average_freq, hist)
-    return freq_deviation
+    prev_token = shift_by(1, sop)
+    next_token = shift_by(-1, sop)
+
+    alternation_checker = rasp.SequenceMap(lambda x, y: x != y, prev_token, sop)
+    alternation_checker = rasp.SequenceMap(lambda x, y: x != y, sop, next_token)
+    alternation_checker = rasp.SequenceMap(lambda x, y: x == y, alternation_checker, alternation_checker)
+
+    return alternation_checker
+
+
+def get_vocab() -> Set:
+  return vocabs.get_ascii_letters_vocab(count=3)

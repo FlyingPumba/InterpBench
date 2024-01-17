@@ -1,18 +1,29 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
+from benchmark.common_programs import make_length
 
 
 def get_program() -> rasp.SOp:
-  return make_token_sandwich(rasp.tokens, "-")
+  return make_token_positional_balance_analyzer(rasp.tokens)
 
-def make_token_sandwich(sop: rasp.SOp, filler: rasp.Value) -> rasp.SOp:
+def make_token_positional_balance_analyzer(sop: rasp.SOp) -> rasp.SOp:
     """
-    Places a filler token between each pair of tokens in the sequence.
+    Analyzes whether tokens are more towards the start ('front'), end ('rear'), or balanced ('center').
 
     Example usage:
-      token_sandwich = make_token_sandwich(rasp.tokens, "-")
-      token_sandwich(["a", "b", "c"])
-      >> ["a", "-", "b", "-", "c"]
+      balance_analyzer = make_token_positional_balance_analyzer(rasp.tokens)
+      balance_analyzer(["a", "b", "c", "d", "e"])
+      >> ["front", "front", "center", "rear", "rear"]
     """
-    filler_sop = rasp.Full(filler)
-    alternate_sop = rasp.SequenceMap(lambda x, y: (x, filler) if y is not None else x, sop, filler_sop)
-    return alternate_sop
+    position = rasp.indices
+    total_length = make_length()
+    balance = rasp.SequenceMap(
+        lambda pos, length: "front" if pos < length / 3 else ("rear" if pos > 2 * length / 3 else "center"),
+        position, total_length)
+    return balance
+
+
+def get_vocab() -> Set:
+  return vocabs.get_ascii_letters_vocab(count=5)

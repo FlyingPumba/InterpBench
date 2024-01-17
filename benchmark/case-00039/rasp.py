@@ -1,19 +1,30 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 from benchmark.common_programs import shift_by
 
 
 def get_program() -> rasp.SOp:
-  return make_sequential_token_distance_measurement(rasp.tokens)
+  return make_token_trend_analysis(rasp.tokens)
 
-def make_sequential_token_distance_measurement(sop: rasp.SOp) -> rasp.SOp:
+def make_token_trend_analysis(sop: rasp.SOp) -> rasp.SOp:
     """
-    Measures the distance between sequential tokens in terms of the number of tokens in between.
+    Analyzes the trend (increasing, decreasing, constant) of numeric tokens.
 
     Example usage:
-      token_distance = make_sequential_token_distance_measurement(rasp.tokens)
-      token_distance(["a", "b", "c", "a", "d"])
-      >> [3, 3, 3, 0, 3]
+      trend_analysis = make_token_trend_analysis(rasp.tokens)
+      trend_analysis([1, 2, 3, 3, 2, 1])
+      >> ["increasing", "increasing", "constant", "decreasing", "decreasing"]
     """
-    prev_indices = shift_by(1, rasp.indices)
-    token_distance = rasp.SequenceMap(lambda x, y: abs(x - y) if None not in [x, y] else None, rasp.indices, prev_indices)
-    return token_distance
+    prev_token = shift_by(1, sop)
+    next_token = shift_by(-1, sop)
+    first_part = rasp.SequenceMap(lambda x, y: "increasing" if y > x else ("decreasing" if y < x else "constant"), prev_token, sop)
+    second_part = rasp.SequenceMap(lambda x, y: "increasing" if y < x else ("decreasing" if y > x else "constant"), sop, next_token)
+    trend_analysis = rasp.SequenceMap(lambda x, y: x if y == "constant" else y, first_part, second_part)
+
+    return trend_analysis
+
+
+def get_vocab() -> Set:
+  return vocabs.get_int_digits_vocab(count=3)

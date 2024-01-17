@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -15,3 +18,7 @@ def make_token_abbreviation(sop: rasp.SOp) -> rasp.SOp:
     """
     abbreviation = rasp.Map(lambda x: x[:3] if len(x) > 3 else x, sop)
     return abbreviation
+
+
+def get_vocab() -> Set:
+  return vocabs.get_words_vocab()

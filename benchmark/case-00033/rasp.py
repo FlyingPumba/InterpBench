@@ -1,3 +1,6 @@
+from typing import Set
+
+from benchmark import vocabs
 from tracr.rasp import rasp
 
 
@@ -15,3 +18,7 @@ def make_token_length_parity_checker(sop: rasp.SOp) -> rasp.SOp:
     """
     length_parity_checker = rasp.Map(lambda x: len(x) % 2 == 0, sop)
     return length_parity_checker
+
+
+def get_vocab() -> Set:
+  return vocabs.get_words_vocab()
