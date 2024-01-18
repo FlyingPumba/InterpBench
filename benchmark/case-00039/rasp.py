@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import shift_by
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_trend_analysis(rasp.tokens)
+class Case00039(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_trend_analysis(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_int_digits_vocab(count=3)
+
 
 def make_token_trend_analysis(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -24,7 +30,3 @@ def make_token_trend_analysis(sop: rasp.SOp) -> rasp.SOp:
     trend_analysis = rasp.SequenceMap(lambda x, y: x if y == "constant" else y, first_part, second_part)
 
     return trend_analysis
-
-
-def get_vocab() -> Set:
-  return vocabs.get_int_digits_vocab(count=3)

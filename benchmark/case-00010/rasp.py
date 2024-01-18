@@ -1,15 +1,19 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
-from benchmark.program_evaluation_type import only_non_causal
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_hist, make_sort
-from benchmark.defaults import default_max_seq_len
+from benchmark.program_evaluation_type import only_non_causal
+from tracr.rasp import rasp
 
 
-@only_non_causal
-def get_program() -> rasp.SOp:
-  return make_sort_freq(default_max_seq_len)
+class Case00010(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_sort_freq(self.get_max_seq_len())
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_str_digits_vocab()
+
 
 @only_non_causal
 def make_sort_freq(max_seq_len: int) -> rasp.SOp:
@@ -29,7 +33,3 @@ def make_sort_freq(max_seq_len: int) -> rasp.SOp:
   hist = -1 * make_hist().named("hist")
   return make_sort(
       rasp.tokens, hist, max_seq_len=max_seq_len, min_key=1).named("sort_freq")
-
-
-def get_vocab() -> Set:
-  return vocabs.get_str_digits_vocab()

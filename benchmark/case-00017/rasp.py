@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_reverse
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_palindrome_detection(rasp.tokens)
+class Case00017(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_palindrome_detection(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=3)
+
 
 def make_palindrome_detection(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -28,7 +34,3 @@ def make_palindrome_detection(sop: rasp.SOp) -> rasp.SOp:
     palindrome_sop = rasp.SequenceMap(
         lambda x, y: x == y, sop, reversed_sop).named("palindrome_detection")
     return palindrome_sop
-
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=3)

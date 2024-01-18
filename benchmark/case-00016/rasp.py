@@ -1,12 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_length
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_position_encoding()
+class Case00016(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_position_encoding()
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=3)
 
 def make_token_position_encoding() -> rasp.SOp:
     """
@@ -25,7 +30,3 @@ def make_token_position_encoding() -> rasp.SOp:
         lambda start_idx, end_idx: (start_idx, end_idx),
         rasp.indices, make_length() - rasp.indices - 1).named("position_encoding")
     return position_encoding
-
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=3)

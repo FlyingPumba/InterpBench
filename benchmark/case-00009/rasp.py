@@ -1,14 +1,14 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
-from benchmark.program_evaluation_type import only_non_causal
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_sort
-
-@only_non_causal
-def get_program() -> rasp.SOp:
-  return make_sort(rasp.tokens, rasp.tokens, 10, 1)
+from tracr.rasp import rasp
 
 
-def get_vocab() -> Set:
-  return vocabs.get_int_digits_vocab()
+class Case00009(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_sort(rasp.tokens, rasp.tokens, 10, 1)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_int_digits_vocab()

@@ -1,13 +1,13 @@
 from typing import Set
 
-from tracr.rasp import rasp
-from benchmark.program_evaluation_type import only_non_causal
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_shuffle_dyck
-
-@only_non_causal
-def get_program() -> rasp.SOp:
-  return make_shuffle_dyck(pairs=["()", "{}"]).named("shuffle_dyck2")
+from tracr.rasp import rasp
 
 
-def get_vocab() -> Set:
-  return {"(", ")", "{", "}", "x"}
+class Case00006(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_shuffle_dyck(pairs=["()", "{}"]).named("shuffle_dyck2")
+
+  def get_vocab(self) -> Set:
+    return {"(", ")", "{", "}", "x"}

@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_abbreviation(rasp.tokens)
+class Case00029(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_abbreviation(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab()
+
 
 def make_token_abbreviation(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -18,7 +24,3 @@ def make_token_abbreviation(sop: rasp.SOp) -> rasp.SOp:
     """
     abbreviation = rasp.Map(lambda x: x[:3] if len(x) > 3 else x, sop)
     return abbreviation
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab()

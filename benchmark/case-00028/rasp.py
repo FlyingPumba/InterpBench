@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_mirroring(rasp.tokens)
+class Case00028(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_mirroring(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab()
+
 
 def make_token_mirroring(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -18,7 +24,3 @@ def make_token_mirroring(sop: rasp.SOp) -> rasp.SOp:
     """
     mirrored_sop = rasp.Map(lambda x: x[::-1] if x is not None else None, sop)
     return mirrored_sop
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab()

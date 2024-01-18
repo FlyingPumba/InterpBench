@@ -1,12 +1,20 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.program_evaluation_type import causal_and_regular
+from tracr.rasp import rasp
 
-@causal_and_regular
-def get_program() -> rasp.SOp:
-  return make_nary_sequencemap(lambda x, y, z: x + y - z, rasp.tokens, rasp.tokens, rasp.indices)
+
+class Case00015(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_nary_sequencemap(lambda x, y, z: x + y - z, rasp.tokens, rasp.tokens, rasp.indices)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_int_digits_vocab(count=5)
+
+  def get_max_seq_len(self) -> int:
+    return 5
 
 @causal_and_regular
 def make_nary_sequencemap(f, *sops):
@@ -30,11 +38,3 @@ def make_nary_sequencemap(f, *sops):
     values = rasp.SequenceMap(
         lambda x, y: (*x, y) if isinstance(x, tuple) else (x, y), values, sop)
   return rasp.Map(lambda args: f(*args), values)
-
-
-def get_vocab() -> Set:
-  return vocabs.get_int_digits_vocab(count=5)
-
-
-def get_max_seq_len() -> int:
-  return 5

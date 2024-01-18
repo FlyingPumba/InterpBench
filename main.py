@@ -23,6 +23,6 @@ if __name__ == "__main__":
   args = parser.parse_args()
 
   if args.command == "compile":
-    compile_benchmark.compile(args)
+    compile_benchmark.compile_all(args)
   elif args.command == "run":
     run_algorithm.run(args)

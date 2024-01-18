@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_hist, make_length
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_frequency_classifier(rasp.tokens)
+class Case00043(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_frequency_classifier(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=5)
+
 
 def make_token_frequency_classifier(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -23,7 +29,3 @@ def make_token_frequency_classifier(sop: rasp.SOp) -> rasp.SOp:
         lambda freq, total: "frequent" if freq > total / 2 else ("common" if freq > total / 4 else "rare"),
         frequency, total_tokens)
     return frequency_classification
-
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=5)

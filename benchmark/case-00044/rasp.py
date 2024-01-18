@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_unique_token_extractor, make_length
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_lexical_density_calculator(rasp.tokens)
+class Case00044(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_lexical_density_calculator(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab()
+
 
 def make_lexical_density_calculator(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -25,7 +31,3 @@ def make_lexical_density_calculator(sop: rasp.SOp) -> rasp.SOp:
     lexical_density = rasp.Map(lambda x: x if x is not None else 0, temp)
 
     return lexical_density
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab()

@@ -1,13 +1,14 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_unique_token_extractor
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_unique_token_extractor(rasp.tokens)
+class Case00021(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_unique_token_extractor(rasp.tokens)
 
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=3)
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=3)

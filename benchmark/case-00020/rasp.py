@@ -1,12 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
-from benchmark.common_programs import shift_by
 
 
-def get_program() -> rasp.SOp:
-  return make_token_counter(rasp.tokens, "a")
+class Case00020(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_counter(rasp.tokens, "a")
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=3)
+
 
 def make_token_counter(sop: rasp.SOp, target_token: rasp.Value) -> rasp.SOp:
     """
@@ -32,7 +37,3 @@ def make_token_counter(sop: rasp.SOp, target_token: rasp.Value) -> rasp.SOp:
         token_equals).named("count_sop")
     count_sop = rasp.Map(lambda x: x if x is not None else 0, count_sop).named("count_sop")
     return count_sop
-
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=3)

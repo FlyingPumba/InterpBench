@@ -1,10 +1,16 @@
 from typing import Set
 
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_emoji_sentiment_classifier(rasp.tokens)
+class Case00040(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_emoji_sentiment_classifier(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return {"😊", "😢", "📘"}
+
 
 def make_emoji_sentiment_classifier(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -19,7 +25,3 @@ def make_emoji_sentiment_classifier(sop: rasp.SOp) -> rasp.SOp:
     emoji_sentiments = {"😊": "positive", "😢": "negative", "📘": "neutral"}
     classify_sentiment = rasp.Map(lambda x: emoji_sentiments.get(x, "neutral"), sop)
     return classify_sentiment
-
-
-def get_vocab() -> Set:
-  return {"😊", "😢", "📘"}

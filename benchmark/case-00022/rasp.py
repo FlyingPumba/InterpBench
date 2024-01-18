@@ -1,13 +1,21 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_sort
-from benchmark.defaults import default_max_seq_len
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_sorting_by_length(rasp.tokens)
+class Case00022(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_sorting_by_length(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+      return vocabs.get_words_vocab()
+
+  def get_max_seq_len(self) -> int:
+    return 10
+
 
 def make_token_sorting_by_length(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -19,9 +27,5 @@ def make_token_sorting_by_length(sop: rasp.SOp) -> rasp.SOp:
       >> ["a", "is", "word", "sequence"]
     """
     token_length = rasp.Map(lambda x: len(x), sop).named("token_length")
-    sorted_tokens = make_sort(sop, token_length, max_seq_len=default_max_seq_len, min_key=1)
+    sorted_tokens = make_sort(sop, token_length, max_seq_len=10, min_key=1)
     return sorted_tokens
-
-
-def get_vocab() -> Set:
-    return vocabs.get_words_vocab()

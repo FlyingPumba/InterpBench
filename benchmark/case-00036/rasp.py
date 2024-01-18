@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_numeric_token_range_filter(rasp.tokens, 10, 50)
+class Case00036(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_numeric_token_range_filter(rasp.tokens, 10, 50)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_str_numbers_vocab(0, 100)
+
 
 def make_numeric_token_range_filter(sop: rasp.SOp, min_val: int, max_val: int) -> rasp.SOp:
     """
@@ -21,7 +27,3 @@ def make_numeric_token_range_filter(sop: rasp.SOp, min_val: int, max_val: int) -
 
     range_filter = rasp.Map(in_range, sop)
     return range_filter
-
-
-def get_vocab() -> Set:
-  return vocabs.get_str_numbers_vocab(0, 100)

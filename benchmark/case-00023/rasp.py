@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import shift_by
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_pairing(rasp.tokens)
+class Case00023(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_pairing(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=3)
+
 
 def make_token_pairing(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -20,7 +26,3 @@ def make_token_pairing(sop: rasp.SOp) -> rasp.SOp:
     shifted_sop = shift_by(1, sop)
     token_pair = rasp.SequenceMap(lambda x, y: (x, y) if y is not None else None, sop, shifted_sop)
     return token_pair
-
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=3)

@@ -1,8 +1,6 @@
-import importlib
 import traceback
 
 from benchmark.benchmark_case import BenchmarkCase
-from benchmark.defaults import default_max_seq_len, default_bos, default_vocab
 from tracr.compiler import compiling
 from tracr.compiler.compiling import TracrOutput
 from utils.get_cases import get_cases
@@ -18,7 +16,7 @@ def setup_args_parser(subparsers):
                               help="Force compilation of cases, even if they have already been compiled.")
 
 
-def compile(args):
+def compile_all(args):
   for case in get_cases(args):
     print(f"\nCompiling {case}")
     try:
@@ -40,28 +38,15 @@ def build_tracr_model(case: BenchmarkCase, force: bool = False) -> TracrOutput:
     if tracr_model is not None and tracr_graph is not None:
       return TracrOutput(tracr_model, tracr_graph)
 
-  # load modulle for the file
-  module = importlib.import_module(case.get_module_name())
-
-  # evaluate "get_program()" method dinamically
-  get_program_fn = getattr(module, 'get_program')
-  program = get_program_fn()
-
-  max_seq_len = default_max_seq_len
-  if hasattr(module, 'get_max_seq_len'):
-    get_max_seq_len_fn = getattr(module, 'get_max_seq_len')
-    max_seq_len = get_max_seq_len_fn()
-
-  vocab = default_vocab
-  if hasattr(module, 'get_vocab'):
-    get_vocab_fn = getattr(module, 'get_vocab')
-    vocab = get_vocab_fn()
+  program = case.get_program()
+  max_seq_len = case.get_max_seq_len()
+  vocab = case.get_vocab()
 
   tracr_output = compiling.compile_rasp_to_model(
     program,
     vocab=vocab,
     max_seq_len=max_seq_len,
-    compiler_bos=default_bos,
+    compiler_bos="BOS",
   )
 
   # write tracr model and graph to disk

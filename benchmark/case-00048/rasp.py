@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import shift_by
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_oscillation_detector(rasp.tokens)
+class Case00048(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_oscillation_detector(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_int_digits_vocab()
+
 
 def make_token_oscillation_detector(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -23,7 +29,3 @@ def make_token_oscillation_detector(sop: rasp.SOp) -> rasp.SOp:
     oscillation_detector = rasp.SequenceMap(lambda x, y: y > x, sop, next_token)
     oscillation_detector = rasp.SequenceMap(lambda x, y: x != y, oscillation_detector, oscillation_detector)
     return oscillation_detector
-
-
-def get_vocab() -> Set:
-  return vocabs.get_int_digits_vocab()

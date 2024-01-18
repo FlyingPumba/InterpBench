@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_spam_message_detector(rasp.tokens)
+class Case00042(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_spam_message_detector(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab().union({"spam", "offer", "click", "now"})
+
 
 def make_spam_message_detector(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -20,7 +26,3 @@ def make_spam_message_detector(sop: rasp.SOp) -> rasp.SOp:
     keyword_count = rasp.Map(lambda x: sum(x == keyword for keyword in spam_keywords), sop)
     is_spam = rasp.Map(lambda x: "spam" if x > 0 else "not spam", keyword_count)
     return is_spam
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab().union({"spam", "offer", "click", "now"})

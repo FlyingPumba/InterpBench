@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_palindrome_word_spotter(rasp.tokens)
+class Case00041(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_palindrome_word_spotter(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab().union({"racecar", "noon"})
+
 
 def make_palindrome_word_spotter(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -18,7 +24,3 @@ def make_palindrome_word_spotter(sop: rasp.SOp) -> rasp.SOp:
     """
     is_palindrome = rasp.Map(lambda x: x if x == x[::-1] else None, sop)
     return is_palindrome
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab().union({"racecar", "noon"})

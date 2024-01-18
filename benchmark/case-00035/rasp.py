@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_capitalization_alternator(rasp.tokens)
+class Case00035(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_capitalization_alternator(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab()
+
 
 def make_token_capitalization_alternator(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -21,7 +27,3 @@ def make_token_capitalization_alternator(sop: rasp.SOp) -> rasp.SOp:
 
     alternator = rasp.Map(alternate_capitalization, sop)
     return alternator
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab()

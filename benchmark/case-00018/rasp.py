@@ -1,12 +1,19 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import detect_pattern
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_nested_pattern_extraction(rasp.tokens, "(", ")")
+class Case00018(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_nested_pattern_extraction(rasp.tokens, "(", ")")
+
+  def get_vocab(self) -> Set:
+    some_letters = vocabs.get_ascii_letters_vocab(count=3)
+    return some_letters.union({"(", ")"})
+
 
 def make_nested_pattern_extraction(sop: rasp.SOp, open_token: str, close_token: str) -> rasp.SOp:
     """
@@ -31,8 +38,3 @@ def make_nested_pattern_extraction(sop: rasp.SOp, open_token: str, close_token: 
     nested_pattern_sop = rasp.SequenceMap(
         lambda x, y: (x, y), open_detector, close_detector).named("nested_pattern_extraction")
     return nested_pattern_sop
-
-
-def get_vocab() -> Set:
-  some_letters = vocabs.get_ascii_letters_vocab(count=3)
-  return some_letters.union({"(", ")"})

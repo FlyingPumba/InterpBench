@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_length
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_positional_balance_analyzer(rasp.tokens)
+class Case00027(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_positional_balance_analyzer(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=5)
+
 
 def make_token_positional_balance_analyzer(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -23,7 +29,3 @@ def make_token_positional_balance_analyzer(sop: rasp.SOp) -> rasp.SOp:
         lambda pos, length: "front" if pos < length / 3 else ("rear" if pos > 2 * length / 3 else "center"),
         position, total_length)
     return balance
-
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=5)

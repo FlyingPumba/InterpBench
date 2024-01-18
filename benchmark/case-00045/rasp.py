@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_word_count_by_length(rasp.tokens)
+class Case00045(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_word_count_by_length(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab()
+
 
 def make_word_count_by_length(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -20,7 +26,3 @@ def make_word_count_by_length(sop: rasp.SOp) -> rasp.SOp:
     length_selector = rasp.Select(word_length, word_length, rasp.Comparison.EQ)
     word_count = rasp.Aggregate(length_selector, word_length, default=None)
     return word_count
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab()

@@ -1,13 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
-from benchmark.program_evaluation_type import causal_and_regular
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_hist
+from benchmark.program_evaluation_type import causal_and_regular
+from tracr.rasp import rasp
 
-@causal_and_regular
-def get_program() -> rasp.SOp:
-  return make_count_less_freq(2)
+
+class Case00013(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_count_less_freq(2)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=3)
 
 @causal_and_regular
 def make_count_less_freq(n: int) -> rasp.SOp:
@@ -29,7 +34,3 @@ def make_count_less_freq(n: int) -> rasp.SOp:
   select_less = rasp.Select(hist, hist,
                             lambda x, y: x <= n).named("select_less")
   return rasp.SelectorWidth(select_less).named("count_less_freq")
-
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=3)

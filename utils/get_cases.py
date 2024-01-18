@@ -20,4 +20,4 @@ def get_cases(args):
   # remove "../" prefix from files
   file_paths_from_root = [file_path[3:] for file_path in files]
 
-  return [BenchmarkCase(path) for path in file_paths_from_root]
+  return [BenchmarkCase.get_instance_for_file_path(path) for path in file_paths_from_root]

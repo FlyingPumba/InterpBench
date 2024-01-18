@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import shift_by
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_symmetry_checker(rasp.tokens)
+class Case00046(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_symmetry_checker(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab().union({"radar", "rotor"})
+
 
 def make_token_symmetry_checker(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -22,7 +28,3 @@ def make_token_symmetry_checker(sop: rasp.SOp) -> rasp.SOp:
     second_half = rasp.SequenceMap(lambda x, y: x[:y] == x[:-y-1:-1], sop, half_length)
     symmetry_checker = rasp.SequenceMap(lambda x, y: x if y else None, sop, second_half)
     return symmetry_checker
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab().union({"radar", "rotor"})

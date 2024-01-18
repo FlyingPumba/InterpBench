@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_anagram_identifier(rasp.tokens, "listen")
+class Case00031(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_anagram_identifier(rasp.tokens, "listen")
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab().union({"listen"})
+
 
 def make_token_anagram_identifier(sop: rasp.SOp, target: str) -> rasp.SOp:
     """
@@ -20,7 +26,3 @@ def make_token_anagram_identifier(sop: rasp.SOp, target: str) -> rasp.SOp:
     anagram_identifier = rasp.Map(
         lambda x: sorted(x) == sorted_target, sop)
     return anagram_identifier
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab().union({"listen"})

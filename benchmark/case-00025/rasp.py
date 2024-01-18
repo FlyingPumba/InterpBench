@@ -1,12 +1,18 @@
 from typing import Set
 
 from benchmark import vocabs
-from tracr.rasp import rasp
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_hist, make_length
+from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_token_frequency_normalization()
+class Case00025(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_token_frequency_normalization()
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_ascii_letters_vocab(count=3)
+
 
 def make_token_frequency_normalization() -> rasp.SOp:
     """
@@ -19,7 +25,3 @@ def make_token_frequency_normalization() -> rasp.SOp:
     """
     normalized_freq = rasp.SequenceMap(lambda x, y: (x / y) if y > 0 else None, make_hist(), make_length())
     return normalized_freq
-
-
-def get_vocab() -> Set:
-  return vocabs.get_ascii_letters_vocab(count=3)

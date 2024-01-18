@@ -1,11 +1,17 @@
 from typing import Set
 
 from benchmark import vocabs
+from benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-def get_program() -> rasp.SOp:
-  return make_vowel_consonant_ratio(rasp.tokens)
+class Case00034(BenchmarkCase):
+  def get_program(self) -> rasp.SOp:
+    return make_vowel_consonant_ratio(rasp.tokens)
+
+  def get_vocab(self) -> Set:
+    return vocabs.get_words_vocab()
+
 
 def make_vowel_consonant_ratio(sop: rasp.SOp) -> rasp.SOp:
     """
@@ -24,7 +30,3 @@ def make_vowel_consonant_ratio(sop: rasp.SOp) -> rasp.SOp:
 
     ratio_calculator = rasp.Map(calc_ratio, sop)
     return ratio_calculator
-
-
-def get_vocab() -> Set:
-  return vocabs.get_words_vocab()
