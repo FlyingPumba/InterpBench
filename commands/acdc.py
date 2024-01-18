@@ -1,11 +1,13 @@
 import datetime
 import gc
 import os
+import shutil
 
 import torch
 import wandb
 
 from acdc.TLACDCExperiment import TLACDCExperiment
+from acdc.acdc_graphics import show
 from benchmark.benchmark_case import BenchmarkCase
 from commands.compile_benchmark import build_transformer_lens_model
 from utils.relativize_path import relativize_path
@@ -59,6 +61,14 @@ def run_acdc(case: BenchmarkCase, args):
     output_dir = relativize_path(output_dir)
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
+
+  images_output_dir = os.path.join(output_dir, "images")
+  if not os.path.exists(images_output_dir):
+    os.makedirs(images_output_dir)
+
+  # Check that dot program is in path
+  if not shutil.which("dot"):
+    raise ValueError("dot program not in path, cannot generate graphs for ACDC.")
 
   if args.torch_num_threads > 0:
     torch.set_num_threads(args.torch_num_threads)
@@ -156,15 +166,10 @@ def run_acdc(case: BenchmarkCase, args):
   for i in range(args.max_num_epochs):
     exp.step(testing=False)
 
-    # show(
-    #   exp.corr,
-    #   f"ims/img_new_{i + 1}.png",
-    #   show_full_index=False,
-    # )
-
-    # if IN_COLAB or ipython is not None:
-    #   # so long as we're not running this as a script, show the image!
-    #   display(Image(f"ims/img_new_{i + 1}.png"))
+    show(
+      exp.corr,
+      fname=f"{images_output_dir}/img_new_{i + 1}.png",
+    )
 
     print(i, "-" * 50)
     print(exp.count_no_edges())
@@ -173,11 +178,10 @@ def run_acdc(case: BenchmarkCase, args):
       exp.save_edges(os.path.join(output_dir, "edges.pkl"))
 
     if exp.current_node is None or single_step:
-      # show(
-      #   exp.corr,
-      #   f"ims/ACDC_img_{exp_time}.png",
-      #
-      # )
+      show(
+        exp.corr,
+        fname=f"{images_output_dir}/ACDC_new_{exp_time}.png",
+      )
       break
 
   exp.save_edges(os.path.join(output_dir, "another_final_edges.pkl"))
