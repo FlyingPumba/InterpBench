@@ -55,7 +55,7 @@ class BenchmarkCase(object):
     Default implementation: random permutation of clean data."""
     clean_data, _ = self.get_clean_data(count=count)
     patch_data_indices = np.random.permutation(len(clean_data))
-    corrupted_data = clean_data[patch_data_indices]
+    corrupted_data = np.array(clean_data)[patch_data_indices].tolist()
     return corrupted_data
 
   def get_max_seq_len(self) -> int:

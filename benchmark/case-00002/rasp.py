@@ -26,11 +26,21 @@ class Case00002(BenchmarkCase):
     expected_output: HookedTracrTransformerBatchInput = []
 
     vals = list(self.get_vocab())
-    BOS_id = len(vals)
     for i in range(count):
       permutation = np.random.permutation(vals)
       permutation = permutation[:seq_len]
-      input_data.append([BOS_id] + permutation.tolist())
-      expected_output.append([BOS_id] + permutation[::-1].tolist())
+      input_data.append(["BOS"] + permutation.tolist())
+      expected_output.append(["BOS"] + permutation[::-1].tolist())
 
     return input_data, expected_output
+
+  def get_validation_metric(self, tl_model: HookedTracrTransformer) -> str:
+    clean_data, _ = self.get_clean_data()
+    with torch.no_grad():
+      model_out = tl_model.run_tracr_input(clean_data, return_type="logits")
+      base_model_logprobs = F.log_softmax(model_out, dim=-1)
+
+    return partial(kl_divergence,
+                   base_model_logprobs=base_model_logprobs,
+                   mask_repeat_candidates=None,
+                   last_seq_element_only=False)

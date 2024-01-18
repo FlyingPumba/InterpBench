@@ -1,64 +1,82 @@
+from typing import List, Literal
+
 import einops
 import jax.numpy as jnp
 import numpy as np
 import torch
+from jaxtyping import Float
+from torch import Tensor
 from transformer_lens import HookedTransformer, HookedTransformerConfig
+
 from tracr.compiler import assemble
 from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
 
+HookedTracrTransformerBatchInput = List[List[int]]
+HookedTracrTransformerReturnType = Literal["logits", "decoded"]
 
-class HookedTracrTransformer():
+class HookedTracrTransformer(HookedTransformer):
 
-  def __init__(self, tracr_model: assemble.AssembledTransformerModel) -> None:
+  def __init__(self, tracr_model: assemble.AssembledTransformerModel, *args, **kwargs) -> None:
     """Converts a tracr model to a transformer_lens model.
     Inspired by https://github.com/neelnanda-io/TransformerLens/blob/main/demos/Tracr_to_Transformer_Lens_Demo.ipynb"""
-    self.input_encoder = tracr_model.input_encoder
-    self.output_encoder = tracr_model.output_encoder
+    super().__init__(cfg=self.extract_tracr_config(tracr_model), *args, **kwargs)
 
-    cfg = self.extract_config(tracr_model)
-    sd = self.extract_state_dict(tracr_model, cfg)
-    self.tl_model = self.create_hooked_transformer(cfg, sd)
+    self.tracr_input_encoder = tracr_model.input_encoder
+    self.tracr_output_encoder = tracr_model.output_encoder
 
-  def __call__(self, input: list[int]) -> list[int]:
+    sd = self.extract_tracr_state_dict(tracr_model)
+    self.load_tracr_state_dict(sd)
+
+    if "use_hook_mlp_in" in self.cfg.to_dict(): # Tracr models always include MLPs
+        self.set_use_hook_mlp_in(True)
+
+  def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
-    tl_input = self.map_tracr_input_to_tl_input(input)
-    logits = self.tl_model(tl_input)
-    output = self.map_tl_output_to_tracr_output(logits)
-    return output
+    if isinstance(args[0], list):
+      # Input is a HookedTracrTransformerBatchInput
+      return self.run_tracr_input(*args, **kwargs)
+    else:
+      # Input is a Tensor
+      return super().__call__(*args, **kwargs)
 
-  def map_tracr_input_to_tl_input(self, input: list[int]) -> torch.Tensor:
+  def run_tracr_input(self, batch_input: HookedTracrTransformerBatchInput,
+                      return_type: HookedTracrTransformerReturnType = "logits") -> HookedTracrTransformerBatchInput | Float[Tensor, "batch_size seq_len d_vocab_out"]:
+    """Applies the internal transformer_lens model to an input."""
+    tl_batch_input = self.map_tracr_input_to_tl_input(batch_input)
+    logits = self(tl_batch_input)
+    if return_type == "logits":
+      return logits
+    else:
+      return self.map_tl_output_to_tracr_output(logits)
+
+  def map_tracr_input_to_tl_input(self, batch_input: HookedTracrTransformerBatchInput) -> torch.Tensor:
     """Maps a tracr input to a transformer_lens input."""
-    encoding = self.input_encoder.encode(input)
-    return torch.tensor(encoding).unsqueeze(dim=0)
+    encoding = [self.tracr_input_encoder.encode(input) for input in batch_input]
+    return torch.tensor(encoding)
 
-  def map_tl_output_to_tracr_output(self, logits: torch.Tensor) -> list[int]:
+  def map_tl_output_to_tracr_output(self, logits: torch.Tensor) -> HookedTracrTransformerBatchInput:
     """Maps a transformer_lens output to a tracr output."""
-    bos_token = self.input_encoder.bos_token
+    bos_token = self.tracr_input_encoder.bos_token
 
-    max_output_indices = logits.squeeze(dim=0).argmax(dim=-1)
-    decoded_output = self.output_encoder.decode(max_output_indices.tolist())
+    max_output_indices = logits.argmax(dim=-1)
 
-    # The outputhas have unspecified behavior for the BOS token, so we just add it back in
-    decoded_output_with_bos = [bos_token] + decoded_output[1:]
+    # The output has unspecified behavior for the BOS token, so we just add it back in after decoding.
+    decoded_output_with_bos = [[bos_token] + self.tracr_output_encoder.decode(output)[1:] for output in max_output_indices.tolist()]
 
     return decoded_output_with_bos
 
-  def create_hooked_transformer(self, cfg: HookedTransformerConfig, sd: dict[str, np.ndarray|jnp.ndarray]) -> HookedTransformer:
+  def load_tracr_state_dict(self, sd: dict[str, np.ndarray|jnp.ndarray]) -> None:
     """Creates a transformer_lens model from a config and state dict."""
-    # Create a blank HookedTransformer model
-    tl_model = HookedTransformer(cfg)
 
     # Convert weights to tensors and load into the tl_model
     for k, v in sd.items():
       # Map Jax array to numpy array
       sd[k] = torch.tensor(np.array(v))
 
-    tl_model.load_state_dict(sd, strict=False)
+    self.load_state_dict(sd, strict=False)
 
-    return tl_model
-
-  def extract_config(self, model: assemble.AssembledTransformerModel) -> HookedTransformerConfig:
+  def extract_tracr_config(self, model: assemble.AssembledTransformerModel) -> HookedTransformerConfig:
     """Extracts the configuration of a tracr model into a HookedTransformerConfig."""
     n_heads = model.model_config.num_heads
     n_layers = model.model_config.num_layers
@@ -93,9 +111,12 @@ class HookedTracrTransformer():
       act_fn=act_fn,
       attention_dir=attention_type,
       normalization_type=normalization_type,
+      use_attn_result=True,
+      use_split_qkv_input=True,
+      # device=device,
     )
 
-  def extract_state_dict(self, model: assemble.AssembledTransformerModel, cfg: HookedTransformerConfig) -> dict[str, np.ndarray|jnp.ndarray]:
+  def extract_tracr_state_dict(self, model: assemble.AssembledTransformerModel) -> dict[str, np.ndarray | jnp.ndarray]:
     """Extracts the state dict of a tracr model into a dict."""
     sd = {}
     sd["pos_embed.W_pos"] = model.params["pos_embed"]['embeddings']
@@ -122,48 +143,48 @@ class HookedTracrTransformer():
     output_space = VectorSpaceWithBasis(model.output_encoder.basis)
     sd["unembed.W_U"] = vectorspace_fns.project(residual_space, output_space).matrix
 
-    for l in range(cfg.n_layers):
+    for l in range(self.cfg.n_layers):
       sd[f"blocks.{l}.attn.W_K"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/key"]["w"],
         "d_model (n_heads d_head) -> n_heads d_model d_head",
-        d_head = cfg.d_head,
-        n_heads = cfg.n_heads
+        d_head = self.cfg.d_head,
+        n_heads = self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.b_K"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/key"]["b"],
         "(n_heads d_head) -> n_heads d_head",
-        d_head = cfg.d_head,
-        n_heads = cfg.n_heads
+        d_head = self.cfg.d_head,
+        n_heads = self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.W_Q"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/query"]["w"],
         "d_model (n_heads d_head) -> n_heads d_model d_head",
-        d_head = cfg.d_head,
-        n_heads = cfg.n_heads
+        d_head = self.cfg.d_head,
+        n_heads = self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.b_Q"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/query"]["b"],
         "(n_heads d_head) -> n_heads d_head",
-        d_head = cfg.d_head,
-        n_heads = cfg.n_heads
+        d_head = self.cfg.d_head,
+        n_heads = self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.W_V"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/value"]["w"],
         "d_model (n_heads d_head) -> n_heads d_model d_head",
-        d_head = cfg.d_head,
-        n_heads = cfg.n_heads
+        d_head = self.cfg.d_head,
+        n_heads = self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.b_V"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/value"]["b"],
         "(n_heads d_head) -> n_heads d_head",
-        d_head = cfg.d_head,
-        n_heads = cfg.n_heads
+        d_head = self.cfg.d_head,
+        n_heads = self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.W_O"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/linear"]["w"],
         "(n_heads d_head) d_model -> n_heads d_head d_model",
-        d_head = cfg.d_head,
-        n_heads = cfg.n_heads
+        d_head = self.cfg.d_head,
+        n_heads = self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.b_O"] = model.params[f"transformer/layer_{l}/attn/linear"]["b"]
 
