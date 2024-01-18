@@ -10,3 +10,41 @@ python3.10 -m venv .env
 source .env/bin/activate
 pip install -r requirements.txt
 ```
+
+## Contents
+
+- `main.py`: Main file to interact with the benchmark.
+- `commands/`:  Directory containing the CLI commands that can be used.
+- `benchmark/`: Directory containing the cases for the benchmark. Each folder has a `rasp.py` file that contains the RASP code for the case.
+- `submodules/`: Directory containing the Git submodules used by the benchmark.
+- `tracr/`: A symlink to the `tracr` submodule.
+- `acdc/`: A symlink to the `acdc` submodule.
+
+## How to use it
+
+The benchmark is a CLI tool that can be used to run the benchmark on a specific case, or on all the cases. For example, running ACDC on cases with index 1 and 2 can be done with the following command:
+
+```bash
+./main.py run acdc -i 1,2 --threshold 0.71
+```
+
+The `-i` argument is optional and can be used to specify the cases to run the benchmark on. If not specified, the benchmark will run on all the cases.
+To check the arguments available for a specific command, you can use the `--help` flag. For example, for ACDC:
+
+```bash
+./main.py run acdc --help
+```
+
+After running an algorith, the output can be found in the `results` folder.
+
+## Compilation
+
+The benchmark CLI also provides a `compile` commmand that can be used to preemtively compile the RASP code for all the cases into their corresponding Tracr/TransformerLends models. This can be useful to speed up the benchmark, as the compilation can take a long time. The compilation can be done with the following command:
+
+```bash
+./main.py compile
+```
+
+## Tests
+
+To run the tests, you can just run `pytest` in the root directory of the project. The tests for submodules are ignored by default (see `pytest.ini` file).
