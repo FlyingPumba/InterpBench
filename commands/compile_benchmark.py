@@ -6,6 +6,13 @@ from tracr.compiler import compiling
 from utils.get_cases import get_cases_files
 
 
+def setup_args_parser(subparsers):
+  compile_parser = subparsers.add_parser("compile")
+  compile_parser.add_argument("-i", "--indices", type=str, default=None,
+                              help="A list of comma separated indices of the cases to compile. "
+                                   "If not specified, all cases will be compiled.")
+
+
 def compile(args):
   for file_path in get_cases_files(args):
     try:

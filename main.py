@@ -16,19 +16,9 @@ if __name__ == "__main__":
   subparsers = parser.add_subparsers(dest="command")
   subparsers.required = True
 
-  # "compile" command
-  compile_parser = subparsers.add_parser("compile")
-  compile_parser.add_argument("-i", "--indices", type=str, default=None,
-                              help="A list of comma separated indices of the cases to compile. "
-                                          "If not specified, all cases will be compiled.")
-
-  # "acdc" command
-  run_parser = subparsers.add_parser("run")
-  run_parser.add_argument("-i", "--indices", type=str, default=None,
-                              help="A list of comma separated indices of the cases to run against. "
-                                          "If not specified, all cases will be run.")
-  run_parser.add_argument("-a", "--algorithm", type=str, required=True, choices=["acdc"],
-                              help="The algorithm to use for running against the specified cases. ")
+  # Setup command arguments
+  compile_benchmark.setup_args_parser(subparsers)
+  run_algorithm.setup_args_parser(subparsers)
 
   args = parser.parse_args()
 
