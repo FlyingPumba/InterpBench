@@ -8,6 +8,7 @@ import wandb
 from acdc.TLACDCExperiment import TLACDCExperiment
 from benchmark.benchmark_case import BenchmarkCase
 from commands.compile_benchmark import build_transformer_lens_model
+from utils.relativize_path import relativize_path
 
 
 def setup_args_parser(subparsers):
@@ -17,6 +18,8 @@ def setup_args_parser(subparsers):
                            "If not specified, all cases will be run.")
   parser.add_argument("-f", "--force", action="store_true",
                       help="Force compilation of cases, even if they have already been compiled.")
+  parser.add_argument("-o", "--output-dir", type=str, default="results",
+                      help="The directory to save the results to.")
 
   parser.add_argument('--threshold', type=float, required=True, help='Value for threshold')
 
@@ -49,6 +52,13 @@ def setup_args_parser(subparsers):
 
 def run_acdc(case: BenchmarkCase, args):
   tl_model = build_transformer_lens_model(case, args.force)
+
+  # check if args.output_dir is relative path or absolute path.
+  output_dir = args.output_dir
+  if not os.path.isabs(output_dir):
+    output_dir = relativize_path(output_dir)
+  if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
   if args.torch_num_threads > 0:
     torch.set_num_threads(args.torch_num_threads)
@@ -160,7 +170,7 @@ def run_acdc(case: BenchmarkCase, args):
     print(exp.count_no_edges())
 
     if i == 0:
-      exp.save_edges("edges.pkl")
+      exp.save_edges(os.path.join(output_dir, "edges.pkl"))
 
     if exp.current_node is None or single_step:
       # show(
@@ -170,7 +180,7 @@ def run_acdc(case: BenchmarkCase, args):
       # )
       break
 
-  exp.save_edges("another_final_edges.pkl")
+  exp.save_edges(os.path.join(output_dir, "another_final_edges.pkl"))
 
   if using_wandb:
     edges_fname = f"edges.pth"
