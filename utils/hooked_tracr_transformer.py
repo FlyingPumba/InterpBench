@@ -19,8 +19,6 @@ class HookedTracrTransformer():
     cfg = self.extract_config(tracr_model)
     sd = self.extract_state_dict(tracr_model, cfg)
     self.tl_model = self.create_hooked_transformer(cfg, sd)
-    self.cfg = cfg
-    self.sd = sd
 
   def __call__(self, input: list[int]) -> list[int]:
     """Applies the internal transformer_lens model to an input."""
