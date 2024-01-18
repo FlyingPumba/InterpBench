@@ -48,3 +48,4 @@ The benchmark CLI also provides a `compile` commmand that can be used to preemti
 ## Tests
 
 To run the tests, you can just run `pytest` in the root directory of the project. The tests for submodules are ignored by default (see `pytest.ini` file).
+If you want to run specific tests, you can use the `-k` flag: `pytest -k "get_cases_test"`.

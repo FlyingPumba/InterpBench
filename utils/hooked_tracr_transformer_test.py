@@ -18,12 +18,13 @@ class HookedTracrTransformerTest(unittest.TestCase):
 
     # Compile it to a transformer model
     bos = "BOS"
-    tracr_model = compiling.compile_rasp_to_model(
+    tracr_output = compiling.compile_rasp_to_model(
         program,
         vocab={1, 2, 3},
         max_seq_len=5,
         compiler_bos=bos,
     )
+    tracr_model = tracr_output.model
 
     input = [bos, 1, 2, 3]
     print("Input:", input)
@@ -32,7 +33,7 @@ class HookedTracrTransformerTest(unittest.TestCase):
     print("Original Decoding:", tracr_output_decoded)
 
     tl_model = HookedTracrTransformer(tracr_model)
-    tl_output_decoded = tl_model(input)
+    tl_output_decoded = tl_model([input], return_type="decoded")[0]
     print("TransformerLens Replicated Decoding:", tl_output_decoded)
 
     self.assertEqual(tracr_output_decoded, tl_output_decoded)

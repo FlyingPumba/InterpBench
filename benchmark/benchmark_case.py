@@ -10,7 +10,7 @@ from torch import Tensor
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.rasp import rasp
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
-from utils.relativize_path import relativize_path
+from utils.relativize_path import relativize_path_to_project_root
 
 
 class BenchmarkCase(object):
@@ -82,32 +82,32 @@ class BenchmarkCase(object):
 
   def load_tracr_model(self) -> AssembledTransformerModel | None:
     """Loads the tracr model from disk, if it exists."""
-    tracr_model_output_path = relativize_path(self.get_tracr_model_path_from_root())
+    tracr_model_output_path = relativize_path_to_project_root(self.get_tracr_model_path_from_root())
     return self.load_from_pickle(tracr_model_output_path)
 
   def load_tracr_graph(self) -> DiGraph | None:
     """Loads the tracr graph from disk, if it exists."""
-    tracr_graph_output_path = relativize_path(self.get_tracr_graph_path_from_root())
+    tracr_graph_output_path = relativize_path_to_project_root(self.get_tracr_graph_path_from_root())
     return self.load_from_pickle(tracr_graph_output_path)
 
   def load_tl_model(self) -> HookedTracrTransformer | None:
     """Loads the transformer_lens model from disk, if it exists."""
-    tl_model_output_path = relativize_path(self.get_tl_model_path_from_root())
+    tl_model_output_path = relativize_path_to_project_root(self.get_tl_model_path_from_root())
     return self.load_from_pickle(tl_model_output_path)
 
   def dump_tracr_model(self, tracr_model: AssembledTransformerModel) -> None:
     """Dumps the tracr model to disk."""
-    tracr_model_output_path = relativize_path(self.get_tracr_model_path_from_root())
+    tracr_model_output_path = relativize_path_to_project_root(self.get_tracr_model_path_from_root())
     self.dump_to_pickle(tracr_model_output_path, tracr_model)
 
   def dump_tracr_graph(self, tracr_graph: DiGraph) -> None:
     """Dumps the tracr graph to disk."""
-    tracr_graph_output_path = relativize_path(self.get_tracr_graph_path_from_root())
+    tracr_graph_output_path = relativize_path_to_project_root(self.get_tracr_graph_path_from_root())
     self.dump_to_pickle(tracr_graph_output_path, tracr_graph)
 
   def dump_tl_model(self, tl_model: HookedTracrTransformer) -> None:
     """Dumps the transformer_lens model to disk."""
-    tl_model_output_path = relativize_path(self.get_tl_model_path_from_root())
+    tl_model_output_path = relativize_path_to_project_root(self.get_tl_model_path_from_root())
     self.dump_to_pickle(tl_model_output_path, tl_model)
 
   def load_from_pickle(self, path) -> object | None:

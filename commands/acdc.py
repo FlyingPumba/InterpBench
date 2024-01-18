@@ -10,7 +10,7 @@ from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from benchmark.benchmark_case import BenchmarkCase
 from commands.compile_benchmark import build_transformer_lens_model
-from utils.relativize_path import relativize_path
+from utils.relativize_path import relativize_path_to_project_root
 
 
 def setup_args_parser(subparsers):
@@ -58,7 +58,7 @@ def run_acdc(case: BenchmarkCase, args):
   # check if args.output_dir is relative path or absolute path.
   output_dir = args.output_dir
   if not os.path.isabs(output_dir):
-    output_dir = relativize_path(output_dir)
+    output_dir = relativize_path_to_project_root(output_dir)
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
