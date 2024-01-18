@@ -1,8 +1,9 @@
 #! /usr/bin/env python3
-import argparse
-import jax
 import logging
 
+import jax
+
+from build_main_parser import build_main_parser
 from commands import compile_benchmark, run_algorithm
 
 # The default of float16 can lead to discrepancies between outputs of
@@ -11,15 +12,7 @@ jax.config.update('jax_default_matmul_precision', 'float32')
 logging.basicConfig(level=logging.ERROR)
 
 if __name__ == "__main__":
-  # define commands for our main script.
-  parser = argparse.ArgumentParser()
-  subparsers = parser.add_subparsers(dest="command")
-  subparsers.required = True
-
-  # Setup command arguments
-  compile_benchmark.setup_args_parser(subparsers)
-  run_algorithm.setup_args_parser(subparsers)
-
+  parser = build_main_parser()
   args = parser.parse_args()
 
   if args.command == "compile":
