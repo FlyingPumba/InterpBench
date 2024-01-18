@@ -1,12 +1,11 @@
-import cloudpickle
 import importlib
-import os
 import traceback
 
+from benchmark.benchmark_case import BenchmarkCase
 from benchmark.defaults import default_max_seq_len, default_bos, default_vocab
 from tracr.compiler import compiling
 from tracr.compiler.compiling import TracrOutput
-from utils.get_cases import get_cases_files
+from utils.get_cases import get_cases
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
 
@@ -20,31 +19,29 @@ def setup_args_parser(subparsers):
 
 
 def compile(args):
-  for file_path in get_cases_files(args):
-    print(f"\nCompiling {file_path}")
+  for case in get_cases(args):
+    print(f"\nCompiling {case}")
     try:
-      tracr_output = build_tracr_model(file_path, args.force)
+      tracr_output = build_tracr_model(case, args.force)
+      build_transformer_lens_model(case, args.force, tracr_output=tracr_output)
     except Exception as e:
-      print(f" >>> Failed to compile {file_path}:")
+      print(f" >>> Failed to compile {case}:")
       traceback.print_exc()
       continue
 
-def build_tracr_model(file_path: str, force_writing: bool = False) -> TracrOutput:
-  """Compiles a single case to a tracr model."""
-  tracr_model_output_path = file_path.replace("rasp.py", "tracr_model.pkl")
-  tracr_graph_output_path = file_path.replace("rasp.py", "tracr_graph.pkl")
 
-  # if both files exist, we don't need to compile, just load and return them
-  if os.path.exists(tracr_model_output_path) and os.path.exists(tracr_graph_output_path):
-    with open(tracr_model_output_path, "rb") as f:
-      tracr_model = cloudpickle.load(f)
-    with open(tracr_graph_output_path, "rb") as f:
-      tracr_graph = cloudpickle.load(f)
-    return TracrOutput(tracr_model, tracr_graph)
+def build_tracr_model(case: BenchmarkCase, force: bool = False) -> TracrOutput:
+  """Compiles a single case to a tracr model."""
+
+  # if tracr model and output have already compiled, we just load and return them
+  if not force:
+    tracr_model = case.load_tracr_model()
+    tracr_graph = case.load_tracr_graph()
+    if tracr_model is not None and tracr_graph is not None:
+      return TracrOutput(tracr_model, tracr_graph)
 
   # load modulle for the file
-  module_name = file_path.replace("/", ".")[:-3]
-  module = importlib.import_module(module_name)
+  module = importlib.import_module(case.get_module_name())
 
   # evaluate "get_program()" method dinamically
   get_program_fn = getattr(module, 'get_program')
@@ -67,41 +64,35 @@ def build_tracr_model(file_path: str, force_writing: bool = False) -> TracrOutpu
     compiler_bos=default_bos,
   )
 
-  # write to file if it doesn't exist or if we're forcing it
-  if force_writing or not os.path.exists(tracr_model_output_path):
-    with open(tracr_model_output_path, "wb") as f:
-      cloudpickle.dump(tracr_output.model, f)
-
-  if force_writing or not os.path.exists(tracr_graph_output_path):
-    with open(tracr_graph_output_path, "wb") as f:
-      cloudpickle.dump(tracr_output.graph, f)
+  # write tracr model and graph to disk
+  case.dump_tracr_model(tracr_output.model)
+  case.dump_tracr_graph(tracr_output.graph)
 
   return tracr_output
 
 
-def build_transformer_lens_model(file_path: str,
-                                 force_writing: bool = False,
+def build_transformer_lens_model(case: BenchmarkCase,
+                                 force: bool = False,
                                  tracr_output: TracrOutput = None) -> HookedTracrTransformer:
   """Compiles a tracr model to transformer lens."""
-  tl_model_output_path = file_path.replace("rasp.py", "tl_model.pkl")
-  if os.path.exists(tl_model_output_path) and not force_writing:
-    with open(tl_model_output_path, "rb") as f:
-      tl_model = cloudpickle.load(f)
-    return tl_model
+  if not force:
+    tl_model = case.load_tl_model()
+    if tl_model is not None:
+      return tl_model
 
-  # If we didn't pass in a tracr_output, try to load it from file
-  if tracr_output is None:
-    tracr_model_output_path = file_path.replace("rasp.py", "tracr_model.pkl")
-    if os.path.exists(tracr_model_output_path):
-      with open(tracr_model_output_path, "rb") as f:
-        tracr_output = cloudpickle.load(f)
-    else:
-      tracr_output = build_tracr_model(file_path)
+  tracr_model = None
+  if tracr_output is not None:
+    tracr_model = tracr_output.model
 
-  tl_model = HookedTracrTransformer(tracr_output.model)
+  if tracr_model is None:
+    tracr_model = case.load_tracr_model()
 
-  if force_writing or not os.path.exists(tl_model_output_path):
-    with open(tl_model_output_path, "wb") as f:
-      cloudpickle.dump(tl_model, f)
+  if tracr_model is None:
+    tracr_output = build_tracr_model(case, force)
+    tracr_model = tracr_output.model
+
+  tl_model = HookedTracrTransformer(tracr_model)
+
+  case.dump_tl_model(tl_model)
 
   return tl_model
