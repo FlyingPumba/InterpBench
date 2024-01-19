@@ -45,7 +45,7 @@ class BenchmarkCase(object):
     """Returns a tuple of (input, expected_output) for the benchmark case."""
     raise NotImplementedError()
 
-  def get_validation_metric(self, tl_model: HookedTracrTransformer) -> Tensor:
+  def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
 
@@ -130,5 +130,3 @@ class BenchmarkCase(object):
   def dump_to_pickle(self, path, obj) -> None:
     with open(path, "wb") as f:
       cloudpickle.dump(obj, f)
-
-

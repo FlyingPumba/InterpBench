@@ -24,6 +24,8 @@ def setup_args_parser(subparsers):
                       help="The directory to save the results to.")
 
   parser.add_argument('--threshold', type=float, required=True, help='Value for threshold')
+  parser.add_argument('--metric', type=str, required=True, choices=["kl", "l2"],
+                      help="Which metric to use for the experiment")
 
   parser.add_argument('--first-cache-cpu', type=str, required=False, default="True",
                       help='Value for first_cache_cpu (the old name for the `online_cache`)')
@@ -43,7 +45,6 @@ def setup_args_parser(subparsers):
   parser.add_argument('--indices-mode', type=str, default="normal")
   parser.add_argument('--names-mode', type=str, default="normal")
   parser.add_argument('--device', type=str, default="cuda")
-  parser.add_argument('--metric', type=str, default="kl_div", help="Which metric to use for the experiment")
   parser.add_argument('--torch-num-threads', type=int, default=0, help="How many threads to use for torch (0=all)")
   parser.add_argument('--seed', type=int, default=1234)
   parser.add_argument("--max-num-epochs", type=int, default=100_000)
@@ -93,6 +94,7 @@ def run_acdc(case: BenchmarkCase, args):
     raise ValueError(f"second_cache_cpu must be either True or False, got {args.second_cache_cpu}")
 
   threshold = args.threshold  # only used if >= 0.0
+  metric_name = args.metric
   zero_ablation = True if args.zero_ablation else False
   using_wandb = True if args.using_wandb else False
   wandb_entity_name = args.wandb_entity_name
@@ -107,7 +109,7 @@ def run_acdc(case: BenchmarkCase, args):
   second_metric = None  # some tasks only have one metric
   use_pos_embed = True  # Always true for all tracr models.
 
-  validation_metric = case.get_validation_metric(tl_model)
+  validation_metric = case.get_validation_metric(metric_name, tl_model)
   toks_int_values, expected_outputs = case.get_clean_data()
   toks_int_values_other = case.get_corrupted_data()
 
@@ -133,6 +135,7 @@ def run_acdc(case: BenchmarkCase, args):
   exp = TLACDCExperiment(
     model=tl_model,
     threshold=threshold,
+    images_output_dir=images_output_dir,
     using_wandb=using_wandb,
     wandb_entity_name=wandb_entity_name,
     wandb_project_name=wandb_project_name,
@@ -181,6 +184,7 @@ def run_acdc(case: BenchmarkCase, args):
       show(
         exp.corr,
         fname=f"{images_output_dir}/ACDC_new_{exp_time}.png",
+        show_placeholders=True,
       )
       break
 

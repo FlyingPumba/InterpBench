@@ -3,14 +3,14 @@ from typing import Set, Tuple
 
 import numpy as np
 import torch
-import torch.nn.functional as F
+from torch import Tensor
 
 from benchmark import vocabs
 from benchmark.benchmark_case import BenchmarkCase
 from benchmark.common_programs import make_reverse
-from benchmark.validation_metrics import kl_divergence
+from benchmark.validation_metrics import l2_metric
 from tracr.rasp import rasp
-from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
+from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput, HookedTracrTransformer
 
 
 class Case00002(BenchmarkCase):
@@ -37,13 +37,14 @@ class Case00002(BenchmarkCase):
 
     return input_data, expected_output
 
-  def get_validation_metric(self, tl_model: HookedTracrTransformer) -> str:
+  def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
+    if metric_name not in ["l2"]:
+      raise ValueError(f"Metric {metric_name} is not available for case {self}")
+
     clean_data, _ = self.get_clean_data()
     with torch.no_grad():
       model_out = tl_model(clean_data)
-      base_model_logprobs = F.log_softmax(model_out, dim=-1)
 
-    return partial(kl_divergence,
-                   base_model_logprobs=base_model_logprobs,
-                   mask_repeat_candidates=None,
-                   last_seq_element_only=False)
+    return partial(l2_metric,
+                   model_out=model_out[:, 1:, ], # Discards the prediction for the BOS token position
+                   take_element_zero=False)
