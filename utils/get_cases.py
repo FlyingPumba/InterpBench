@@ -1,12 +1,13 @@
 import glob
 import os
+from typing import List
 
 from benchmark.benchmark_case import BenchmarkCase
 from utils.relativize_path import relativize_path_to_project_root
 
 BENCHMARK_DIR = "benchmark"
 
-def get_cases(args):
+def get_cases(args) -> List[BenchmarkCase]:
   relative_benchmark_dir = relativize_path_to_project_root(BENCHMARK_DIR)
   if args is not None and args.indices is not None:
     # convert index to 5 digits

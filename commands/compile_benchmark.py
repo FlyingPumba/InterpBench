@@ -2,6 +2,7 @@ import traceback
 
 from benchmark.benchmark_case import BenchmarkCase
 from tracr.compiler import compiling
+from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput
 from utils.get_cases import get_cases
 from utils.hooked_tracr_transformer import HookedTracrTransformer
@@ -14,6 +15,10 @@ def setup_args_parser(subparsers):
                                    "If not specified, all cases will be compiled.")
   compile_parser.add_argument("-f", "--force", action="store_true",
                               help="Force compilation of cases, even if they have already been compiled.")
+  compile_parser.add_argument("-t", "--run-tests", action="store_true",
+                              help="Run tests on the compiled models.")
+  compile_parser.add_argument("--fail-on-error", action="store_true",
+                              help="Fail on error and stop compilation.")
 
 
 def compile_all(args):
@@ -21,11 +26,19 @@ def compile_all(args):
     print(f"\nCompiling {case}")
     try:
       tracr_output = build_tracr_model(case, args.force)
+
+      if args.run_tests:
+        run_case_tests_on_tracr_model(case, tracr_output.model)
+
       build_transformer_lens_model(case, args.force, tracr_output=tracr_output)
     except Exception as e:
       print(f" >>> Failed to compile {case}:")
       traceback.print_exc()
-      continue
+
+      if args.fail_on_error:
+        raise e
+      else:
+        continue
 
 
 def build_tracr_model(case: BenchmarkCase, force: bool = False) -> TracrOutput:
@@ -81,3 +94,16 @@ def build_transformer_lens_model(case: BenchmarkCase,
   case.dump_tl_model(tl_model)
 
   return tl_model
+
+
+def run_case_tests_on_tracr_model(case: BenchmarkCase, tracr_model: AssembledTransformerModel):
+  inputs, expected_outputs = case.get_clean_data()
+  for i in range(len(inputs)):
+    input = inputs[i]
+    expected_output = expected_outputs[i]
+    decoded_output = tracr_model.apply(input).decoded
+    if decoded_output != expected_output:
+      raise ValueError(f"Failed test for {case}."
+                       f"\n >>> Input: {input}"
+                       f"\n >>> Expected: {expected_output}"
+                       f"\n >>> Got: {decoded_output}")

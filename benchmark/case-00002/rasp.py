@@ -28,7 +28,7 @@ class Case00002(BenchmarkCase):
     vals = list(self.get_vocab())
     for i in range(count):
       permutation = np.random.permutation(vals)
-      permutation = permutation[:seq_len]
+      permutation = permutation[:seq_len - 1]
       input_data.append(["BOS"] + permutation.tolist())
       expected_output.append(["BOS"] + permutation[::-1].tolist())
 
