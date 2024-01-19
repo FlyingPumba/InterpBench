@@ -53,6 +53,10 @@ class BenchmarkCase(object):
     """Returns the corrupted data for the benchmark case.
     Default implementation: random permutation of clean data."""
     clean_data, _ = self.get_clean_data(count=count)
+
+    # set numpy seed
+    np.random.seed(self.get_corrupted_data_seed())
+
     patch_data_indices = np.random.permutation(len(clean_data))
     corrupted_data = np.array(clean_data)[patch_data_indices].tolist()
     return corrupted_data
@@ -61,6 +65,12 @@ class BenchmarkCase(object):
     """Returns the maximum sequence length for the benchmark case.
     Default implementation: 10."""
     return 10
+
+  def get_clean_data_seed(self) -> int:
+    return int(self.index_str) + 42
+
+  def get_corrupted_data_seed(self) -> int:
+    return int(self.index_str) + 43
 
   def get_file_path_from_root(self) -> str:
     return self.file_path_from_root

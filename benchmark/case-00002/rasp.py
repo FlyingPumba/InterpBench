@@ -25,6 +25,9 @@ class Case00002(BenchmarkCase):
     input_data: HookedTracrTransformerBatchInput = []
     expected_output: HookedTracrTransformerBatchInput = []
 
+    # set numpy seed
+    np.random.seed(self.get_clean_data_seed())
+
     vals = list(self.get_vocab())
     for i in range(count):
       permutation = np.random.permutation(vals)
@@ -37,7 +40,7 @@ class Case00002(BenchmarkCase):
   def get_validation_metric(self, tl_model: HookedTracrTransformer) -> str:
     clean_data, _ = self.get_clean_data()
     with torch.no_grad():
-      model_out = tl_model.run_tracr_input(clean_data, return_type="logits")
+      model_out = tl_model(clean_data)
       base_model_logprobs = F.log_softmax(model_out, dim=-1)
 
     return partial(kl_divergence,

@@ -83,9 +83,6 @@ def build_transformer_lens_model(case: BenchmarkCase,
     tracr_model = tracr_output.model
 
   if tracr_model is None:
-    tracr_model = case.load_tracr_model()
-
-  if tracr_model is None:
     tracr_output = build_tracr_model(case, force)
     tracr_model = tracr_output.model
 
