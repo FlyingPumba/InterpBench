@@ -196,5 +196,6 @@ def run_acdc(case: BenchmarkCase, args):
     wandb.finish()
 
   exp.save_subgraph(
+    fpath=f"{output_dir}/subgraph.pth",
     return_it=True,
   )
