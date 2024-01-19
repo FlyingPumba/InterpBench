@@ -103,7 +103,20 @@ def run_case_tests_on_tracr_model(case: BenchmarkCase, tracr_model: AssembledTra
     expected_output = expected_outputs[i]
     decoded_output = tracr_model.apply(input).decoded
     if decoded_output != expected_output:
-      raise ValueError(f"Failed test for {case}."
+      raise ValueError(f"Failed test for {case} on tracr model."
+                       f"\n >>> Input: {input}"
+                       f"\n >>> Expected: {expected_output}"
+                       f"\n >>> Got: {decoded_output}")
+
+
+def run_case_tests_on_tl_model(case: BenchmarkCase, tl_model: HookedTracrTransformer):
+  inputs, expected_outputs = case.get_clean_data()
+  decoded_outputs = tl_model(inputs, return_type="decoded")
+  for i in range(len(expected_outputs)):
+    expected_output = expected_outputs[i]
+    decoded_output = decoded_outputs[i]
+    if decoded_output != expected_output:
+      raise ValueError(f"Failed test for {case} on tl model."
                        f"\n >>> Input: {input}"
                        f"\n >>> Expected: {expected_output}"
                        f"\n >>> Got: {decoded_output}")
