@@ -46,7 +46,7 @@ def l2_metric(logits: torch.Tensor,
     proc = logits[:, 1:] # Discards the prediction for the BOS token position
 
     if take_element_zero:
-      proc = proc[:, :, 0]  # output 0 contains the proportion of the token "x" (== 3)
+      proc = proc[:, :, 0]  # retains only the output for the first logit.
 
     assert proc.shape == model_out.shape
 

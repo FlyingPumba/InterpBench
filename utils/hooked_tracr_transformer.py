@@ -95,9 +95,8 @@ class HookedTracrTransformer(HookedTransformer):
     # Residual stream width
     d_model = model.params["token_embed"]['embeddings'].shape[1]
 
-    # Equivalent to length of vocab, WITHOUT BOS and PAD at the end because we never care about these outputs
-    # In practice, we always feed the logits into an argmax
-    d_vocab_out = model.params["token_embed"]['embeddings'].shape[0] - 2
+    # Number of dimensions in the residual stream used for the output
+    d_vocab_out = self.get_tracr_model_output_space(model).num_dims
 
     return HookedTransformerConfig(
       n_layers=n_layers,
@@ -121,26 +120,10 @@ class HookedTracrTransformer(HookedTransformer):
     sd = {}
     sd["pos_embed.W_pos"] = model.params["pos_embed"]['embeddings']
     sd["embed.W_E"] = model.params["token_embed"]['embeddings']
-    # Equivalent to max_seq_len plus one, for the BOS
-
-    # The unembed is just a projection onto the first few elements of the residual stream, these store output tokens
-    # This is a NumPy array, the rest are Jax Arrays, but w/e it's fine.
-    # sd["unembed.W_U"] = np.eye(cfg.d_model, cfg.d_vocab_out)
-
-    # build residual space
-    residual_space = []
-    for label in model.residual_labels:
-      if ":" in label:
-        # basis has name and value
-        basis_name_and_value = label.split(":")
-        residual_space.append(BasisDirection(basis_name_and_value[0], self.int_or_string(basis_name_and_value[1])))
-      else:
-        # basis has only name
-        residual_space.append(BasisDirection(label, None))
-    residual_space = VectorSpaceWithBasis(residual_space)
 
     # fetch output space and project residual space onto it to get the unembed matrix
-    output_space = VectorSpaceWithBasis(model.output_encoder.basis)
+    residual_space = self.get_tracr_model_residual_space(model)
+    output_space = self.get_tracr_model_output_space(model)
     sd["unembed.W_U"] = vectorspace_fns.project(residual_space, output_space).matrix
 
     for l in range(self.cfg.n_layers):
@@ -194,6 +177,21 @@ class HookedTracrTransformer(HookedTransformer):
       sd[f"blocks.{l}.mlp.b_out"] = model.params[f"transformer/layer_{l}/mlp/linear_2"]["b"]
 
     return sd
+
+  def get_tracr_model_residual_space(self, model: assemble.AssembledTransformerModel) -> VectorSpaceWithBasis:
+    residual_space = []
+    for label in model.residual_labels:
+      if ":" in label:
+        # basis has name and value
+        basis_name_and_value = label.split(":")
+        residual_space.append(BasisDirection(basis_name_and_value[0], self.int_or_string(basis_name_and_value[1])))
+      else:
+        # basis has only name
+        residual_space.append(BasisDirection(label, None))
+    return VectorSpaceWithBasis(residual_space)
+
+  def get_tracr_model_output_space(self, model: assemble.AssembledTransformerModel):
+    return VectorSpaceWithBasis(model.output_encoder.basis)
 
   def int_or_string(self, value):
     """Converts a value to an int if possible, otherwise returns the value as a string.
