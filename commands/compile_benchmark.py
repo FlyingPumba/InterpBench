@@ -30,7 +30,11 @@ def compile_all(args):
       if args.run_tests:
         run_case_tests_on_tracr_model(case, tracr_output.model)
 
-      build_transformer_lens_model(case, args.force, tracr_output=tracr_output)
+      tl_model = build_transformer_lens_model(case, args.force, tracr_output=tracr_output)
+
+      if args.run_tests:
+        run_case_tests_on_tl_model(case, tl_model)
+
     except Exception as e:
       print(f" >>> Failed to compile {case}:")
       traceback.print_exc()
