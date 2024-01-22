@@ -26,7 +26,7 @@ class Case00002(BenchmarkCase):
     expected_output: HookedTracrTransformerBatchInput = []
 
     # set numpy seed
-    np.random.seed(self.get_clean_data_seed())
+    np.random.seed(self.data_generation_seed)
 
     vals = list(self.get_vocab())
     for i in range(count):
