@@ -48,6 +48,20 @@ The benchmark CLI also provides a `compile` commmand that can be used to preemti
 ./main.py compile
 ```
 
+## Building and running the Docker image
+
+Build the docker image with
+
+```bash
+docker build . -t circuits-benchmark
+```
+
+To run the docker image, do
+
+```bash
+docker run circuits-benchmark run <algorithm>
+```
+
 ## Tests
 
 To run the tests, you can just run `pytest` in the root directory of the project. The tests for submodules are ignored by default (see `pytest.ini` file).

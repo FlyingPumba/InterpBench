@@ -30,6 +30,6 @@ RUN --mount=type=cache,target=$POETRY_CACHE_DIR /root/.local/bin/poetry install 
 ENV VIRTUAL_ENV=/circuit-benchmark/.venv \
     PATH="/circuit-benchmark/.venv/bin:$PATH"
 
-COPY . ./circuit-benchmark
+COPY . /circuit-benchmark
 
-ENTRYPOINT ["python", "-m", "main"]
+ENTRYPOINT ["python", "main.py"]
