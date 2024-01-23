@@ -2,16 +2,17 @@
 
 ## Setup
 
+This project uses [Poetry](https://python-poetry.org/) to manage the dependencies. To install Poetry, you can follow the instructions [here](https://python-poetry.org/docs/#installation).
+
 ```bash
 git clone git@github.com:FlyingPumba/circuits-benchmark.git
 git submodule init
 git submodule update
 poetry env use 3.10
 poetry install
-
-# Then if you want to activate the virtual environment:
-poetry shell
 ```
+
+Then, to activate the virtual environment: `poetry shell`
 
 ## Contents
 
