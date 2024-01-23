@@ -25,10 +25,10 @@ RUN apt-get update -q && apt-get install -y --no-install-recommends libgl1-mesa-
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=cache,target=$POETRY_CACHE_DIR /root/.local/bin/poetry install --without dev --no-root
+RUN --mount=type=cache,target=$POETRY_CACHE_DIR /root/.local/bin/poetry install --no-root
 
 ENV VIRTUAL_ENV=/circuit-benchmark/.venv \
-    PATH="/circuit-benchmark/.venv/bin:$PATH"
+    PATH="/circuit-benchmark/.venv/bin:/root/.local/bin/:$PATH"
 
 COPY . /circuit-benchmark
 
