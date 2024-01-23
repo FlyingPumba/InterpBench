@@ -126,6 +126,11 @@ class BenchmarkCase(object):
       cloudpickle.dump(obj, f)
 
   def _build_dataset(self, input_data: HookedTracrTransformerBatchInput, output_data: HookedTracrTransformerBatchInput) -> Dataset:
+    # map all inputs and outputs to strings, since pyarrow does not allow, easily, mixed types and we already have the
+    # "BOS" token in the input/output
+    input_data = [[str(x) for x in input] for input in input_data]
+    output_data = [[str(x) for x in output] for output in output_data]
+
     return Dataset.from_dict({
       self.DATASET_INPUT_FIELD: input_data,
       self.DATASET_CORRECT_OUTPUT_FIELD: output_data

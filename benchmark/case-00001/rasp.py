@@ -6,7 +6,7 @@ from benchmark.common_programs import shift_by
 from tracr.rasp import rasp
 
 
-class Case00049(BenchmarkCase):
+class Case00001(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_rotation_identifier(rasp.tokens, 2)
 

@@ -7,7 +7,7 @@ from utils.get_cases import get_cases
 class GetCasesTest(unittest.TestCase):
   def test_all_cases(self):
     cases = get_cases(None)
-    self.assertEqual(len(cases), 49)
+    self.assertEqual(len(cases), 48)
 
   def test_cases_filtered_by_indices(self):
     args = AttrDict({"indices": "1,2,3"})

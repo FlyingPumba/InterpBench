@@ -44,7 +44,8 @@ def setup_args_parser(subparsers):
   parser.add_argument("--wandb-mode", type=str, default="online")
   parser.add_argument('--indices-mode', type=str, default="normal")
   parser.add_argument('--names-mode', type=str, default="normal")
-  parser.add_argument('--device', type=str, default="cuda")
+  parser.add_argument("-d", "--device", type=str, default="cpu",
+                      help="The device to use for ACDC.")
   parser.add_argument('--torch-num-threads', type=int, default=0, help="How many threads to use for torch (0=all)")
   parser.add_argument('--seed', type=int, default=1234)
   parser.add_argument("--max-num-epochs", type=int, default=100_000)
@@ -111,7 +112,7 @@ def run_acdc(case: BenchmarkCase, args):
 
   validation_metric = case.get_validation_metric(metric_name, tl_model)
   toks_int_values = case.get_clean_data()[BenchmarkCase.DATASET_INPUT_FIELD]
-  toks_int_values_other = case.get_corrupted_data()
+  toks_int_values_other = case.get_corrupted_data()[BenchmarkCase.DATASET_INPUT_FIELD]
 
   try:
     with open(__file__, "r") as f:
