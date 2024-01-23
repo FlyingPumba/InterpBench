@@ -1,7 +1,7 @@
 import unittest
 
 from commands.compile_benchmark import build_tracr_model, run_case_tests_on_tracr_model, build_transformer_lens_model, \
-  run_case_tests_on_tl_model
+  run_case_tests_on_tl_model, compile_all
 from utils.attr_dict import AttrDict
 from utils.get_cases import get_cases
 
@@ -23,3 +23,13 @@ class CompileBenchmarkTest(unittest.TestCase):
       run_case_tests_on_tracr_model(case, tracr_output.model)
       tl_model = build_transformer_lens_model(case, args.force, tracr_output=tracr_output)
       run_case_tests_on_tl_model(case, tl_model)
+
+  def test_linear_compression_works_for_case_2(self):
+    # Case 2 has a size of 117 for the residual stream. Let's try to compress it to 80.
+    args = AttrDict({"indices": "2",
+                     "force": True,
+                     "compress_residual": "linear",
+                     "run_tests": True,
+                     "fail_on_error": True,
+                     "residual_stream_compression_size": 80})
+    compile_all(args)

@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Any
 
 import einops
 import jax.numpy as jnp
@@ -11,11 +11,14 @@ from transformer_lens import HookedTransformer, HookedTransformerConfig
 from tracr.compiler import assemble
 from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
+from tracr.transformer.encoder import CategoricalEncoder
 
-HookedTracrTransformerBatchInput = List[List[int]]
+HookedTracrTransformerBatchInput = List[List[Any]]
 HookedTracrTransformerReturnType = Literal["logits", "decoded"]
 
+
 class HookedTracrTransformer(HookedTransformer):
+  """A TransformerLens model built from a Tracr model."""
 
   def __init__(self, tracr_model: assemble.AssembledTransformerModel, *args, **kwargs) -> None:
     """Converts a tracr model to a transformer_lens model.
@@ -30,6 +33,8 @@ class HookedTracrTransformer(HookedTransformer):
 
     if "use_hook_mlp_in" in self.cfg.to_dict(): # Tracr models always include MLPs
         self.set_use_hook_mlp_in(True)
+
+    self.freeze_all_weights()
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
@@ -192,6 +197,17 @@ class HookedTracrTransformer(HookedTransformer):
 
   def get_tracr_model_output_space(self, model: assemble.AssembledTransformerModel):
     return VectorSpaceWithBasis(model.output_encoder.basis)
+
+  def is_categorical(self):
+    """Returns true if the output_encoder is instance of CategoricalEncoder.
+    False means that the output_encoder is instance of NumericalEncoder.
+    """
+    return isinstance(self.tracr_output_encoder, CategoricalEncoder)
+
+  def freeze_all_weights(self):
+    """Freezes all weights in the model."""
+    for param in self.parameters():
+      param.requires_grad = False
 
   def int_or_string(self, value):
     """Converts a value to an int if possible, otherwise returns the value as a string.

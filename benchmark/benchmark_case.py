@@ -1,9 +1,9 @@
 import importlib
 import os
-from typing import Set, Tuple
+from typing import Set
 
-import numpy as np
 from cloudpickle import cloudpickle
+from datasets import Dataset
 from networkx import DiGraph
 from torch import Tensor
 
@@ -14,6 +14,9 @@ from utils.relativize_path import relativize_path_to_project_root
 
 
 class BenchmarkCase(object):
+  DATASET_INPUT_FIELD = "input"
+  DATASET_CORRECT_OUTPUT_FIELD = "correct_output"
+
   def __init__(self, file_path_from_root: str):
     self.file_path_from_root = file_path_from_root
     self.index_str = file_path_from_root.split("/")[1].split("-")[1]
@@ -42,7 +45,7 @@ class BenchmarkCase(object):
     """Returns the vocabulary to be used by Tracr."""
     raise NotImplementedError()
 
-  def get_clean_data(self, count: int = 10) -> Tuple[HookedTracrTransformerBatchInput, HookedTracrTransformerBatchInput]:
+  def get_clean_data(self, count: int = 10) -> Dataset:
     """Returns a tuple of (input, expected_output) for the benchmark case."""
     raise NotImplementedError()
 
@@ -50,13 +53,13 @@ class BenchmarkCase(object):
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
 
-  def get_corrupted_data(self, count: int = 10) -> HookedTracrTransformerBatchInput:
+  def get_corrupted_data(self, count: int = 10) -> Dataset:
     """Returns the corrupted data for the benchmark case.
     Default implementation: re-generate clean data with a different seed."""
     self.data_generation_seed = self.data_generation_seed + 1
-    corrupted_data, _ = self.get_clean_data(count=count)
+    dataset = self.get_clean_data(count=count)
     self.data_generation_seed = 42
-    return corrupted_data
+    return dataset
 
   def get_max_seq_len(self) -> int:
     """Returns the maximum sequence length for the benchmark case.
@@ -121,3 +124,9 @@ class BenchmarkCase(object):
   def dump_to_pickle(self, path, obj) -> None:
     with open(path, "wb") as f:
       cloudpickle.dump(obj, f)
+
+  def _build_dataset(self, input_data: HookedTracrTransformerBatchInput, output_data: HookedTracrTransformerBatchInput) -> Dataset:
+    return Dataset.from_dict({
+      self.DATASET_INPUT_FIELD: input_data,
+      self.DATASET_CORRECT_OUTPUT_FIELD: output_data
+    })

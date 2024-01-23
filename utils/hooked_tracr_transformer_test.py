@@ -1,9 +1,11 @@
+import logging
 import unittest
+
+import jax
+
+from benchmark.common_programs import make_reverse
 from tracr.compiler import compiling
 from tracr.rasp import rasp
-import jax
-import logging
-from benchmark.common_programs import make_reverse
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
 # The default of float16 can lead to discrepancies between outputs of
