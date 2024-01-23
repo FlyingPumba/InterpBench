@@ -48,18 +48,18 @@ The benchmark CLI also provides a `compile` commmand that can be used to preemti
 ./main.py compile
 ```
 
-## Building and running the Docker image
+## Docker image
 
-Build the docker image with
+To build the Docker image:
 
 ```bash
 docker build . -t circuits-benchmark
 ```
 
-To run the docker image, do
+And to run it:
 
 ```bash
-docker run circuits-benchmark run <algorithm>
+docker run circuits-benchmark <CLI arguments>
 ```
 
 ## Tests
