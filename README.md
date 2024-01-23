@@ -2,14 +2,17 @@
 
 ## Setup
 
+This project uses [Poetry](https://python-poetry.org/) to manage the dependencies. To install Poetry, you can follow the instructions [here](https://python-poetry.org/docs/#installation).
+
 ```bash
 git clone git@github.com:FlyingPumba/circuits-benchmark.git
 git submodule init
 git submodule update
-python3.10 -m venv .env
-source .env/bin/activate
-pip install -r requirements.txt
+poetry env use 3.10
+poetry install
 ```
+
+Then, to activate the virtual environment: `poetry shell`
 
 ## Contents
 
@@ -43,6 +46,20 @@ The benchmark CLI also provides a `compile` commmand that can be used to preemti
 
 ```bash
 ./main.py compile
+```
+
+## Docker image
+
+To build the Docker image:
+
+```bash
+docker build . -t circuits-benchmark
+```
+
+And to run it:
+
+```bash
+docker run circuits-benchmark <CLI arguments>
 ```
 
 ## Tests

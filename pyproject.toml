@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "circuits-benchmark"
+version = "0.1.0"
+description = "A benchmark for mechanistic discovery of circuits in Transformers"
+authors = ["Iván Arcuschin Moreno <iarcuschin@gmail.com>", "Niels uit de Bos <nielius@gmail.com>"]
+readme = "README.md"
+packages = [{include = "benchmark"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+einops = "^0.6.0"
+numpy = [{ version = "^1.21", python = "<3.10" },
+         { version = "^1.23", python = ">=3.10" }]
+torch = ">=1.10, <2.0"
+datasets = "^2.7.1"
+transformers = "^4.35.0"
+tokenizers = "^0.15.0"
+tqdm = "^4.64.1"
+pandas = "^1.1.5"
+wandb = "^0.13.5"
+torchtyping = "^0.1.4"
+huggingface-hub = "^0.16.0"
+cmapy = "^0.6.6"
+networkx = "^3.1"
+plotly = "^5.12.0"
+kaleido = "0.2.1"
+pygraphviz = "^1.11"
+transformer-lens = "1.6.1"
+typer = "^0.9.0"
+acdc = { path = "./submodules/Automatic-Circuit-Discovery/", develop = true }
+tracr = { path = "./submodules/tracr/", develop = true }
+cloudpickle = "^3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_gitignore = true
