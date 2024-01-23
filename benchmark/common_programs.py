@@ -1,7 +1,8 @@
 from typing import List, Sequence
 
-from tracr.rasp import rasp
 from benchmark.program_evaluation_type import only_non_causal, causal_and_regular
+from tracr.rasp import rasp
+
 
 @only_non_causal
 def make_length() -> rasp.SOp:

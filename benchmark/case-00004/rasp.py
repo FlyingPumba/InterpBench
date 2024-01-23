@@ -11,6 +11,4 @@ class Case00004(BenchmarkCase):
     return make_pair_balance(rasp.tokens, "(", ")")
 
   def get_vocab(self) -> Set:
-    some_letters = vocabs.get_ascii_letters_vocab(count=3)
-    some_letters.add("x")
-    return some_letters
+    return vocabs.get_ascii_letters_vocab(count=3).union({"(", ")"})

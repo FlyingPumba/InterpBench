@@ -19,3 +19,9 @@ class RunACDCTest(unittest.TestCase):
 
     with self.assertRaises(ValueError):
       run_acdc(case, args)
+
+  def test_acdc_runs_successfully_on_case_3_using_l2(self):
+    parser = build_main_parser()
+    args = parser.parse_args(["run", "acdc", "-f", "-i=3", "--metric=l2", "--threshold=0.028"])
+    case = get_cases(args)[0]
+    run_acdc(case, args)

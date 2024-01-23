@@ -1,8 +1,9 @@
 from functools import partial
-from typing import Set, Tuple
+from typing import Set
 
 import numpy as np
 import torch
+from datasets import Dataset
 from torch import Tensor
 
 from benchmark import vocabs
@@ -20,31 +21,29 @@ class Case00002(BenchmarkCase):
   def get_vocab(self) -> Set:
       return vocabs.get_ascii_letters_vocab()
 
-  def get_clean_data(self, count: int = 10) -> Tuple[HookedTracrTransformerBatchInput, HookedTracrTransformerBatchInput]:
+  def get_clean_data(self, count: int = 10) -> Dataset:
     seq_len = self.get_max_seq_len()
     input_data: HookedTracrTransformerBatchInput = []
-    expected_output: HookedTracrTransformerBatchInput = []
+    output_data: HookedTracrTransformerBatchInput = []
 
     # set numpy seed
-    np.random.seed(self.get_clean_data_seed())
+    np.random.seed(self.data_generation_seed)
 
     vals = list(self.get_vocab())
     for i in range(count):
       permutation = np.random.permutation(vals)
       permutation = permutation[:seq_len - 1]
       input_data.append(["BOS"] + permutation.tolist())
-      expected_output.append(["BOS"] + permutation[::-1].tolist())
+      output_data.append(["BOS"] + permutation[::-1].tolist())
 
-    return input_data, expected_output
+    return self._build_dataset(input_data, output_data)
 
   def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
     if metric_name not in ["l2"]:
       raise ValueError(f"Metric {metric_name} is not available for case {self}")
 
-    clean_data, _ = self.get_clean_data()
+    input = self.get_clean_data()[BenchmarkCase.DATASET_INPUT_FIELD]
     with torch.no_grad():
-      model_out = tl_model(clean_data)
+      baseline_output = tl_model(input)
 
-    return partial(l2_metric,
-                   model_out=model_out[:, 1:, ], # Discards the prediction for the BOS token position
-                   take_element_zero=False)
+    return partial(l2_metric, baseline_output=baseline_output)

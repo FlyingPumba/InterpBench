@@ -39,18 +39,19 @@ def kl_divergence(
   return answer
 
 
-def l2_metric(logits: torch.Tensor,
-              model_out: torch.Tensor,
-              return_one_element: bool = True,
-              take_element_zero: bool = True):
-    proc = logits[:, 1:] # Discards the prediction for the BOS token position
+def l2_metric(new_output: torch.Tensor,
+              baseline_output: torch.Tensor,
+              is_categorical: bool = True,
+              discard_bos_token: bool = True):
+  assert new_output.shape == baseline_output.shape
 
-    if take_element_zero:
-      proc = proc[:, :, 0]  # output 0 contains the proportion of the token "x" (== 3)
+  if discard_bos_token:
+    new_output = new_output[:, 1:]
+    baseline_output = baseline_output[:, 1:]
 
-    assert proc.shape == model_out.shape
+  if not is_categorical:
+    # then the output is numerical, and we retain only the output for the first logit.
+    new_output = new_output[:, :, 0]
+    baseline_output = baseline_output[:, :, 0]
 
-    if return_one_element:
-      return ((proc - model_out) ** 2).mean()
-    else:
-      return ((proc - model_out) ** 2).flatten()
+  return ((new_output - baseline_output) ** 2).mean()

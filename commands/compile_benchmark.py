@@ -1,6 +1,7 @@
 import traceback
 
 from benchmark.benchmark_case import BenchmarkCase
+from compression.residual_stream import compress, residual_stream_compression_options
 from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput
@@ -13,12 +14,18 @@ def setup_args_parser(subparsers):
   compile_parser.add_argument("-i", "--indices", type=str, default=None,
                               help="A list of comma separated indices of the cases to compile. "
                                    "If not specified, all cases will be compiled.")
+  compile_parser.add_argument("-d", "--device", type=str, default="cpu",
+                              help="The device to use for compression.")
   compile_parser.add_argument("-f", "--force", action="store_true",
                               help="Force compilation of cases, even if they have already been compiled.")
   compile_parser.add_argument("-t", "--run-tests", action="store_true",
                               help="Run tests on the compiled models.")
   compile_parser.add_argument("--fail-on-error", action="store_true",
                               help="Fail on error and stop compilation.")
+  compile_parser.add_argument("--compress-residual", type=str, choices=residual_stream_compression_options, default=None,
+                              help="Compress residual stream in the Tracr models.")
+  compile_parser.add_argument("--residual-stream-compression-size", type=str, default="auto",
+                              help="The size of the compressed residual stream. Choose 'auto' to find the optimal size.")
 
 
 def compile_all(args):
@@ -30,7 +37,14 @@ def compile_all(args):
       if args.run_tests:
         run_case_tests_on_tracr_model(case, tracr_output.model)
 
-      build_transformer_lens_model(case, args.force, tracr_output=tracr_output)
+      tl_model = build_transformer_lens_model(case, args.force, tracr_output=tracr_output)
+
+      if args.run_tests:
+        run_case_tests_on_tl_model(case, tl_model)
+
+      if args.compress_residual is not None:
+        compress(case, tl_model, args.compress_residual, args.residual_stream_compression_size)
+
     except Exception as e:
       print(f" >>> Failed to compile {case}:")
       traceback.print_exc()
@@ -94,7 +108,9 @@ def build_transformer_lens_model(case: BenchmarkCase,
 
 
 def run_case_tests_on_tracr_model(case: BenchmarkCase, tracr_model: AssembledTransformerModel):
-  inputs, expected_outputs = case.get_clean_data()
+  dataset = case.get_clean_data()
+  inputs = dataset[BenchmarkCase.DATASET_INPUT_FIELD]
+  expected_outputs = dataset[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
   for i in range(len(inputs)):
     input = inputs[i]
     expected_output = expected_outputs[i]
@@ -107,7 +123,9 @@ def run_case_tests_on_tracr_model(case: BenchmarkCase, tracr_model: AssembledTra
 
 
 def run_case_tests_on_tl_model(case: BenchmarkCase, tl_model: HookedTracrTransformer):
-  inputs, expected_outputs = case.get_clean_data()
+  dataset = case.get_clean_data()
+  inputs = dataset[BenchmarkCase.DATASET_INPUT_FIELD]
+  expected_outputs = dataset[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
   decoded_outputs = tl_model(inputs, return_type="decoded")
   for i in range(len(expected_outputs)):
     expected_output = expected_outputs[i]
