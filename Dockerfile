@@ -13,7 +13,7 @@ ENV POETRY_NO_INTERACTION=1 \
 RUN pip install pipx
 RUN pipx install "poetry==$POETRY_VERSION"
 
-WORKDIR /circuit-benchmark
+WORKDIR /circuits-benchmark
 
 COPY pyproject.toml poetry.lock ./
 RUN touch README.md
@@ -27,9 +27,9 @@ RUN apt-get update -q && apt-get install -y --no-install-recommends libgl1-mesa-
 
 RUN --mount=type=cache,target=$POETRY_CACHE_DIR /root/.local/bin/poetry install --no-root
 
-ENV VIRTUAL_ENV=/circuit-benchmark/.venv \
-    PATH="/circuit-benchmark/.venv/bin:/root/.local/bin/:$PATH"
+ENV VIRTUAL_ENV=/circuits-benchmark/.venv \
+    PATH="/circuits-benchmark/.venv/bin:/root/.local/bin/:$PATH"
 
-COPY . /circuit-benchmark
+COPY . /circuits-benchmark
 
 ENTRYPOINT ["python", "main.py"]
