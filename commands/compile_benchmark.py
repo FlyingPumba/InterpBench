@@ -1,5 +1,6 @@
 import traceback
 
+import torch
 import torch as t
 
 from benchmark.benchmark_case import BenchmarkCase
@@ -16,7 +17,7 @@ def setup_args_parser(subparsers):
   compile_parser.add_argument("-i", "--indices", type=str, default=None,
                               help="A list of comma separated indices of the cases to compile. "
                                    "If not specified, all cases will be compiled.")
-  compile_parser.add_argument("-d", "--device", type=str, default="cpu",
+  compile_parser.add_argument("-d", "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
                               help="The device to use for compression.")
   compile_parser.add_argument("-f", "--force", action="store_true",
                               help="Force compilation of cases, even if they have already been compiled.")

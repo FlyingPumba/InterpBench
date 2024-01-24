@@ -44,7 +44,7 @@ def setup_args_parser(subparsers):
   parser.add_argument("--wandb-mode", type=str, default="online")
   parser.add_argument('--indices-mode', type=str, default="normal")
   parser.add_argument('--names-mode', type=str, default="normal")
-  parser.add_argument("-d", "--device", type=str, default="cpu",
+  parser.add_argument("-d", "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
                       help="The device to use for ACDC.")
   parser.add_argument('--torch-num-threads', type=int, default=0, help="How many threads to use for torch (0=all)")
   parser.add_argument('--seed', type=int, default=1234)
