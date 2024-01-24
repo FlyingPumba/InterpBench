@@ -55,7 +55,7 @@ def setup_args_parser(subparsers):
 
 
 def run_acdc(case: BenchmarkCase, args):
-  tl_model = build_transformer_lens_model(case, args.force)
+  tl_model = build_transformer_lens_model(case, force=args.force, device=args.device)
 
   # check if args.output_dir is relative path or absolute path.
   output_dir = args.output_dir

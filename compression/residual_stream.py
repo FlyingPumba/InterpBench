@@ -39,7 +39,8 @@ def compress_linear(case: BenchmarkCase,
   assert residual_stream_compression_size != "auto", "Auto compression size not supported yet."
 
   compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
-                                                            residual_stream_compression_size)
+                                                            residual_stream_compression_size,
+                                                            tl_model.device)
   training_args = CompressionTrainingArgs()
   dataset = case.get_clean_data(count=300)
   trainer = CompressedTracrTransformerTrainer(training_args, compressed_tracr_transformer, dataset)

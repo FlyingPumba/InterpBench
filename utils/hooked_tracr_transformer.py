@@ -3,7 +3,7 @@ from typing import List, Literal, Any
 import einops
 import jax.numpy as jnp
 import numpy as np
-import torch
+import torch as t
 from jaxtyping import Float
 from torch import Tensor
 from transformer_lens import HookedTransformer, HookedTransformerConfig
@@ -20,11 +20,15 @@ HookedTracrTransformerReturnType = Literal["logits", "decoded"]
 class HookedTracrTransformer(HookedTransformer):
   """A TransformerLens model built from a Tracr model."""
 
-  def __init__(self, tracr_model: assemble.AssembledTransformerModel, *args, **kwargs) -> None:
+  def __init__(self,
+               tracr_model: assemble.AssembledTransformerModel,
+               device: t.device = t.device("cpu"),
+               *args, **kwargs) -> None:
     """Converts a tracr model to a transformer_lens model.
     Inspired by https://github.com/neelnanda-io/TransformerLens/blob/main/demos/Tracr_to_Transformer_Lens_Demo.ipynb"""
     super().__init__(cfg=self.extract_tracr_config(tracr_model), *args, **kwargs)
 
+    self.device = device
     self.tracr_input_encoder = tracr_model.input_encoder
     self.tracr_output_encoder = tracr_model.output_encoder
 
@@ -55,12 +59,12 @@ class HookedTracrTransformer(HookedTransformer):
     else:
       return self.map_tl_output_to_tracr_output(logits)
 
-  def map_tracr_input_to_tl_input(self, batch_input: HookedTracrTransformerBatchInput) -> torch.Tensor:
+  def map_tracr_input_to_tl_input(self, batch_input: HookedTracrTransformerBatchInput) -> t.Tensor:
     """Maps a tracr input to a transformer_lens input."""
     encoding = [self.tracr_input_encoder.encode(input) for input in batch_input]
-    return torch.tensor(encoding)
+    return t.tensor(encoding).to(self.device)
 
-  def map_tl_output_to_tracr_output(self, logits: torch.Tensor) -> HookedTracrTransformerBatchInput:
+  def map_tl_output_to_tracr_output(self, logits: t.Tensor) -> HookedTracrTransformerBatchInput:
     """Maps a transformer_lens output to a tracr output."""
     bos_token = self.tracr_input_encoder.bos_token
 
@@ -77,7 +81,7 @@ class HookedTracrTransformer(HookedTransformer):
     # Convert weights to tensors and load into the tl_model
     for k, v in sd.items():
       # Map Jax array to numpy array
-      sd[k] = torch.tensor(np.array(v))
+      sd[k] = t.tensor(np.array(v)).to(self.device)
 
     self.load_state_dict(sd, strict=False)
 

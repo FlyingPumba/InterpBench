@@ -1,5 +1,7 @@
 import traceback
 
+import torch as t
+
 from benchmark.benchmark_case import BenchmarkCase
 from compression.residual_stream import compress, residual_stream_compression_options
 from tracr.compiler import compiling
@@ -37,7 +39,10 @@ def compile_all(args):
       if args.run_tests:
         run_case_tests_on_tracr_model(case, tracr_output.model)
 
-      tl_model = build_transformer_lens_model(case, args.force, tracr_output=tracr_output)
+      tl_model = build_transformer_lens_model(case,
+                                              force=args.force,
+                                              tracr_output=tracr_output,
+                                              device=args.device)
 
       if args.run_tests:
         run_case_tests_on_tl_model(case, tl_model)
@@ -85,11 +90,13 @@ def build_tracr_model(case: BenchmarkCase, force: bool = False) -> TracrOutput:
 
 def build_transformer_lens_model(case: BenchmarkCase,
                                  force: bool = False,
-                                 tracr_output: TracrOutput = None) -> HookedTracrTransformer:
+                                 tracr_output: TracrOutput = None,
+                                 device: t.device = t.device("cpu")) -> HookedTracrTransformer:
   """Compiles a tracr model to transformer lens."""
   if not force:
     tl_model = case.load_tl_model()
     if tl_model is not None:
+      tl_model.to(device)
       return tl_model
 
   tracr_model = None
@@ -100,7 +107,7 @@ def build_transformer_lens_model(case: BenchmarkCase,
     tracr_output = build_tracr_model(case, force)
     tracr_model = tracr_output.model
 
-  tl_model = HookedTracrTransformer(tracr_model)
+  tl_model = HookedTracrTransformer(tracr_model, device=device)
 
   case.dump_tl_model(tl_model)
 

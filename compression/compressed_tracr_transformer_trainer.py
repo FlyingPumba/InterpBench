@@ -31,9 +31,12 @@ class CompressionTrainingArgs():
 
 
 class CompressedTracrTransformerTrainer:
-  def __init__(self, args: CompressionTrainingArgs, model: CompressedTracrTransformer, dataset: Dataset):
+  def __init__(self, args: CompressionTrainingArgs,
+               model: CompressedTracrTransformer,
+               dataset: Dataset):
     super().__init__()
     self.model = model
+    self.device = model.device
     self.args = args
     self.optimizer = t.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     self.use_wandb = self.args.wandb_project is not None and self.args.wandb_name is not None
@@ -102,7 +105,7 @@ class CompressedTracrTransformerTrainer:
     correct_predictions = [elem1 == elem2
                            for sublist1, sublist2 in zip(predicted_output, expected_output)
                            for elem1, elem2 in zip(sublist1, sublist2)]
-    return torch.tensor(correct_predictions)
+    return torch.tensor(correct_predictions).to(self.device)
 
   def train(self):
     '''
