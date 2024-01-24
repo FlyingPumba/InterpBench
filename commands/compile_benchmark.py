@@ -3,7 +3,7 @@ import traceback
 import torch as t
 
 from benchmark.benchmark_case import BenchmarkCase
-from compression.residual_stream import compress, residual_stream_compression_options
+from compression.residual_stream import compress, setup_compression_training_args_for_parser
 from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput
@@ -24,10 +24,8 @@ def setup_args_parser(subparsers):
                               help="Run tests on the compiled models.")
   compile_parser.add_argument("--fail-on-error", action="store_true",
                               help="Fail on error and stop compilation.")
-  compile_parser.add_argument("--compress-residual", type=str, choices=residual_stream_compression_options, default=None,
-                              help="Compress residual stream in the Tracr models.")
-  compile_parser.add_argument("--residual-stream-compression-size", type=str, default="auto",
-                              help="The size of the compressed residual stream. Choose 'auto' to find the optimal size.")
+
+  setup_compression_training_args_for_parser(compile_parser)
 
 
 def compile_all(args):
@@ -48,7 +46,7 @@ def compile_all(args):
         run_case_tests_on_tl_model(case, tl_model)
 
       if args.compress_residual is not None:
-        compress(case, tl_model, args.compress_residual, args.residual_stream_compression_size)
+        compress(case, tl_model, args.compress_residual, args.residual_stream_compression_size, args)
 
     except Exception as e:
       print(f" >>> Failed to compile {case}:")

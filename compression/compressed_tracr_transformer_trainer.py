@@ -20,12 +20,12 @@ from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
 @dataclass
 class CompressionTrainingArgs():
-  batch_size = 16
-  epochs = 10
-  max_steps_per_epoch = 200
-  lr = 1e-3
-  test_data_ratio = 0.3
-  weight_decay = 1e-2
+  batch_size: Optional[int] = 16
+  epochs: Optional[int] = 10
+  max_steps_per_epoch: Optional[int] = 200
+  lr: Optional[float] = 1e-3
+  test_data_ratio: Optional[float] = 0.3
+  weight_decay: Optional[float] = 1e-2
   wandb_project: Optional[str] = None
   wandb_name: Optional[str] = None
 

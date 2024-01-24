@@ -40,8 +40,6 @@ class CompressedTracrTransformer(nn.Module):
   def build_hooks(self) -> List[Tuple[str, Callable]]:
     hooks = []
 
-    print("build_hooks W device: ", self.W_compress.device)
-
     write_to_compressed_residual = lambda x: x @ self.W_compress.T
     read_from_compressed_residual = lambda x: x @ self.W_compress
 
@@ -49,8 +47,6 @@ class CompressedTracrTransformer(nn.Module):
         residual_stream: Float[Tensor, "batch seq_len d_model"],
         hook: HookPoint
     ) -> Float[Tensor, "batch seq_len d_model_compressed"]:
-      # print device
-      print("write_to_resid_hook_function residual_stream device: ", residual_stream.device)
       return write_to_compressed_residual(residual_stream)
 
     def read_from_resid_hook_function(
