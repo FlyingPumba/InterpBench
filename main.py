@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 import logging
+import sys
 
 import jax
 
@@ -13,7 +14,7 @@ logging.basicConfig(level=logging.ERROR)
 
 if __name__ == "__main__":
   parser = build_main_parser()
-  args, _ = parser.parse_known_args()
+  args, _ = parser.parse_known_args(sys.argv[1:])
 
   if args.command == "compile":
     compile_benchmark.compile_all(args)

@@ -18,11 +18,6 @@ def build_main_parser():
 
 class ArgumentParserWithOriginals(argparse.ArgumentParser):
   """ArgumentParser that stores the original arguments."""
-
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.original_args = None
-
   def parse_args(self, *args, **kwargs):
     original_args = list(args[0])
     parsed_args = super().parse_args(*args, **kwargs)
