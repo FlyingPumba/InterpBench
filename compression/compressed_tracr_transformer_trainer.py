@@ -24,6 +24,7 @@ class CompressionTrainingArgs():
   epochs: Optional[int] = 10
   max_steps_per_epoch: Optional[int] = 200
   lr: Optional[float] = 1e-3
+  train_data_size: Optional[int] = 1000
   test_data_ratio: Optional[float] = 0.3
   weight_decay: Optional[float] = 1e-2
   wandb_project: Optional[str] = None
@@ -39,7 +40,7 @@ class CompressedTracrTransformerTrainer:
     self.device = model.device
     self.args = args
     self.optimizer = t.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    self.use_wandb = self.args.wandb_project is not None and self.args.wandb_name is not None
+    self.use_wandb = self.args.wandb_project is not None
     self.step = 0
     self.dataset = dataset
 
