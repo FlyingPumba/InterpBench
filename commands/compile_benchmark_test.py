@@ -33,6 +33,22 @@ class CompileBenchmarkTest(unittest.TestCase):
                                               device=args.device)
       run_case_tests_on_tl_model(case, tl_model)
 
+  def test_case_3_has_expected_outputs(self):
+    args, _ = build_main_parser().parse_known_args(["compile",
+                                                    "-f",
+                                                    "-i=3",
+                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
+    cases = get_cases(args)
+    for case in cases:
+      print(f"\nCompiling {case}")
+      tracr_output = build_tracr_model(case, args.force)
+      run_case_tests_on_tracr_model(case, tracr_output.model)
+      tl_model = build_transformer_lens_model(case,
+                                              force=args.force,
+                                              tracr_output=tracr_output,
+                                              device=args.device)
+      run_case_tests_on_tl_model(case, tl_model)
+
   def test_linear_compression_works_for_case_2(self):
     # Case 2 has a size of 117 for the residual stream. Let's try to compress it to 80.
     args, _ = build_main_parser().parse_known_args(["compile",

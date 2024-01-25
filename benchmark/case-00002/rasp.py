@@ -29,7 +29,7 @@ class Case00002(BenchmarkCase):
     # set numpy seed
     np.random.seed(self.data_generation_seed)
 
-    vals = list(self.get_vocab())
+    vals = sorted(list(self.get_vocab()))
     for i in range(count):
       permutation = np.random.permutation(vals)
       permutation = permutation[:seq_len - 1]

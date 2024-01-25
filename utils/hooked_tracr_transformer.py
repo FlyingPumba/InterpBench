@@ -68,10 +68,13 @@ class HookedTracrTransformer(HookedTransformer):
     """Maps a transformer_lens output to a tracr output."""
     bos_token = self.tracr_input_encoder.bos_token
 
-    max_output_indices = logits.argmax(dim=-1)
+    if self.is_categorical():
+      logits = logits.argmax(dim=-1)
+    else:
+      logits = logits.squeeze(dim=-1)
 
     # The output has unspecified behavior for the BOS token, so we just add it back in after decoding.
-    decoded_output_with_bos = [[bos_token] + self.tracr_output_encoder.decode(output)[1:] for output in max_output_indices.tolist()]
+    decoded_output_with_bos = [[bos_token] + self.tracr_output_encoder.decode(output)[1:] for output in logits.tolist()]
 
     return decoded_output_with_bos
 

@@ -8,6 +8,7 @@ from compression.residual_stream import compress, setup_compression_training_arg
 from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput
+from tracr.transformer.encoder import CategoricalEncoder
 from utils.get_cases import get_cases
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
@@ -23,6 +24,8 @@ def setup_args_parser(subparsers):
                               help="Force compilation of cases, even if they have already been compiled.")
   compile_parser.add_argument("-t", "--run-tests", action="store_true",
                               help="Run tests on the compiled models.")
+  compile_parser.add_argument("--float-testing-threshold", type=float, default=0.0001,
+                              help="The threshold for float comparisons in tests.")
   compile_parser.add_argument("--fail-on-error", action="store_true",
                               help="Fail on error and stop compilation.")
 
@@ -36,7 +39,7 @@ def compile_all(args):
       tracr_output = build_tracr_model(case, args.force)
 
       if args.run_tests:
-        run_case_tests_on_tracr_model(case, tracr_output.model)
+        run_case_tests_on_tracr_model(case, tracr_output.model, args.float_testing_threshold)
 
       tl_model = build_transformer_lens_model(case,
                                               force=args.force,
@@ -44,7 +47,7 @@ def compile_all(args):
                                               device=args.device)
 
       if args.run_tests:
-        run_case_tests_on_tl_model(case, tl_model)
+        run_case_tests_on_tl_model(case, tl_model, args.float_testing_threshold)
 
       if args.compress_residual is not None:
         compress(case, tl_model, args.compress_residual, args.residual_stream_compression_size, args)
@@ -114,30 +117,57 @@ def build_transformer_lens_model(case: BenchmarkCase,
   return tl_model
 
 
-def run_case_tests_on_tracr_model(case: BenchmarkCase, tracr_model: AssembledTransformerModel):
+def run_case_tests_on_tracr_model(case: BenchmarkCase,
+                                  tracr_model: AssembledTransformerModel,
+                                  float_testing_threshold: float = 0.0001):
   dataset = case.get_clean_data()
   inputs = dataset[BenchmarkCase.DATASET_INPUT_FIELD]
   expected_outputs = dataset[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
+
+  is_categorical = isinstance(tracr_model.output_encoder, CategoricalEncoder)
+
   for i in range(len(inputs)):
     input = inputs[i]
     expected_output = expected_outputs[i]
     decoded_output = tracr_model.apply(input).decoded
-    if decoded_output != expected_output:
+
+    if is_categorical:
+      correct = decoded_output == expected_output
+    else:
+      # then output is numerical and we need to convert it to floats, because they are stored as strings in the dataset
+      expected_output = [float(x) for x in expected_output[1:]]
+      decoded_output = [float(x) for x in decoded_output[1:]]
+      correct = all([abs(x - y) < float_testing_threshold for x, y in zip(decoded_output, expected_output)])
+
+    if not correct:
       raise ValueError(f"Failed test for {case} on tracr model."
                        f"\n >>> Input: {input}"
                        f"\n >>> Expected: {expected_output}"
                        f"\n >>> Got: {decoded_output}")
 
 
-def run_case_tests_on_tl_model(case: BenchmarkCase, tl_model: HookedTracrTransformer):
+def run_case_tests_on_tl_model(case: BenchmarkCase,
+                               tl_model: HookedTracrTransformer,
+                               float_testing_threshold: float = 0.0001):
   dataset = case.get_clean_data()
   inputs = dataset[BenchmarkCase.DATASET_INPUT_FIELD]
   expected_outputs = dataset[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
   decoded_outputs = tl_model(inputs, return_type="decoded")
+
   for i in range(len(expected_outputs)):
+    input = inputs[i]
     expected_output = expected_outputs[i]
     decoded_output = decoded_outputs[i]
-    if decoded_output != expected_output:
+
+    if tl_model.is_categorical():
+      correct = decoded_output == expected_output
+    else:
+      # then output is numerical and we need to convert it to floats, because they are stored as strings in the dataset
+      expected_output = [float(x) for x in expected_output[1:]]
+      decoded_output = [float(x) for x in decoded_output[1:]]
+      correct = all([abs(x - y) < float_testing_threshold for x, y in zip(decoded_output, expected_output)])
+
+    if not correct:
       raise ValueError(f"Failed test for {case} on tl model."
                        f"\n >>> Input: {input}"
                        f"\n >>> Expected: {expected_output}"

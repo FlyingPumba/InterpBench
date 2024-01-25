@@ -32,7 +32,7 @@ class Case00003(BenchmarkCase):
     # set numpy seed
     np.random.seed(self.data_generation_seed)
 
-    vals = list(self.get_vocab())
+    vals = sorted(list(self.get_vocab()))
     for _ in range(count):
       sample = np.random.choice(vals, size=seq_len - 1).tolist() # sample with replacement
       output = [sample[:i+1].count("x")/(i+1) for i in range(len(sample))]
