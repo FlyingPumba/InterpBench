@@ -168,6 +168,8 @@ class CompressedTracrTransformerTrainer:
     for layer in range(num_layers):
       compressed_model_output = compressed_model_cache["resid_post", layer]
       original_model_output = original_model_cache["resid_post", layer]
-      loss += l2_metric(compressed_model_output, original_model_output, is_categorical=is_categorical)
+      loss += l2_metric(compressed_model_output, original_model_output,
+                        is_categorical=is_categorical,
+                        discard_bos_token=False)
 
     return loss

@@ -55,10 +55,6 @@ class CompressedTracrTransformer(nn.Module):
     ) -> Float[Tensor, "batch seq_len n_head d_model"]:
       return read_from_compressed_residual(residual_stream)
 
-    # Add initial hooks for embedding and positional embedding
-    # hooks.append(("hook_embed", write_to_resid_hook_function))
-    # hooks.append(("hook_pos_embed", write_to_resid_hook_function))
-
     # Add hooks for Attention heads and MLPs
     for hook_name in self.tl_model.hook_dict.keys():
       if "hook_k_input" in hook_name or "hook_q_input" in hook_name or "hook_v_input" in hook_name:
