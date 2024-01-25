@@ -26,7 +26,6 @@ class CompressionTrainingArgs():
   lr: Optional[float] = 1e-3
   train_data_size: Optional[int] = 1000
   test_data_ratio: Optional[float] = 0.3
-  weight_decay: Optional[float] = 1e-2
   wandb_project: Optional[str] = None
   wandb_name: Optional[str] = None
 
@@ -39,7 +38,7 @@ class CompressedTracrTransformerTrainer:
     self.model = model
     self.device = model.device
     self.args = args
-    self.optimizer = t.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    self.optimizer = t.optim.SGD(self.model.parameters(), lr=args.lr)
     self.use_wandb = self.args.wandb_project is not None
     self.step = 0
     self.dataset = dataset
@@ -67,6 +66,7 @@ class CompressedTracrTransformerTrainer:
 
     Remember that `batch` is a dictionary with the single key 'tokens'.
     '''
+    self.optimizer.zero_grad()
 
     # Run the input on both compressed and original model
     input = batch[BenchmarkCase.DATASET_INPUT_FIELD]
@@ -84,9 +84,8 @@ class CompressedTracrTransformerTrainer:
     )
 
     loss.backward()
-
     self.optimizer.step()
-    self.optimizer.zero_grad()
+
     self.step += 1
 
     if self.use_wandb:
