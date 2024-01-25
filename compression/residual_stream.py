@@ -34,7 +34,7 @@ def compress(case: BenchmarkCase,
   """
 
   assert (residual_stream_compression_size == "auto" or
-          (0 < int(residual_stream_compression_size) < tl_model.cfg.d_model)), \
+          (0 < int(residual_stream_compression_size) <= tl_model.cfg.d_model)), \
     f"Invalid residual stream compression size: {residual_stream_compression_size}. " \
     f"Must be between 0 and {tl_model.cfg.d_model} or 'auto'."
 
