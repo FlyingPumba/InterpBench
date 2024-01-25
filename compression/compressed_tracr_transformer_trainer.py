@@ -113,6 +113,9 @@ class CompressedTracrTransformerTrainer:
     Trains the model, for `self.args.epochs` epochs. Also handles wandb initialisation, and early stopping
     for each epoch at `self.args.max_steps_per_epoch` steps.
     '''
+    print(f'Starting run to compress residual stream from {self.model.original_residual_stream_size} to'
+          f' {self.model.residual_stream_compression_size} dimensions.')
+
     if self.use_wandb:
       wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
 
