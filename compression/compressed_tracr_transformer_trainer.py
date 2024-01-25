@@ -103,9 +103,17 @@ class CompressedTracrTransformerTrainer:
     input = batch[BenchmarkCase.DATASET_INPUT_FIELD]
     expected_output = batch[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
     predicted_output = self.model(input, return_type="decoded")
-    correct_predictions = [elem1 == elem2
-                           for sublist1, sublist2 in zip(predicted_output, expected_output)
-                           for elem1, elem2 in zip(sublist1, sublist2)]
+
+    def compare_outputs(elem1: Any, elem2: Any):
+      if self.model.get_tl_model().is_categorical():
+        return elem1 == elem2
+      else:
+        return np.isclose(float(elem1), float(elem2), atol=1.e-5).item()
+
+    # compare batched predicted vs expected output, element against element, discarding always the BOS token.
+    correct_predictions = [compare_outputs(elem1, elem2)
+                           for output1, output2 in zip(predicted_output, expected_output)
+                           for elem1, elem2 in zip(output1[1:], output2[1:])]
     return torch.tensor(correct_predictions).to(self.device)
 
   def train(self):

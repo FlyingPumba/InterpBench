@@ -1,5 +1,6 @@
 import traceback
 
+import numpy as np
 import torch
 import torch as t
 
@@ -24,8 +25,8 @@ def setup_args_parser(subparsers):
                               help="Force compilation of cases, even if they have already been compiled.")
   compile_parser.add_argument("-t", "--run-tests", action="store_true",
                               help="Run tests on the compiled models.")
-  compile_parser.add_argument("--float-testing-threshold", type=float, default=0.0001,
-                              help="The threshold for float comparisons in tests.")
+  compile_parser.add_argument("--tests-atol", type=float, default=1.e-5,
+                              help="The absolute tolerance for float comparisons in tests.")
   compile_parser.add_argument("--fail-on-error", action="store_true",
                               help="Fail on error and stop compilation.")
 
@@ -39,7 +40,7 @@ def compile_all(args):
       tracr_output = build_tracr_model(case, args.force)
 
       if args.run_tests:
-        run_case_tests_on_tracr_model(case, tracr_output.model, args.float_testing_threshold)
+        run_case_tests_on_tracr_model(case, tracr_output.model, args.tests_atol)
 
       tl_model = build_transformer_lens_model(case,
                                               force=args.force,
@@ -47,7 +48,7 @@ def compile_all(args):
                                               device=args.device)
 
       if args.run_tests:
-        run_case_tests_on_tl_model(case, tl_model, args.float_testing_threshold)
+        run_case_tests_on_tl_model(case, tl_model, args.tests_atol)
 
       if args.compress_residual is not None:
         compress(case, tl_model, args.compress_residual, args.residual_stream_compression_size, args)
@@ -119,7 +120,7 @@ def build_transformer_lens_model(case: BenchmarkCase,
 
 def run_case_tests_on_tracr_model(case: BenchmarkCase,
                                   tracr_model: AssembledTransformerModel,
-                                  float_testing_threshold: float = 0.0001):
+                                  atol: float = 1.e-5):
   dataset = case.get_clean_data()
   inputs = dataset[BenchmarkCase.DATASET_INPUT_FIELD]
   expected_outputs = dataset[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
@@ -137,7 +138,7 @@ def run_case_tests_on_tracr_model(case: BenchmarkCase,
       # then output is numerical and we need to convert it to floats, because they are stored as strings in the dataset
       expected_output = [float(x) for x in expected_output[1:]]
       decoded_output = [float(x) for x in decoded_output[1:]]
-      correct = all([abs(x - y) < float_testing_threshold for x, y in zip(decoded_output, expected_output)])
+      correct = np.allclose(expected_output, decoded_output, atol=atol)
 
     if not correct:
       raise ValueError(f"Failed test for {case} on tracr model."
@@ -148,7 +149,7 @@ def run_case_tests_on_tracr_model(case: BenchmarkCase,
 
 def run_case_tests_on_tl_model(case: BenchmarkCase,
                                tl_model: HookedTracrTransformer,
-                               float_testing_threshold: float = 0.0001):
+                               atol: float = 1.e-5):
   dataset = case.get_clean_data()
   inputs = dataset[BenchmarkCase.DATASET_INPUT_FIELD]
   expected_outputs = dataset[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
@@ -165,7 +166,7 @@ def run_case_tests_on_tl_model(case: BenchmarkCase,
       # then output is numerical and we need to convert it to floats, because they are stored as strings in the dataset
       expected_output = [float(x) for x in expected_output[1:]]
       decoded_output = [float(x) for x in decoded_output[1:]]
-      correct = all([abs(x - y) < float_testing_threshold for x, y in zip(decoded_output, expected_output)])
+      correct = np.allclose(decoded_output, expected_output, atol=atol)
 
     if not correct:
       raise ValueError(f"Failed test for {case} on tl model."

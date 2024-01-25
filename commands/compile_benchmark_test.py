@@ -60,3 +60,15 @@ class CompileBenchmarkTest(unittest.TestCase):
                                                     "--residual-stream-compression-size=80",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     compile_all(args)
+
+  def test_linear_compression_works_for_case_3(self):
+    # Case 3 has a size of 19 for the residual stream. Let's try to compress it to 14.
+    args, _ = build_main_parser().parse_known_args(["compile",
+                                                    "-f",
+                                                    "-i=3",
+                                                    "--compress-residual=linear",
+                                                    "--run-tests",
+                                                    "--fail-on-error",
+                                                    "--residual-stream-compression-size=14",
+                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
+    compile_all(args)
