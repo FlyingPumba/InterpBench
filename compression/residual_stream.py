@@ -53,7 +53,7 @@ def compress_linear(case: BenchmarkCase,
 
   compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
                                                             residual_stream_compression_size,
-                                                            tl_model.device)
+                                                            device=tl_model.device)
   training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
   dataset = case.get_clean_data(count=training_args.train_data_size)
   trainer = CompressedTracrTransformerTrainer(training_args, compressed_tracr_transformer, dataset)

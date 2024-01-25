@@ -14,7 +14,7 @@ class CompressedTracrTransformer(nn.Module):
   def __init__(self,
                tl_model: HookedTracrTransformer,
                residual_stream_compression_size: int,
-               device: t.device = t.device("cpu")):
+               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")):
     super().__init__()
     self.residual_stream_compression_size = residual_stream_compression_size
     self.tl_model = tl_model
@@ -29,7 +29,7 @@ class CompressedTracrTransformer(nn.Module):
 
     # [to_size, from_size]
     self.W_compress = nn.Parameter(t.empty((self.residual_stream_compression_size,
-                                            self.original_residual_stream_size))).to(self.device)
+                                            self.original_residual_stream_size), device=self.device))
     nn.init.normal_(self.W_compress, std=self.init_range)
 
     self.tl_model.reset_hooks(including_permanent=True)

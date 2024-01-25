@@ -1,4 +1,4 @@
-from typing import List, Literal, Any
+from typing import List, Literal, Any, Union
 
 import einops
 import jax.numpy as jnp
@@ -22,7 +22,7 @@ class HookedTracrTransformer(HookedTransformer):
 
   def __init__(self,
                tracr_model: assemble.AssembledTransformerModel,
-               device: t.device = t.device("cpu"),
+               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
                *args, **kwargs) -> None:
     """Converts a tracr model to a transformer_lens model.
     Inspired by https://github.com/neelnanda-io/TransformerLens/blob/main/demos/Tracr_to_Transformer_Lens_Demo.ipynb"""
@@ -221,3 +221,10 @@ class HookedTracrTransformer(HookedTransformer):
       return int(value)
     except ValueError:
       return value
+
+  def to(self,
+        device_or_dtype: Union[t.device, str, t.dtype],
+        print_details: bool = True,):
+    """Moves the model to a device and updates the device in the config."""
+    self.device = device_or_dtype
+    return super().to(device_or_dtype, print_details=print_details)

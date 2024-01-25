@@ -90,7 +90,8 @@ def build_tracr_model(case: BenchmarkCase, force: bool = False) -> TracrOutput:
 def build_transformer_lens_model(case: BenchmarkCase,
                                  force: bool = False,
                                  tracr_output: TracrOutput = None,
-                                 device: t.device = t.device("cpu")) -> HookedTracrTransformer:
+                                 device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
+                                 ) -> HookedTracrTransformer:
   """Compiles a tracr model to transformer lens."""
   if not force:
     tl_model = case.load_tl_model()
