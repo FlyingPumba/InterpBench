@@ -121,7 +121,8 @@ class CompressedTracrTransformerTrainer:
 
     accuracy = np.nan
 
-    progress_bar = tqdm(total = self.args.max_steps_per_epoch * self.args.epochs)
+    batches_count = len(self.train_loader)
+    progress_bar = tqdm(total = min(self.args.max_steps_per_epoch, batches_count) * self.args.epochs)
 
     for epoch in range(self.args.epochs):
       for i, batch in enumerate(self.train_loader):
