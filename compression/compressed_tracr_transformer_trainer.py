@@ -45,8 +45,7 @@ class CompressedTracrTransformerTrainer:
     self.step = 0
     self.dataset = dataset
     self.train_loss = np.nan
-    self.test_loss = np.nan
-    self.test_accuracy = np.nan
+    self.test_metrics = {}
     self.optimizer = t.optim.Adam(self.model.parameters(), lr=args.lr)
 
     self.split_dataset(args)
@@ -63,7 +62,7 @@ class CompressedTracrTransformerTrainer:
 
     self.train_loader = DataLoader(split[Split.TRAIN], batch_size=args.batch_size, shuffle=True,
                                    collate_fn=custom_collate)
-    self.test_loader = DataLoader(split[Split.TEST], batch_size=args.batch_size, shuffle=False,
+    self.test_loader = DataLoader(split[Split.TEST], batch_size=len(split[Split.TEST]), shuffle=False,
                                   collate_fn=custom_collate)
 
   def train(self):
@@ -82,10 +81,8 @@ class CompressedTracrTransformerTrainer:
       for i, batch in enumerate(self.train_loader):
         self.train_loss = self.training_step(batch)
         progress_bar.update()
-        progress_bar.set_description(f"Epoch {epoch+1}, "
-                                     f"train_loss: {self.train_loss:.3f}, "
-                                     f"test_loss: {self.test_loss:.3f}, "
-                                     f"test_accuracy: {self.test_accuracy:.2f}")
+        progress_bar.set_description(f"Epoch {epoch+1}, train_loss: {self.train_loss:.3f}" +
+                                     self.build_test_metrics_string())
 
       self.evaluate_test_metrics()
 
@@ -152,40 +149,48 @@ class CompressedTracrTransformerTrainer:
     return loss
 
   def evaluate_test_metrics(self):
-    batches_loss = []
-    batches_accuracy = []
+    test_data = next(iter(self.test_loader))
+    inputs = test_data[BenchmarkCase.DATASET_INPUT_FIELD]
+    expected_outputs = test_data[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
+    predicted_outputs = self.model(inputs, return_type="decoded")
 
-    for batch in self.test_loader:
-      input = batch[BenchmarkCase.DATASET_INPUT_FIELD]
-      expected_output = batch[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
+    correct_predictions = []
+    expected_outputs_flattened = []
+    predicted_outputs_flattened = []
 
-      # calculate test loss
-      compressed_model_logits, compressed_model_cache = self.model.run_with_cache(input)
-      original_model_logits, original_model_cache = self.model.run_with_cache_on_original(input)
+    # The [1:] is for discarding the BOS token from comparison
+    for predicted_output, expected_output in zip(predicted_outputs, expected_outputs):
+      if self.model.get_tl_model().is_categorical():
+        predictions = [ord(p) for p in predicted_output[1:]]
+        expectations = [ord(e) for e in expected_output[1:]]
+        predicted_outputs_flattened.extend(predictions)
+        expected_outputs_flattened.extend(expectations)
 
-      loss = self.compute_loss(
-        compressed_model_logits,
-        compressed_model_cache,
-        original_model_logits,
-        original_model_cache
-      )
-      batches_loss.append(loss.item())
+        correct_predictions.extend(p == e for p, e in zip(predictions, expectations))
+      else:
+        predictions = [float(p) for p in predicted_output[1:]]
+        expectations = [float(e) for e in expected_output[1:]]
+        predicted_outputs_flattened.extend(predictions)
+        expected_outputs_flattened.extend(expectations)
 
-      # calculate test accuracy
-      predicted_output = self.model.tl_model.map_tl_output_to_tracr_output(compressed_model_logits)
+        close_predictions = np.isclose(predictions, expectations, atol=self.args.test_accuracy_atol)
+        correct_predictions.extend(close_predictions.tolist())
 
-      def compare_outputs(elem1: Any, elem2: Any):
-        if self.model.get_tl_model().is_categorical():
-          return elem1 == elem2
-        else:
-          return np.isclose(float(elem1), float(elem2), atol=self.args.test_accuracy_atol).item()
+    self.test_metrics["test_accuracy"] = np.mean(correct_predictions)
 
-      # compare batched predicted vs expected output, element against element, discarding always the BOS token.
-      correct_predictions = [compare_outputs(elem1, elem2)
-                             for output1, output2 in zip(predicted_output, expected_output)
-                             for elem1, elem2 in zip(output1[1:], output2[1:])]
-      accuracy = np.mean([float(elem) for elem in correct_predictions])
-      batches_accuracy.append(accuracy)
+    predicted_outputs_tensor = t.tensor(predicted_outputs_flattened)
+    expected_outputs_tensor = t.tensor(expected_outputs_flattened)
 
-    self.test_loss = np.mean(batches_loss)
-    self.test_accuracy = np.mean(batches_accuracy)
+    if not self.model.get_tl_model().is_categorical():
+      self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
+                                                               expected_outputs_tensor).item()
+
+
+    if self.use_wandb:
+      wandb.log(self.test_metrics, step=self.step)
+
+  def build_test_metrics_string(self):
+    if len(self.test_metrics.items()) == 0:
+      return ""
+    else:
+      return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in self.test_metrics.items()]))[:-2]
