@@ -17,7 +17,8 @@ from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTr
 
 class Case00003(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
-    return make_frac_prevs(rasp.tokens == "x")
+    is_x = (rasp.tokens == "x").named("is_x")
+    return make_frac_prevs(is_x)
 
   def get_vocab(self) -> Set:
     some_letters = vocabs.get_ascii_letters_vocab(count=3)
