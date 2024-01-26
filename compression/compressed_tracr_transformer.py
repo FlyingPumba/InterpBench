@@ -18,7 +18,6 @@ class CompressedTracrTransformer(nn.Module):
     super().__init__()
     self.residual_stream_compression_size = residual_stream_compression_size
     self.tl_model = tl_model
-    self.init_range: float = 0.02
     self.num_layers = self.tl_model.cfg.n_layers
     self.device = device
 
@@ -30,7 +29,10 @@ class CompressedTracrTransformer(nn.Module):
     # [to_size, from_size]
     self.W_compress = nn.Parameter(t.empty((self.residual_stream_compression_size,
                                             self.original_residual_stream_size), device=self.device))
-    nn.init.normal_(self.W_compress, std=self.init_range)
+    # It's important to start with a (semi) orthogonal matrix, otherwise the model will not train.
+    # The (smi) orthogonal matrix is useful for our setup because the transpose is exactly the inverse, and we are using
+    # the same matrix for reading and writing from/to the residual stream.
+    nn.init.orthogonal_(self.W_compress)
 
     self.tl_model.reset_hooks(including_permanent=True)
 
