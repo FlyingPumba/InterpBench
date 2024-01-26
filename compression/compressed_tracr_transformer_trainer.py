@@ -2,11 +2,10 @@ from dataclasses import dataclass
 from typing import Optional, Dict, List, Any
 
 import numpy as np
-import torch
 import torch as t
 import wandb
 from datasets import DatasetDict, Split, Dataset
-from jaxtyping import Float, Bool
+from jaxtyping import Float
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
