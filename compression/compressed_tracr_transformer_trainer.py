@@ -137,7 +137,7 @@ class CompressedTracrTransformerTrainer:
       correct_predictions = t.concat([self.validation_step(batch) for batch in self.test_loader])
       accuracy = correct_predictions.float().mean().item()
       if self.use_wandb:
-        wandb.log({"accuracy": accuracy}, step=self.step)
+        wandb.log({"test_accuracy": accuracy}, step=self.step)
 
     if self.use_wandb:
       wandb.finish()
@@ -159,11 +159,18 @@ class CompressedTracrTransformerTrainer:
       # MSE loss
       loss = t.nn.functional.mse_loss(compressed_model_logits, original_model_logits)
 
+    if self.use_wandb:
+      wandb.log({"output_loss": loss}, step=self.step)
+
     # Sum the L2 of output vectors for all layers in both compressed and original model
     for layer in range(num_layers):
       compressed_model_output = compressed_model_cache["resid_post", layer]
       original_model_output = original_model_cache["resid_post", layer]
 
-      loss += t.nn.functional.mse_loss(compressed_model_output, original_model_output)
+      layer_loss = t.nn.functional.mse_loss(compressed_model_output, original_model_output)
+      if self.use_wandb:
+        wandb.log({f"layer_{str(layer)}_loss": layer_loss}, step=self.step)
+
+      loss += layer_loss
 
     return loss
