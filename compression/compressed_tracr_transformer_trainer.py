@@ -86,9 +86,6 @@ class CompressedTracrTransformerTrainer:
 
     self.step += 1
 
-    if self.use_wandb:
-      wandb.log({"train_loss": loss}, step=self.step)
-
     return loss
 
   def validation_step(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Bool[Tensor, "bath_size x seq_len"]:
