@@ -36,7 +36,7 @@ class CompressedTracrTransformerTrainer:
     self.model = model
     self.device = model.device
     self.args = args
-    self.optimizer = t.optim.SGD(self.model.parameters(), lr=args.lr)
+    self.optimizer = t.optim.Adam(self.model.parameters(), lr=args.lr)
     self.use_wandb = self.args.wandb_project is not None
     self.step = 0
     self.dataset = dataset
