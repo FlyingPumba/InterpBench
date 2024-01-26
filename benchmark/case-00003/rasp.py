@@ -25,6 +25,9 @@ class Case00003(BenchmarkCase):
     some_letters.add("x")
     return some_letters
 
+  def get_max_seq_len(self) -> int:
+    return 5
+
   def get_clean_data(self, count: int = 10) -> Dataset:
     seq_len = self.get_max_seq_len()
     input_data: HookedTracrTransformerBatchInput = []
