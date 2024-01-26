@@ -19,12 +19,13 @@ def setup_compression_training_args_for_parser(parser):
                               help="Compress residual stream in the Tracr models.")
   parser.add_argument("--residual-stream-compression-size", type=str, default="auto",
                               help="The size of the compressed residual stream. Choose 'auto' to find the optimal size.")
+  parser.add_argument("--auto-compression-size", type=float, default=0.95,
+                              help="The desired test accuracy when using 'auto' compression size.")
 
 
 def compress(case: BenchmarkCase,
              tl_model: HookedTracrTransformer,
              compression_type: residual_stream_compression_options_type,
-             residual_stream_compression_size: int | Literal["auto"],
              args: Namespace):
   """Compresses the residual stream of a Tracr model.
 
@@ -32,31 +33,84 @@ def compress(case: BenchmarkCase,
   each s-op. This function forces different levels of superposition by applying a gradent-descent-based compression
   algorithm. This is useful for studying the effect of superposition and make Tracr models more efficient and realistic.
   """
-
-  assert (residual_stream_compression_size == "auto" or
-          (0 < int(residual_stream_compression_size) <= tl_model.cfg.d_model)), \
-    f"Invalid residual stream compression size: {residual_stream_compression_size}. " \
-    f"Must be between 0 and {tl_model.cfg.d_model} or 'auto'."
-
   if compression_type == "linear":
-    compress_linear(case, tl_model, int(residual_stream_compression_size), args)
+    compress_linear(case, tl_model, args)
   else:
     raise ValueError(f"Unknown compression type: {compression_type}")
 
 
 def compress_linear(case: BenchmarkCase,
                     tl_model: HookedTracrTransformer,
-                    residual_stream_compression_size: int | Literal["auto"],
                     args: Namespace):
   """Compresses the residual stream of a Tracr model using a linear compression."""
-  assert residual_stream_compression_size != "auto", "Auto compression size not supported yet."
+  residual_stream_compression_size = args.residual_stream_compression_size
+  assert (residual_stream_compression_size == "auto" or
+          (0 < int(residual_stream_compression_size) <= tl_model.cfg.d_model)), \
+    f"Invalid residual stream compression size: {residual_stream_compression_size}. " \
+    f"Must be between 0 and {tl_model.cfg.d_model} or 'auto'."
 
-  compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
-                                                            residual_stream_compression_size,
-                                                            device=tl_model.device)
   training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
-  trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
-  trainer.train()
+  original_residual_stream_size = tl_model.cfg.d_model
 
-  tl_model.reset_hooks(including_permanent=True)
+  if residual_stream_compression_size != "auto":
+    compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
+                                                              int(residual_stream_compression_size),
+                                                              device=tl_model.device)
+    trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+    final_metrics = trainer.train()
+    print(f" >>> Final metrics for {case} with residual stream compression size {residual_stream_compression_size}: ")
+    print(final_metrics)
+  else:
+    desired_test_accuracy = args.auto_compression_size
+    assert 0 < desired_test_accuracy <= 1, f"Invalid desired test accuracy: {desired_test_accuracy}. " \
+                                            f"Must be between 0 and 1."
 
+    # The "auto" mode of compression is a binary search for the optimal residual stream compression size: We want the
+    # smallest residual stream size that achieves a desired test accuracy in the final_metrics.
+    # We start by compressing the residual stream to half its original size. We keep halving the size until we get a
+    # test accuracy below the desired one. Then we do a binary search between the last size that was above the desired
+    # accuracy and the last size that was below the desired accuracy.
+
+    print(f" >>> Starting auto compression for {case}.")
+    print(f" >>> Original residual stream size is {original_residual_stream_size}.")
+    print(f" >>> Desired test accuracy is {desired_test_accuracy}.")
+
+    current_compression_size = original_residual_stream_size // 2
+    best_compression_size = original_residual_stream_size
+
+    # Halve the residual stream size until we get a test accuracy below the desired one.
+    while current_compression_size > 0:
+      compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
+                                                                current_compression_size,
+                                                                device=tl_model.device)
+      trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+      final_metrics = trainer.train()
+
+      if final_metrics["test_accuracy"] > desired_test_accuracy:
+        best_compression_size = current_compression_size
+        current_compression_size = current_compression_size // 2
+      else:
+        break
+
+    # Do a binary search between the last size that was above the desired accuracy and the last size that was below the
+    # desired accuracy.
+    if current_compression_size > 0:
+      lower_bound = current_compression_size
+      upper_bound = best_compression_size
+
+      while lower_bound < upper_bound:
+        current_compression_size = (lower_bound + upper_bound) // 2
+        compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
+                                                                  current_compression_size,
+                                                                  device=tl_model.device)
+        trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+        final_metrics = trainer.train()
+
+        if final_metrics["test_accuracy"] > desired_test_accuracy:
+          upper_bound = current_compression_size
+        else:
+          lower_bound = current_compression_size + 1
+
+      best_compression_size = upper_bound
+
+    print(f" >>> Best residual stream compression size for {case} is {best_compression_size}.")

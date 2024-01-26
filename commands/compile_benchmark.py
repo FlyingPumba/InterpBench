@@ -51,7 +51,7 @@ def compile_all(args):
         run_case_tests_on_tl_model(case, tl_model, args.tests_atol)
 
       if args.compress_residual is not None:
-        compress(case, tl_model, args.compress_residual, args.residual_stream_compression_size, args)
+        compress(case, tl_model, args.compress_residual, args)
 
     except Exception as e:
       print(f" >>> Failed to compile {case}:")

@@ -26,6 +26,7 @@ class CompressionTrainingArgs():
   wandb_project: Optional[str] = None
   wandb_name: Optional[str] = None
   test_accuracy_atol: Optional[float] = 1e-2
+  early_stop_test_accuracy: Optional[float] = None
 
 
 class CompressedTracrTransformerTrainer:
@@ -89,8 +90,14 @@ class CompressedTracrTransformerTrainer:
 
       self.evaluate_test_metrics()
 
+      if (self.args.early_stop_test_accuracy is not None and
+          self.test_metrics["test_accuracy"] >= self.args.early_stop_test_accuracy):
+        break
+
     if self.use_wandb:
       wandb.finish()
+
+    return {**self.test_metrics, "train_loss": self.train_loss}
 
   def training_step(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     '''
