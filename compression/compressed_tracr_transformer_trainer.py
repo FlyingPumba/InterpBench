@@ -97,7 +97,7 @@ class CompressedTracrTransformerTrainer:
     if self.use_wandb:
       wandb.finish()
 
-    return {**self.test_metrics, "train_loss": self.train_loss}
+    return {**self.test_metrics, "train_loss": self.train_loss.item()}
 
   def training_step(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     '''
