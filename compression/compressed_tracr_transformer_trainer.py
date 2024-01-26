@@ -29,10 +29,11 @@ class CompressionTrainingArgs():
 
 
 class CompressedTracrTransformerTrainer:
-  def __init__(self, args: CompressionTrainingArgs,
+  def __init__(self, case: BenchmarkCase,
                model: CompressedTracrTransformer,
-               dataset: Dataset):
+               args: CompressionTrainingArgs):
     super().__init__()
+    self.case = case
     self.model = model
     self.device = model.device
     self.is_categorical = self.model.get_tl_model().is_categorical()
@@ -42,12 +43,15 @@ class CompressedTracrTransformerTrainer:
     self.use_wandb = self.args.wandb_project is not None
 
     self.step = 0
-    self.dataset = dataset
     self.train_loss = np.nan
     self.test_metrics = {}
+    self.dataset =  self.case.get_clean_data(count=args.train_data_size)
     self.optimizer = t.optim.Adam(self.model.parameters(), lr=args.lr)
 
     self.split_dataset(args)
+
+    if self.use_wandb and self.args.wandb_name is None:
+      self.args.wandb_name = f"case-{self.case}-resid-{self.model.residual_stream_compression_size}"
 
   def split_dataset(self, args):
     """Split the dataset into train and test sets."""

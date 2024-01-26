@@ -55,8 +55,7 @@ def compress_linear(case: BenchmarkCase,
                                                             residual_stream_compression_size,
                                                             device=tl_model.device)
   training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
-  dataset = case.get_clean_data(count=training_args.train_data_size)
-  trainer = CompressedTracrTransformerTrainer(training_args, compressed_tracr_transformer, dataset)
+  trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
   trainer.train()
 
   tl_model.reset_hooks(including_permanent=True)
