@@ -13,7 +13,6 @@ from tqdm import tqdm
 from transformer_lens import ActivationCache
 
 from benchmark.benchmark_case import BenchmarkCase
-from benchmark.validation_metrics import l2_metric
 from compression.compressed_tracr_transformer import CompressedTracrTransformer
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
@@ -22,7 +21,6 @@ from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 class CompressionTrainingArgs():
   batch_size: Optional[int] = 16
   epochs: Optional[int] = 10
-  max_steps_per_epoch: Optional[int] = 200
   lr: Optional[float] = 1e-3
   train_data_size: Optional[int] = 1000
   test_data_ratio: Optional[float] = 0.3
@@ -117,8 +115,7 @@ class CompressedTracrTransformerTrainer:
 
   def train(self):
     '''
-    Trains the model, for `self.args.epochs` epochs. Also handles wandb initialisation, and early stopping
-    for each epoch at `self.args.max_steps_per_epoch` steps.
+    Trains the model, for `self.args.epochs` epochs.
     '''
     print(f'Starting run to compress residual stream from {self.model.original_residual_stream_size} to'
           f' {self.model.residual_stream_compression_size} dimensions.')
@@ -129,15 +126,13 @@ class CompressedTracrTransformerTrainer:
     accuracy = np.nan
 
     batches_count = len(self.train_loader)
-    progress_bar = tqdm(total = min(self.args.max_steps_per_epoch, batches_count) * self.args.epochs)
+    progress_bar = tqdm(total = batches_count * self.args.epochs)
 
     for epoch in range(self.args.epochs):
       for i, batch in enumerate(self.train_loader):
         loss = self.training_step(batch)
         progress_bar.update()
         progress_bar.set_description(f"Epoch {epoch+1}, loss: {loss:.3f}, accuracy: {accuracy:.2f}")
-        if i >= self.args.max_steps_per_epoch:
-          break
 
       correct_predictions = t.concat([self.validation_step(batch) for batch in self.test_loader])
       accuracy = correct_predictions.float().mean().item()
@@ -168,8 +163,7 @@ class CompressedTracrTransformerTrainer:
     for layer in range(num_layers):
       compressed_model_output = compressed_model_cache["resid_post", layer]
       original_model_output = original_model_cache["resid_post", layer]
-      loss += l2_metric(compressed_model_output, original_model_output,
-                        is_categorical=is_categorical,
-                        discard_bos_token=False)
+
+      loss += t.nn.functional.mse_loss(compressed_model_output, original_model_output)
 
     return loss
