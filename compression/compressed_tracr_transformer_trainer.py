@@ -52,7 +52,7 @@ class CompressedTracrTransformerTrainer:
     self.split_dataset(args)
 
     if self.use_wandb and self.args.wandb_name is None:
-      self.args.wandb_name = f"case-{self.case}-resid-{self.model.residual_stream_compression_size}"
+      self.args.wandb_name = f"case-{self.case.index_str}-resid-{self.model.residual_stream_compression_size}"
 
   def split_dataset(self, args):
     """Split the dataset into train and test sets."""
