@@ -48,8 +48,8 @@ def parse_compression_size(args, tl_model: HookedTracrTransformer):
   compression_size = [int(size.strip()) for size in compression_size.split(",")]
 
   assert all(0 < size <= tl_model.cfg.d_model for size in compression_size), \
-    f"Invalid residual stream compression size: {compression_size}. " \
-      (f"All sizes in a comma separated list must be between 0 and {tl_model.cfg.d_model}.")
+    f"Invalid residual stream compression size: {str(compression_size)}. " \
+      f"All sizes in a comma separated list must be between 0 and {tl_model.cfg.d_model}."
 
   assert len(compression_size) > 0, "Must specify at least one residual stream compression size."
 
