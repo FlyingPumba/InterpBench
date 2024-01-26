@@ -19,7 +19,7 @@ def setup_compression_training_args_for_parser(parser):
                               help="Compress residual stream in the Tracr models.")
   parser.add_argument("--residual-stream-compression-size", type=str, default="auto",
                               help="The size of the compressed residual stream. Choose 'auto' to find the optimal size.")
-  parser.add_argument("--auto-compression-size", type=float, default=0.95,
+  parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                               help="The desired test accuracy when using 'auto' compression size.")
 
 
@@ -61,7 +61,7 @@ def compress_linear(case: BenchmarkCase,
     print(f" >>> Final metrics for {case} with residual stream compression size {residual_stream_compression_size}: ")
     print(final_metrics)
   else:
-    desired_test_accuracy = args.auto_compression_size
+    desired_test_accuracy = args.auto_compression_accuracy
     assert 0 < desired_test_accuracy <= 1, f"Invalid desired test accuracy: {desired_test_accuracy}. " \
                                             f"Must be between 0 and 1."
 
@@ -83,6 +83,7 @@ def compress_linear(case: BenchmarkCase,
       compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
                                                                 current_compression_size,
                                                                 device=tl_model.device)
+      training_args.wandb_name = None
       trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
       final_metrics = trainer.train()
 
@@ -103,6 +104,7 @@ def compress_linear(case: BenchmarkCase,
         compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
                                                                   current_compression_size,
                                                                   device=tl_model.device)
+        training_args.wandb_name = None
         trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
         final_metrics = trainer.train()
 
