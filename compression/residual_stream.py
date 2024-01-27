@@ -2,7 +2,7 @@ import typing
 from argparse import Namespace
 from typing import Literal
 
-from argparse_dataclass import _add_dataclass_options, ArgumentParser
+from argparse_dataclass import ArgumentParser
 
 from benchmark.benchmark_case import BenchmarkCase
 from compression.compressed_tracr_transformer import CompressedTracrTransformer
@@ -21,6 +21,8 @@ def setup_compression_training_args_for_parser(parser):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
+  parser.add_argument("-o", "--output-dir", type=str, default="results",
+                      help="The directory to save the results to.")
 
 
 def compress(case: BenchmarkCase,
@@ -76,6 +78,11 @@ def compress_linear(case: BenchmarkCase,
       final_metrics = trainer.train()
       print(f" >>> Final metrics for {case} with residual stream compression size {compression_size}: ")
       print(final_metrics)
+
+      compressed_tracr_transformer.dump_compression_matrix(
+        args.output_dir,
+        f"case-{case.index_str}-resid-{str(compression_size)}-compression-matrix"
+      )
   else:
     desired_test_accuracy = args.auto_compression_accuracy
     assert 0 < desired_test_accuracy <= 1, f"Invalid desired test accuracy: {desired_test_accuracy}. " \
@@ -93,6 +100,7 @@ def compress_linear(case: BenchmarkCase,
 
     current_compression_size = original_residual_stream_size // 2
     best_compression_size = original_residual_stream_size
+    compressed_tracr_transformer = None
 
     # Halve the residual stream size until we get a test accuracy below the desired one.
     while current_compression_size > 0:
@@ -132,3 +140,8 @@ def compress_linear(case: BenchmarkCase,
       best_compression_size = upper_bound
 
     print(f" >>> Best residual stream compression size for {case} is {best_compression_size}.")
+
+    compressed_tracr_transformer.dump_compression_matrix(
+      args.output_dir,
+      f"case-{case.index_str}-resid-{str(compression_size)}-compression-matrix"
+    )

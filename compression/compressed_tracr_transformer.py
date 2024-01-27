@@ -1,5 +1,7 @@
+import os
 from typing import List, Tuple, Callable
 
+import numpy as np
 import torch as t
 from jaxtyping import Float
 from torch import nn, Tensor
@@ -92,3 +94,10 @@ class CompressedTracrTransformer(nn.Module):
 
   def run_with_cache_on_original(self, tokens: HookedTracrTransformerBatchInput):
     return self.tl_model.run_with_cache(tokens)
+
+  def dump_compression_matrix(self, output_dir: str, filename: str):
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+
+    compression_matrix = self.W_compress.detach().cpu().numpy()
+    np.save(os.path.join(output_dir, filename), compression_matrix)
