@@ -35,10 +35,23 @@ class Case00003(BenchmarkCase):
 
     # set numpy seed
     np.random.seed(self.data_generation_seed)
-
     vals = sorted(list(self.get_vocab()))
-    for _ in range(count):
-      sample = np.random.choice(vals, size=seq_len - 1).tolist() # sample with replacement
+
+    produce_all = False
+    if count is None:
+      # produce all possible sequences
+      count = len(vals) ** (seq_len - 1)
+      produce_all = True
+
+    for index in range(count):
+      if produce_all:
+        # we want to produce all possible sequences, so we convert the index to base len(vals) and then convert each
+        # digit to the corresponding value in vals
+        sample = np.base_repr(index, base=len(vals)).zfill(seq_len - 1)
+        sample = [vals[int(digit)] for digit in sample]
+      else:
+        sample = np.random.choice(vals, size=seq_len - 1).tolist() # sample with replacement
+
       output = [sample[:i+1].count("x")/(i+1) for i in range(len(sample))]
       input_data.append(["BOS"] + sample)
       output_data.append(["BOS"] + output)
