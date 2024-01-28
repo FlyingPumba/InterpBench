@@ -1,50 +1,20 @@
-from dataclasses import dataclass
-from typing import Optional, Dict, List, Any
+
+from typing import Dict
 
 import numpy as np
 import torch as t
 import wandb
-from datasets import DatasetDict, Split
 from jaxtyping import Float
 from torch import Tensor
 from torch.optim.lr_scheduler import LambdaLR
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformer_lens import ActivationCache
 
 from benchmark.benchmark_case import BenchmarkCase
+from benchmark.case_dataset import CaseDataset
 from compression.compressed_tracr_transformer import CompressedTracrTransformer
+from compression.compression_training_args import CompressionTrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-
-
-@dataclass
-class CompressionTrainingArgs():
-  # Wandb config
-  wandb_project: Optional[str] = None
-  wandb_name: Optional[str] = None
-
-  # data management
-  batch_size: Optional[int] = 256
-  train_data_size: Optional[int] = None  # use all data available
-  test_data_ratio: Optional[float] = None  # same as train data
-
-  # training time and early stopping
-  epochs: Optional[int] = None
-  steps: Optional[int] = 3e5
-  early_stop_test_accuracy: Optional[float] = None
-
-  # AdamW optimizer config
-  weight_decay: Optional[float] = 0.1
-  beta_1: Optional[float] = 0.9
-  beta_2: Optional[float] = 0.99
-
-  # learning rate config
-  lr_warmup_steps: Optional[float] = 3e5 // 2  # by default, first half of total steps
-  lr_start: Optional[float] = 1e-3
-  lr_end: Optional[float] = 1e-6
-
-  # test metrics config
-  test_accuracy_atol: Optional[float] = 1e-2
 
 
 class CompressedTracrTransformerTrainer:
@@ -83,26 +53,7 @@ class CompressedTracrTransformerTrainer:
   def setup_dataset(self, args):
     """Prepare the dataset and split it into train and test sets."""
     self.dataset = self.case.get_clean_data(count=args.train_data_size)
-
-    def custom_collate(items: List[Dict[str, List[Any]]]) -> dict[str, HookedTracrTransformerBatchInput]:
-      return {BenchmarkCase.DATASET_INPUT_FIELD: [item[BenchmarkCase.DATASET_INPUT_FIELD] for item in items],
-              BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD: [item[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD] for item in
-                                                           items]}
-
-    if args.test_data_ratio is None:
-      # we use the same data for training and testing
-      self.train_loader = DataLoader(self.dataset, batch_size=args.batch_size, shuffle=True,
-                                     collate_fn=custom_collate)
-      self.test_loader = DataLoader(self.dataset, batch_size=len(self.dataset), shuffle=False,
-                                    collate_fn=custom_collate)
-    else:
-      # we split the data into train and test sets, using the provided ratio
-      split: DatasetDict = self.dataset.train_test_split(test_size=int(len(self.dataset) * args.test_data_ratio))
-
-      self.train_loader = DataLoader(split[Split.TRAIN], batch_size=args.batch_size, shuffle=True,
-                                     collate_fn=custom_collate)
-      self.test_loader = DataLoader(split[Split.TEST], batch_size=len(split[Split.TEST]), shuffle=False,
-                                    collate_fn=custom_collate)
+    self.train_loader, self.test_loader = self.dataset.train_test_split(args)
 
   def train(self):
     """
@@ -146,7 +97,7 @@ class CompressedTracrTransformerTrainer:
     self.optimizer.zero_grad()
 
     # Run the input on both compressed and original model
-    input = batch[BenchmarkCase.DATASET_INPUT_FIELD]
+    input = batch[CaseDataset.INPUT_FIELD]
     compressed_model_logits, compressed_model_cache = self.model.run_with_cache(input)
     original_model_logits, original_model_cache = self.model.run_with_cache_on_original(input)
 
@@ -202,8 +153,8 @@ class CompressedTracrTransformerTrainer:
 
   def evaluate_test_metrics(self):
     test_data = next(iter(self.test_loader))
-    inputs = test_data[BenchmarkCase.DATASET_INPUT_FIELD]
-    expected_outputs = test_data[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
+    inputs = test_data[CaseDataset.INPUT_FIELD]
+    expected_outputs = test_data[CaseDataset.CORRECT_OUTPUT_FIELD]
     predicted_outputs = self.model(inputs, return_type="decoded")
 
     correct_predictions = []
@@ -212,21 +163,23 @@ class CompressedTracrTransformerTrainer:
 
     # The [1:] is for discarding the BOS token from comparison
     for predicted_output, expected_output in zip(predicted_outputs, expected_outputs):
-      if self.model.get_tl_model().is_categorical():
-        predictions = [ord(p) for p in predicted_output[1:]]
-        expectations = [ord(e) for e in expected_output[1:]]
-        predicted_outputs_flattened.extend(predictions)
-        expected_outputs_flattened.extend(expectations)
+      predictions = predicted_output[1:]
+      expectations = expected_output[1:]
 
+      if isinstance(predictions[0], str):
+        # We have chars, convert them to numbers using ord to avoid the torch issue: "too many dimensions 'str'"
+        predictions = [ord(p) for p in predictions]
+        expectations = [ord(e) for e in expectations]
+
+      predicted_outputs_flattened.extend(predictions)
+      expected_outputs_flattened.extend(expectations)
+
+      if self.model.get_tl_model().is_categorical():
         correct_predictions.extend(p == e for p, e in zip(predictions, expectations))
       else:
-        predictions = [float(p) for p in predicted_output[1:]]
-        expectations = [float(e) for e in expected_output[1:]]
-        predicted_outputs_flattened.extend(predictions)
-        expected_outputs_flattened.extend(expectations)
-
-        close_predictions = np.isclose(predictions, expectations, atol=self.args.test_accuracy_atol)
-        correct_predictions.extend(close_predictions.tolist())
+        correct_predictions.extend(np.isclose(predictions,
+                                              expectations,
+                                              atol=self.args.test_accuracy_atol).tolist())
 
     self.test_metrics["test_accuracy"] = np.mean(correct_predictions)
 

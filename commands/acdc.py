@@ -111,8 +111,8 @@ def run_acdc(case: BenchmarkCase, args):
   use_pos_embed = True  # Always true for all tracr models.
 
   validation_metric = case.get_validation_metric(metric_name, tl_model)
-  toks_int_values = case.get_clean_data()[BenchmarkCase.DATASET_INPUT_FIELD]
-  toks_int_values_other = case.get_corrupted_data()[BenchmarkCase.DATASET_INPUT_FIELD]
+  toks_int_values = case.get_clean_data().get_inputs()
+  toks_int_values_other = case.get_corrupted_data().get_inputs()
 
   try:
     with open(__file__, "r") as f:

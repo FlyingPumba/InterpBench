@@ -3,6 +3,7 @@ from typing import List, Literal, Any, Union
 import einops
 import jax.numpy as jnp
 import numpy as np
+import pandas as pd
 import torch as t
 from jaxtyping import Float
 from torch import Tensor
@@ -31,6 +32,7 @@ class HookedTracrTransformer(HookedTransformer):
     self.device = device
     self.tracr_input_encoder = tracr_model.input_encoder
     self.tracr_output_encoder = tracr_model.output_encoder
+    self.residual_stream_labels = tracr_model.residual_labels
 
     sd = self.extract_tracr_state_dict(tracr_model)
     self.load_tracr_state_dict(sd)
@@ -42,7 +44,7 @@ class HookedTracrTransformer(HookedTransformer):
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
-    if isinstance(args[0], list):
+    if isinstance(args[0], list) or isinstance(args[0], pd.Series):
       # Input is a HookedTracrTransformerBatchInput
       return self.run_tracr_input(*args, **kwargs)
     else:

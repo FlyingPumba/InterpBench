@@ -3,11 +3,11 @@ from typing import Set
 
 import numpy as np
 import torch
-from datasets import Dataset
 from torch import Tensor
 
 from benchmark import vocabs
 from benchmark.benchmark_case import BenchmarkCase
+from benchmark.case_dataset import CaseDataset
 from benchmark.common_programs import make_reverse
 from benchmark.validation_metrics import l2_metric
 from tracr.rasp import rasp
@@ -21,7 +21,7 @@ class Case00002(BenchmarkCase):
   def get_vocab(self) -> Set:
       return vocabs.get_ascii_letters_vocab()
 
-  def get_clean_data(self, count: int = 10) -> Dataset:
+  def get_clean_data(self, count: int = 10) -> CaseDataset:
     seq_len = self.get_max_seq_len()
     input_data: HookedTracrTransformerBatchInput = []
     output_data: HookedTracrTransformerBatchInput = []
@@ -49,14 +49,14 @@ class Case00002(BenchmarkCase):
       input_data.append(["BOS"] + sample.tolist())
       output_data.append(["BOS"] + sample[::-1].tolist())
 
-    return self._build_dataset(input_data, output_data)
+    return CaseDataset(input_data, output_data)
 
   def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
     if metric_name not in ["l2"]:
       raise ValueError(f"Metric {metric_name} is not available for case {self}")
 
-    input = self.get_clean_data()[BenchmarkCase.DATASET_INPUT_FIELD]
+    inputs = self.get_clean_data().get_inputs()
     with torch.no_grad():
-      baseline_output = tl_model(input)
+      baseline_output = tl_model(inputs)
 
     return partial(l2_metric, baseline_output=baseline_output)

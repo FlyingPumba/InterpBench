@@ -4,11 +4,11 @@ from typing import Set
 import numpy as np
 import torch
 import torch.nn.functional as F
-from datasets import Dataset
 from torch import Tensor
 
 from benchmark import vocabs
 from benchmark.benchmark_case import BenchmarkCase
+from benchmark.case_dataset import CaseDataset
 from benchmark.common_programs import make_frac_prevs
 from benchmark.validation_metrics import kl_divergence, l2_metric
 from tracr.rasp import rasp
@@ -28,7 +28,7 @@ class Case00003(BenchmarkCase):
   def get_max_seq_len(self) -> int:
     return 5
 
-  def get_clean_data(self, count: int = 10) -> Dataset:
+  def get_clean_data(self, count: int = 10) -> CaseDataset:
     seq_len = self.get_max_seq_len()
     input_data: HookedTracrTransformerBatchInput = []
     output_data: HookedTracrTransformerBatchInput = []
@@ -56,16 +56,16 @@ class Case00003(BenchmarkCase):
       input_data.append(["BOS"] + sample)
       output_data.append(["BOS"] + output)
 
-    return self._build_dataset(input_data, output_data)
+    return CaseDataset(input_data, output_data)
 
   def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
     if metric_name not in ["l2"]:
       # TODO: Figure out why KL divergence is not working for this case. It seems to be available in ACDC's experiments.
       raise ValueError(f"Metric {metric_name} is not available for case {self}")
 
-    input = self.get_clean_data()[BenchmarkCase.DATASET_INPUT_FIELD]
+    inputs = self.get_clean_data().get_inputs()
     with torch.no_grad():
-      baseline_output = tl_model(input)
+      baseline_output = tl_model(inputs)
       base_model_logprobs = F.log_softmax(baseline_output, dim=-1)
 
     if metric_name == "kl":

@@ -3,10 +3,10 @@ import os
 from typing import Set
 
 from cloudpickle import cloudpickle
-from datasets import Dataset
 from networkx import DiGraph
 from torch import Tensor
 
+from benchmark.case_dataset import CaseDataset
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.rasp import rasp
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
@@ -14,8 +14,6 @@ from utils.relativize_path import relativize_path_to_project_root
 
 
 class BenchmarkCase(object):
-  DATASET_INPUT_FIELD = "input"
-  DATASET_CORRECT_OUTPUT_FIELD = "correct_output"
 
   def __init__(self, file_path_from_root: str):
     self.file_path_from_root = file_path_from_root
@@ -45,7 +43,7 @@ class BenchmarkCase(object):
     """Returns the vocabulary to be used by Tracr."""
     raise NotImplementedError()
 
-  def get_clean_data(self, count: int = 10) -> Dataset:
+  def  get_clean_data(self, count: int = 10) -> CaseDataset:
     """Returns a tuple of (input, expected_output) for the benchmark case."""
     raise NotImplementedError()
 
@@ -53,7 +51,7 @@ class BenchmarkCase(object):
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
 
-  def get_corrupted_data(self, count: int = 10) -> Dataset:
+  def get_corrupted_data(self, count: int = 10) -> CaseDataset:
     """Returns the corrupted data for the benchmark case.
     Default implementation: re-generate clean data with a different seed."""
     self.data_generation_seed = self.data_generation_seed + 1
@@ -124,14 +122,3 @@ class BenchmarkCase(object):
   def dump_to_pickle(self, path, obj) -> None:
     with open(path, "wb") as f:
       cloudpickle.dump(obj, f)
-
-  def _build_dataset(self, input_data: HookedTracrTransformerBatchInput, output_data: HookedTracrTransformerBatchInput) -> Dataset:
-    # map all inputs and outputs to strings, since pyarrow does not allow, easily, mixed types and we already have the
-    # "BOS" token in the input/output
-    input_data = [[str(x) for x in input] for input in input_data]
-    output_data = [[str(x) for x in output] for output in output_data]
-
-    return Dataset.from_dict({
-      self.DATASET_INPUT_FIELD: input_data,
-      self.DATASET_CORRECT_OUTPUT_FIELD: output_data
-    })

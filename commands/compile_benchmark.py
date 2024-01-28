@@ -122,8 +122,8 @@ def run_case_tests_on_tracr_model(case: BenchmarkCase,
                                   tracr_model: AssembledTransformerModel,
                                   atol: float = 1.e-5):
   dataset = case.get_clean_data()
-  inputs = dataset[BenchmarkCase.DATASET_INPUT_FIELD]
-  expected_outputs = dataset[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
+  inputs = dataset.get_inputs()
+  expected_outputs = dataset.get_correct_outputs()
 
   is_categorical = isinstance(tracr_model.output_encoder, CategoricalEncoder)
 
@@ -133,12 +133,10 @@ def run_case_tests_on_tracr_model(case: BenchmarkCase,
     decoded_output = tracr_model.apply(input).decoded
 
     if is_categorical:
-      correct = decoded_output == expected_output
+      correct = all(elem1 == elem2 for elem1, elem2 in zip(decoded_output, expected_output))
     else:
-      # then output is numerical and we need to convert it to floats, because they are stored as strings in the dataset
-      expected_output = [float(x) for x in expected_output[1:]]
-      decoded_output = [float(x) for x in decoded_output[1:]]
-      correct = np.allclose(expected_output, decoded_output, atol=atol)
+      # compare how close the outputs are numerically without taking into account the BOS token
+      correct = np.allclose(expected_output[1:], decoded_output[1:], atol=atol)
 
     if not correct:
       raise ValueError(f"Failed test for {case} on tracr model."
@@ -151,8 +149,8 @@ def run_case_tests_on_tl_model(case: BenchmarkCase,
                                tl_model: HookedTracrTransformer,
                                atol: float = 1.e-5):
   dataset = case.get_clean_data()
-  inputs = dataset[BenchmarkCase.DATASET_INPUT_FIELD]
-  expected_outputs = dataset[BenchmarkCase.DATASET_CORRECT_OUTPUT_FIELD]
+  inputs = dataset.get_inputs()
+  expected_outputs = dataset.get_correct_outputs()
   decoded_outputs = tl_model(inputs, return_type="decoded")
 
   for i in range(len(expected_outputs)):
@@ -161,12 +159,10 @@ def run_case_tests_on_tl_model(case: BenchmarkCase,
     decoded_output = decoded_outputs[i]
 
     if tl_model.is_categorical():
-      correct = decoded_output == expected_output
+      correct = all(elem1 == elem2 for elem1, elem2 in zip(decoded_output, expected_output))
     else:
-      # then output is numerical and we need to convert it to floats, because they are stored as strings in the dataset
-      expected_output = [float(x) for x in expected_output[1:]]
-      decoded_output = [float(x) for x in decoded_output[1:]]
-      correct = np.allclose(decoded_output, expected_output, atol=atol)
+      # compare how close the outputs are numerically without taking into account the BOS token
+      correct = np.allclose(expected_output[1:], decoded_output[1:], atol=atol)
 
     if not correct:
       raise ValueError(f"Failed test for {case} on tl model."
