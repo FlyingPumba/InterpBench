@@ -2,6 +2,7 @@ import importlib
 import os
 from typing import Set
 
+import numpy as np
 from cloudpickle import cloudpickle
 from networkx import DiGraph
 from torch import Tensor
@@ -44,8 +45,36 @@ class BenchmarkCase(object):
     raise NotImplementedError()
 
   def  get_clean_data(self, count: int = 10) -> CaseDataset:
-    """Returns a tuple of (input, expected_output) for the benchmark case."""
-    raise NotImplementedError()
+    """Returns the clean data for the benchmark case."""
+    seq_len = self.get_max_seq_len()
+    input_data: HookedTracrTransformerBatchInput = []
+    output_data: HookedTracrTransformerBatchInput = []
+
+    # set numpy seed and sort vocab to ensure reproducibility
+    np.random.seed(self.data_generation_seed)
+    vals = sorted(list(self.get_vocab()))
+
+    # If count is None, we will produce all possible sequences for this vocab and sequence length
+    produce_all = False
+    if count is None:
+      count = len(vals) ** (seq_len - 1)
+      produce_all = True
+
+    for index in range(count):
+      if produce_all:
+        # we want to produce all possible sequences, so we convert the index to base len(vals) and then convert each
+        # digit to the corresponding value in vals
+        sample = np.base_repr(index, base=len(vals)).zfill(seq_len - 1)
+        sample = [vals[int(digit)] for digit in sample]
+      else:
+        sample = np.random.choice(vals, size=seq_len - 1).tolist()  # sample with replacement
+
+      output = self.get_program()(sample)
+
+      input_data.append(["BOS"] + sample)
+      output_data.append(["BOS"] + output)
+
+    return CaseDataset(input_data, output_data)
 
   def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
     """Returns the validation metric for the benchmark case."""

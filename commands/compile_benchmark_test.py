@@ -10,9 +10,18 @@ from utils.get_cases import get_cases
 
 class CompileBenchmarkTest(unittest.TestCase):
   def test_all_cases_can_be_compiled_and_have_expected_outputs(self):
+    indices = [str(i) for i in range(1, 48)]
+
+    # remove cases that are known to fail and we have yet to fix
+    failing_cases = ["1", "6", "8", "10", "11", "12", "16", "17", "18", "19", "20", "23", "25", "30", "31", "32", "33",
+                     "34", "36", "38", "39", "41", "44", "46", "47"]
+    for failing_case in failing_cases:
+      if failing_case in indices:
+        indices.remove(failing_case)
+
     args, _ = build_main_parser().parse_known_args(["compile",
                                                     "-f",
-                                                    "-i=2,3",
+                                                    ("-i=" + ",".join(indices)),
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     cases = get_cases(args)
     for case in cases:
