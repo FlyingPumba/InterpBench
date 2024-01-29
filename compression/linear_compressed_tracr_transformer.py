@@ -11,7 +11,7 @@ from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTr
   HookedTracrTransformerReturnType
 
 
-class CompressedTracrTransformer(nn.Module):
+class LinearCompressedTracrTransformer(nn.Module):
 
   def __init__(self,
                tl_model: HookedTracrTransformer,

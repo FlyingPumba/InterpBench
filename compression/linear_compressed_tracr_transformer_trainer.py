@@ -12,14 +12,14 @@ from transformer_lens import ActivationCache
 
 from benchmark.benchmark_case import BenchmarkCase
 from benchmark.case_dataset import CaseDataset
-from compression.linear_compressed_tracr_transformer import CompressedTracrTransformer
+from compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
 from compression.compression_training_args import CompressionTrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
 
-class CompressedTracrTransformerTrainer:
+class LinearCompressedTracrTransformerTrainer:
   def __init__(self, case: BenchmarkCase,
-               model: CompressedTracrTransformer,
+               model: LinearCompressedTracrTransformer,
                args: CompressionTrainingArgs):
     super().__init__()
     self.case = case

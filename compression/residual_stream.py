@@ -5,8 +5,8 @@ from typing import Literal
 from argparse_dataclass import ArgumentParser
 
 from benchmark.benchmark_case import BenchmarkCase
-from compression.linear_compressed_tracr_transformer import CompressedTracrTransformer
-from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, CompressedTracrTransformerTrainer
+from compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
+from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, LinearCompressedTracrTransformerTrainer
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
 residual_stream_compression_options_type = Literal["linear"]
@@ -70,11 +70,11 @@ def compress_linear(case: BenchmarkCase,
   if compression_size != "auto":
     for compression_size in compression_size:
       print(f" >>> Starting compression for {case} with residual stream compression size {compression_size}.")
-      compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
-                                                                int(compression_size),
-                                                                device=tl_model.device)
+      compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
+                                                                      int(compression_size),
+                                                                      device=tl_model.device)
       training_args.wandb_name = None
-      trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+      trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
       final_metrics = trainer.train()
       print(f" >>> Final metrics for {case} with residual stream compression size {compression_size}: ")
       print(final_metrics)
@@ -104,11 +104,11 @@ def compress_linear(case: BenchmarkCase,
 
     # Halve the residual stream size until we get a test accuracy below the desired one.
     while current_compression_size > 0:
-      compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
-                                                                current_compression_size,
-                                                                device=tl_model.device)
+      compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
+                                                                      current_compression_size,
+                                                                      device=tl_model.device)
       training_args.wandb_name = None
-      trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+      trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
       final_metrics = trainer.train()
 
       if final_metrics["test_accuracy"] > desired_test_accuracy:
@@ -125,11 +125,11 @@ def compress_linear(case: BenchmarkCase,
 
       while lower_bound < upper_bound:
         current_compression_size = (lower_bound + upper_bound) // 2
-        compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
-                                                                  current_compression_size,
-                                                                  device=tl_model.device)
+        compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
+                                                                        current_compression_size,
+                                                                        device=tl_model.device)
         training_args.wandb_name = None
-        trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+        trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
         final_metrics = trainer.train()
 
         if final_metrics["test_accuracy"] > desired_test_accuracy:
