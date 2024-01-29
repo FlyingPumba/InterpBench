@@ -5,8 +5,8 @@ from typing import Literal
 from argparse_dataclass import ArgumentParser
 
 from benchmark.benchmark_case import BenchmarkCase
-from compression.compressed_tracr_transformer import CompressedTracrTransformer
-from compression.compressed_tracr_transformer_trainer import CompressionTrainingArgs, CompressedTracrTransformerTrainer
+from compression.linear_compressed_tracr_transformer import CompressedTracrTransformer
+from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, CompressedTracrTransformerTrainer
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
 residual_stream_compression_options_type = Literal["linear"]

@@ -12,7 +12,7 @@ from transformer_lens import ActivationCache
 
 from benchmark.benchmark_case import BenchmarkCase
 from benchmark.case_dataset import CaseDataset
-from compression.compressed_tracr_transformer import CompressedTracrTransformer
+from compression.linear_compressed_tracr_transformer import CompressedTracrTransformer
 from compression.compression_training_args import CompressionTrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
