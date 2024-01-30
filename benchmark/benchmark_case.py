@@ -64,8 +64,19 @@ class BenchmarkCase(object):
       if produce_all:
         # we want to produce all possible sequences, so we convert the index to base len(vals) and then convert each
         # digit to the corresponding value in vals
-        sample = np.base_repr(index, base=len(vals)).zfill(seq_len - 1)
-        sample = [vals[int(digit)] for digit in sample]
+        sample = []
+        base = len(vals)
+        num = index
+        while num:
+          sample.append(vals[num % base])
+          num //= base
+
+        if len(sample) < seq_len - 1:
+          # extend with the first value in vocab to fill the sequence
+          sample.extend([vals[0]] * (seq_len - 1 - len(sample)))
+
+        # reverse the list to produce the sequence in the correct order
+        sample = sample[::-1]
       else:
         sample = np.random.choice(vals, size=seq_len - 1).tolist()  # sample with replacement
 
