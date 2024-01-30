@@ -35,6 +35,7 @@ class LinearCompressedTracrTransformer(nn.Module):
     # [to_size, from_size]
     self.W_compress: Linear = nn.Linear(self.original_residual_stream_size,
                                         self.residual_stream_compression_size,
+                                        device=self.device,
                                         bias=False)
 
     if initialization == "orthogonal":
