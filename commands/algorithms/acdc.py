@@ -9,7 +9,7 @@ import wandb
 from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from benchmark.benchmark_case import BenchmarkCase
-from commands.compile_benchmark import build_transformer_lens_model
+from commands.compilation.compile_benchmark import build_transformer_lens_model
 from utils.relativize_path import relativize_path_to_project_root
 
 
