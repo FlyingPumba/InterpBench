@@ -1,14 +1,17 @@
 import os
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Literal
 
 import numpy as np
 import torch as t
 from jaxtyping import Float
 from torch import nn, Tensor
+from torch.nn import Linear
 from transformer_lens.hook_points import HookPoint
 
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput, \
   HookedTracrTransformerReturnType
+
+LinearCompressedTracrTransformerInitialization = Literal["orthogonal", "linear"]
 
 
 class LinearCompressedTracrTransformer(nn.Module):
@@ -16,6 +19,7 @@ class LinearCompressedTracrTransformer(nn.Module):
   def __init__(self,
                tl_model: HookedTracrTransformer,
                residual_stream_compression_size: int,
+               initialization: LinearCompressedTracrTransformerInitialization = "linear",
                device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")):
     super().__init__()
     self.residual_stream_compression_size = residual_stream_compression_size
@@ -29,12 +33,14 @@ class LinearCompressedTracrTransformer(nn.Module):
     # the residual stream, and with W^T when writing to the residual stream.
 
     # [to_size, from_size]
-    self.W_compress = nn.Parameter(t.empty((self.residual_stream_compression_size,
-                                            self.original_residual_stream_size), device=self.device))
-    # It's important to start with a (semi) orthogonal matrix, otherwise the model will not train.
-    # The (smi) orthogonal matrix is useful for our setup because the transpose is exactly the inverse, and we are using
-    # the same matrix for reading and writing from/to the residual stream.
-    nn.init.orthogonal_(self.W_compress)
+    self.W_compress: Linear = nn.Linear(self.original_residual_stream_size,
+                                        self.residual_stream_compression_size,
+                                        bias=False)
+
+    if initialization == "orthogonal":
+      # The (semi) orthogonal matrix is useful for our setup because the transpose is exactly the inverse, and we will
+      # use the same matrix for reading and writing from/to the residual stream.
+      nn.init.orthogonal_(self.W_compress.weight)
 
     self.tl_model.reset_hooks(including_permanent=True)
 
@@ -44,8 +50,8 @@ class LinearCompressedTracrTransformer(nn.Module):
   def build_hooks(self) -> List[Tuple[str, Callable]]:
     hooks = []
 
-    write_to_compressed_residual = lambda x: x @ self.W_compress.T
-    read_from_compressed_residual = lambda x: x @ self.W_compress
+    write_to_compressed_residual = lambda x: x @ self.W_compress.weight.T
+    read_from_compressed_residual = lambda x: x @ self.W_compress.weight
 
     def write_to_resid_hook_function(
         residual_stream: Float[Tensor, "batch seq_len d_model"],
@@ -99,5 +105,5 @@ class LinearCompressedTracrTransformer(nn.Module):
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
 
-    compression_matrix = self.W_compress.detach().cpu().numpy()
+    compression_matrix = self.W_compress.weight.detach().cpu().numpy()
     np.save(os.path.join(output_dir, filename), compression_matrix)
