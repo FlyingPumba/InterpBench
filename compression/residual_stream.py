@@ -11,7 +11,8 @@ from transformer_lens import HookedTransformer, HookedTransformerConfig
 from benchmark.benchmark_case import BenchmarkCase
 from compression.autencoder import AutoEncoder
 from compression.autoencoder_trainer import AutoEncoderTrainer
-from compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
+from compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer, \
+  linear_compression_initialization_options
 from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, LinearCompressedTracrTransformerTrainer
 from compression.non_linear_compressed_tracr_transformer_trainer import NonLinearCompressedTracrTransformerTrainer
 from utils.hooked_tracr_transformer import HookedTracrTransformer
@@ -28,6 +29,9 @@ def setup_compression_training_args_for_parser(parser):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
+  parser.add_argument("--linear-compression-initialization", type=str, default="linear",
+                      choices=linear_compression_initialization_options,
+                      help="The initialization method for the linear compression matrix.")
   parser.add_argument("-o", "--output-dir", type=str, default="results",
                       help="The directory to save the results to.")
 
@@ -72,6 +76,7 @@ def compress_linear(case: BenchmarkCase,
                     args: Namespace):
   """Compresses the residual stream of a Tracr model using a linear compression."""
   compression_size = parse_compression_size(args, tl_model)
+  initialization = args.linear_compression_initialization
 
   training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
   original_residual_stream_size = tl_model.cfg.d_model
@@ -81,6 +86,7 @@ def compress_linear(case: BenchmarkCase,
       print(f" >>> Starting linear compression for {case} with residual stream compression size {compression_size}.")
       compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
                                                                       int(compression_size),
+                                                                      initialization=initialization,
                                                                       device=tl_model.device)
       training_args.wandb_name = None
       trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
@@ -115,6 +121,7 @@ def compress_linear(case: BenchmarkCase,
     while current_compression_size > 0:
       compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
                                                                       current_compression_size,
+                                                                      initialization=initialization,
                                                                       device=tl_model.device)
       training_args.wandb_name = None
       trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
@@ -136,6 +143,7 @@ def compress_linear(case: BenchmarkCase,
         current_compression_size = (lower_bound + upper_bound) // 2
         compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
                                                                         current_compression_size,
+                                                                        initialization=initialization,
                                                                         device=tl_model.device)
         training_args.wandb_name = None
         trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)

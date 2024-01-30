@@ -1,4 +1,5 @@
 import os
+import typing
 from typing import List, Tuple, Callable, Literal
 
 import numpy as np
@@ -12,6 +13,7 @@ from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTr
   HookedTracrTransformerReturnType
 
 LinearCompressedTracrTransformerInitialization = Literal["orthogonal", "linear"]
+linear_compression_initialization_options = list(typing.get_args(LinearCompressedTracrTransformerInitialization))
 
 
 class LinearCompressedTracrTransformer(nn.Module):
