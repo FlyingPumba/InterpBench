@@ -20,8 +20,9 @@ class CompileBenchmarkTest(unittest.TestCase):
         indices.remove(failing_case)
 
     args, _ = build_main_parser().parse_known_args(["compile",
-                                                    "-f",
                                                     ("-i=" + ",".join(indices)),
+                                                    "-f",
+                                                    "--fail-on-error",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     cases = get_cases(args)
     for case in cases:
@@ -36,10 +37,10 @@ class CompileBenchmarkTest(unittest.TestCase):
 
   def test_linear_compression_does_not_throw_exceptions_on_any_case(self):
     args, _ = build_main_parser().parse_known_args(["compile",
-                                                    "-f",
                                                     "-i=2,3",
-                                                    "--compress-residual=linear",
+                                                    "-f",
                                                     "--fail-on-error",
+                                                    "--compress-residual=linear",
                                                     "--residual-stream-compression-size=5",
                                                     "--epochs=2",
                                                     "--train-data-size=10",
@@ -52,8 +53,25 @@ class CompileBenchmarkTest(unittest.TestCase):
     # Case 2 has a size of 117 for the residual stream. Let's try to compress it to 80.
     args, _ = build_main_parser().parse_known_args(["compile",
                                                     "-i=2",
+                                                    "-f",
+                                                    "--fail-on-error",
                                                     "--compress-residual=linear",
                                                     "--residual-stream-compression-size=auto",
-                                                    "-wandb-project=compression",
+                                                    "--train-data-size=10",
+                                                    "--auto-compression-accuracy=0.01",
+                                                    "--early-stop-test-accuracy=0.01",
+                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
+    compile_all(args)
+
+  def test_non_linear_compression_works_for_case_3(self):
+    args, _ = build_main_parser().parse_known_args(["compile",
+                                                    "-i=3",
+                                                    "-f",
+                                                    "--fail-on-error",
+                                                    "--compress-residual=nonlinear",
+                                                    "--residual-stream-compression-size=8",
+                                                    "--train-data-size=10",
+                                                    "--test-data-ratio=0.3",
+                                                    "--epochs=20",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     compile_all(args)
