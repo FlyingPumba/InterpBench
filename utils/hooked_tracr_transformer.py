@@ -1,4 +1,6 @@
-from typing import List, Literal, Any, Union
+from __future__ import annotations
+
+from typing import List, Literal, Any, Union, Callable, Optional, Dict, Tuple
 
 import einops
 import jax.numpy as jnp
@@ -6,13 +8,15 @@ import numpy as np
 import pandas as pd
 import torch as t
 from jaxtyping import Float
-from torch import Tensor
+from torch import Tensor, nn
+from torch.nn import Parameter
 from transformer_lens import HookedTransformer, HookedTransformerConfig
+from transformer_lens.hook_points import NamesFilter
 
-from tracr.compiler import assemble
+from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
-from tracr.transformer.encoder import CategoricalEncoder
+from tracr.transformer.encoder import CategoricalEncoder, Encoder
 
 HookedTracrTransformerBatchInput = List[List[Any]]
 HookedTracrTransformerReturnType = Literal["logits", "decoded"]
@@ -22,25 +26,65 @@ class HookedTracrTransformer(HookedTransformer):
   """A TransformerLens model built from a Tracr model."""
 
   def __init__(self,
-               tracr_model: assemble.AssembledTransformerModel,
+               cfg: HookedTransformerConfig,
+               tracr_input_encoder: Encoder,
+               tracr_output_encoder: Encoder,
+               residual_stream_labels: List[str],
                device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
                *args, **kwargs) -> None:
     """Converts a tracr model to a transformer_lens model.
     Inspired by https://github.com/neelnanda-io/TransformerLens/blob/main/demos/Tracr_to_Transformer_Lens_Demo.ipynb"""
-    super().__init__(cfg=self.extract_tracr_config(tracr_model), *args, **kwargs)
+    super().__init__(cfg=cfg, *args, **kwargs)
 
     self.device = device
-    self.tracr_input_encoder = tracr_model.input_encoder
-    self.tracr_output_encoder = tracr_model.output_encoder
-    self.residual_stream_labels = tracr_model.residual_labels
-
-    sd = self.extract_tracr_state_dict(tracr_model)
-    self.load_tracr_state_dict(sd)
+    self.tracr_input_encoder = tracr_input_encoder
+    self.tracr_output_encoder = tracr_output_encoder
+    self.residual_stream_labels = residual_stream_labels
 
     if "use_hook_mlp_in" in self.cfg.to_dict(): # Tracr models always include MLPs
         self.set_use_hook_mlp_in(True)
 
-    self.freeze_all_weights()
+    self.weights_frozen = False
+
+  @classmethod
+  def from_tracr_model(
+      cls,
+      tracr_model: AssembledTransformerModel,
+      device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
+  ) -> HookedTracrTransformer:
+    """
+    Initialize a HookedTracrTransformer from a Tracr model.
+    """
+    cfg = cls.extract_tracr_config(tracr_model)
+    tl_model = cls(cfg, tracr_model.input_encoder, tracr_model.output_encoder, tracr_model.residual_labels, device)
+    tl_model.load_weights_from_tracr_model(tracr_model)
+
+    return tl_model
+
+  @classmethod
+  def from_hooked_tracr_transformer(cls,
+                                    tl_model,
+                                    overwrite_cfg_dict: Dict[str, Any] = None,
+                                    init_params_fn: Optional[Callable[[Tensor], Tensor]] = None
+                                    ) -> HookedTracrTransformer:
+    """
+    Initialize a HookedTracrTransformer from a HookedTracrTransformer.
+    """
+    cfg_dict = tl_model.cfg.to_dict()
+    if overwrite_cfg_dict is not None:
+      cfg_dict.update(overwrite_cfg_dict)
+    cfg = HookedTransformerConfig.from_dict(cfg_dict)
+
+    instance = cls(cfg,
+                   tl_model.tracr_input_encoder,
+                   tl_model.tracr_output_encoder,
+                   tl_model.residual_stream_labels,
+                   tl_model.device)
+
+    if init_params_fn is not None:
+      instance.reset_parameters(init_params_fn)
+
+    return instance
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
@@ -80,6 +124,10 @@ class HookedTracrTransformer(HookedTransformer):
 
     return decoded_output_with_bos
 
+  def load_weights_from_tracr_model(self, tracr_model: AssembledTransformerModel) -> None:
+    """Loads the weights from a tracr model into the transformer_lens model."""
+    self.load_tracr_state_dict(self.extract_tracr_state_dict(tracr_model))
+
   def load_tracr_state_dict(self, sd: dict[str, np.ndarray|jnp.ndarray]) -> None:
     """Creates a transformer_lens model from a config and state dict."""
 
@@ -90,7 +138,8 @@ class HookedTracrTransformer(HookedTransformer):
 
     self.load_state_dict(sd, strict=False)
 
-  def extract_tracr_config(self, model: assemble.AssembledTransformerModel) -> HookedTransformerConfig:
+  @classmethod
+  def extract_tracr_config(cls, model: AssembledTransformerModel) -> HookedTransformerConfig:
     """Extracts the configuration of a tracr model into a HookedTransformerConfig."""
     n_heads = model.model_config.num_heads
     n_layers = model.model_config.num_layers
@@ -110,7 +159,7 @@ class HookedTracrTransformer(HookedTransformer):
     d_model = model.params["token_embed"]['embeddings'].shape[1]
 
     # Number of dimensions in the residual stream used for the output
-    d_vocab_out = self.get_tracr_model_output_space(model).num_dims
+    d_vocab_out = cls.get_tracr_model_output_space(model).num_dims
 
     return HookedTransformerConfig(
       n_layers=n_layers,
@@ -129,7 +178,7 @@ class HookedTracrTransformer(HookedTransformer):
       # device=device,
     )
 
-  def extract_tracr_state_dict(self, model: assemble.AssembledTransformerModel) -> dict[str, np.ndarray | jnp.ndarray]:
+  def extract_tracr_state_dict(self, model: AssembledTransformerModel) -> dict[str, np.ndarray | jnp.ndarray]:
     """Extracts the state dict of a tracr model into a dict."""
     sd = {}
     sd["pos_embed.W_pos"] = model.params["pos_embed"]['embeddings']
@@ -192,7 +241,7 @@ class HookedTracrTransformer(HookedTransformer):
 
     return sd
 
-  def get_tracr_model_residual_space(self, model: assemble.AssembledTransformerModel) -> VectorSpaceWithBasis:
+  def get_tracr_model_residual_space(self, model: AssembledTransformerModel) -> VectorSpaceWithBasis:
     residual_space = []
     for label in model.residual_labels:
       if ":" in label:
@@ -204,7 +253,9 @@ class HookedTracrTransformer(HookedTransformer):
         residual_space.append(BasisDirection(label, None))
     return VectorSpaceWithBasis(residual_space)
 
-  def get_tracr_model_output_space(self, model: assemble.AssembledTransformerModel):
+  @staticmethod
+  def get_tracr_model_output_space(model: AssembledTransformerModel):
+    assert model.output_encoder is not None, "Tracr model must have an output encoder."
     return VectorSpaceWithBasis(model.output_encoder.basis)
 
   def is_categorical(self):
@@ -215,8 +266,20 @@ class HookedTracrTransformer(HookedTransformer):
 
   def freeze_all_weights(self):
     """Freezes all weights in the model."""
+    self.weights_frozen = True
     for param in self.parameters():
       param.requires_grad = False
+
+  def unfreeze_all_weights(self):
+    """Unfreezes all weights in the autoencoder."""
+    self.weights_frozen = False
+    for param in self.parameters():
+      param.requires_grad = True
+
+  def reset_parameters(self, init_fn: Callable[[Tensor], Tensor]):
+    """Resets all parameters in the model."""
+    for name, param in self.named_parameters():
+      init_fn(param)
 
   def int_or_string(self, value):
     """Converts a value to an int if possible, otherwise returns the value as a string.
@@ -233,3 +296,74 @@ class HookedTracrTransformer(HookedTransformer):
     """Moves the model to a device and updates the device in the config."""
     self.device = device_or_dtype
     return super().to(device_or_dtype, print_details=print_details)
+
+  def get_caching_hooks(
+      self,
+      names_filter: NamesFilter = None,
+      incl_bwd: bool = False,
+      device=None,
+      remove_batch_dim: bool = False,
+      cache: Optional[dict] = None,
+  ) -> Tuple[dict, list, list]:
+    """Re-implementation of HookedTransformer.get_caching_hooks() that do not **detaches** the tensors by default.
+
+    Creates hooks to cache activations. Note: It does not add the hooks to the model.
+
+    Args:
+        names_filter (NamesFilter, optional): Which activations to cache. Can be a list of strings (hook names) or a filter function mapping hook names to booleans. Defaults to lambda name: True.
+        incl_bwd (bool, optional): Whether to also do backwards hooks. Defaults to False.
+        device (_type_, optional): The device to store on. Keeps on the same device as the layer if None.
+        remove_batch_dim (bool, optional): Whether to remove the batch dimension (only works for batch_size==1). Defaults to False.
+        cache (Optional[dict], optional): The cache to store activations in, a new dict is created by default. Defaults to None.
+
+    Returns:
+        cache (dict): The cache where activations will be stored.
+        fwd_hooks (list): The forward hooks.
+        bwd_hooks (list): The backward hooks. Empty if incl_bwd is False.
+    """
+    if cache is None:
+      cache = {}
+
+    if names_filter is None:
+      names_filter = lambda name: True
+    elif type(names_filter) == str:
+      filter_str = names_filter
+      names_filter = lambda name: name == filter_str
+    elif type(names_filter) == list:
+      filter_list = names_filter
+      names_filter = lambda name: name in filter_list
+    self.is_caching = True
+
+    def save_hook(tensor, hook):
+      if remove_batch_dim:
+        if self.weights_frozen:
+          cache[hook.name] = tensor.detach().to(device)[0]
+        else:
+          cache[hook.name] = tensor.to(device)[0]
+      else:
+        if self.weights_frozen:
+          cache[hook.name] = tensor.detach().to(device)
+        else:
+          cache[hook.name] = tensor.to(device)
+
+    def save_hook_back(tensor, hook):
+      if remove_batch_dim:
+        if self.weights_frozen:
+          cache[hook.name + "_grad"] = tensor.detach().to(device)[0]
+        else:
+          cache[hook.name + "_grad"] = tensor.to(device)[0]
+      else:
+        if self.weights_frozen:
+          cache[hook.name + "_grad"] = tensor.detach().to(device)
+        else:
+          cache[hook.name + "_grad"] = tensor.to(device)
+
+    fwd_hooks = []
+    bwd_hooks = []
+    for name, hp in self.hook_dict.items():
+      if names_filter(name):
+        fwd_hooks.append((name, save_hook))
+        if incl_bwd:
+          bwd_hooks.append((name, save_hook_back))
+
+    return cache, fwd_hooks, bwd_hooks

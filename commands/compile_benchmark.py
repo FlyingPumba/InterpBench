@@ -111,7 +111,7 @@ def build_transformer_lens_model(case: BenchmarkCase,
     tracr_output = build_tracr_model(case, force)
     tracr_model = tracr_output.model
 
-  tl_model = HookedTracrTransformer(tracr_model, device=device)
+  tl_model = HookedTracrTransformer.from_tracr_model(tracr_model, device=device)
 
   case.dump_tl_model(tl_model)
 

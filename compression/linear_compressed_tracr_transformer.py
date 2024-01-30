@@ -43,6 +43,7 @@ class LinearCompressedTracrTransformer(nn.Module):
       nn.init.orthogonal_(self.W_compress.weight)
 
     self.tl_model.reset_hooks(including_permanent=True)
+    self.tl_model.freeze_all_weights()
 
   def get_tl_model(self) -> HookedTracrTransformer:
     return self.tl_model
