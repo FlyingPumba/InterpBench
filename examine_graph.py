@@ -4,12 +4,14 @@ import pickle
 from networkx import Graph
 import networkx as nx
 import matplotlib.pyplot as plt
+import inspect
 
 import traceback
 
 import numpy as np
 import torch
 import torch as t
+from typing import Callable
 
 from benchmark.benchmark_case import BenchmarkCase
 from compression.residual_stream import compress, setup_compression_training_args_for_parser
@@ -17,6 +19,8 @@ from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput
 from tracr.transformer.encoder import CategoricalEncoder
+from tracr.craft.transformers import MLP, MultiAttentionHead
+from tracr.craft import bases
 from utils.get_cases import get_cases
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
@@ -55,18 +59,34 @@ tracr_output = build_tracr_model(case3, force=True)
 params = list(tracr_output.model.params.keys())
 params
 # %%
+
+def names(vsb: bases.VectorSpaceWithBasis):
+  return [(bd.name, bd.value) for bd in vsb.basis]
+
 for block in tracr_output.craft_model.blocks:
+    if isinstance(block, MLP):
+        print("MLP:")
+        print(names(block.fst.input_space), " -> ", names(block.fst.output_space))
+        assert block.fst.output_space == block.snd.input_space
+        print("\t -> ", names(block.snd.output_space))
+
+    elif isinstance(block, MultiAttentionHead):
+        print("MultiAttentionHead:")
+        for i, sb in enumerate(block.sub_blocks):
+          print(f"head {i}:")
+          print(f"qk left {names(sb.w_qk.left_space)}")
+          print(f"qk right {names(sb.w_qk.right_space)}")
+          w_ov = sb.w_ov
+          print(f"w_ov {names(w_ov.input_space)} -> \n\t{names(w_ov.output_space)}")
+
+    else:
+       raise ValueError(f"Unknown block type {type(block)}")
+
+
+        # print([bd.name for bd in block.snd.output_space.basis])
     # for attr in dir(block):
-    #     if not attr.startswith("_"):
+    #     if not attr.startswith("_") and not inspect.isfunction(getattr(block, attr)):
     #         print(f"{attr}: {getattr(block, attr)}")
-
-    if 'sub_blocks' in dir(block):
-      for sb in block.sub_blocks:
-        print(sb)
-        for attr in dir(sb):
-            if not attr.startswith("_"):
-                print(f"\t{attr}: {getattr(sb, attr)}")
-
     print()
 
 subblock_dict = dict()
