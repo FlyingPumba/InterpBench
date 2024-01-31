@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-
 import plotly
 import plotly.express as px
 from transformer_lens.utils import to_numpy

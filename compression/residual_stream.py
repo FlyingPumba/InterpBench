@@ -1,19 +1,18 @@
 import typing
 from argparse import Namespace
-from functools import partial
 from typing import Literal
 
 from argparse_dataclass import ArgumentParser
-from torch import nn
 from torch.nn import init
-from transformer_lens import HookedTransformer, HookedTransformerConfig
 
 from benchmark.benchmark_case import BenchmarkCase
 from compression.autencoder import AutoEncoder
 from compression.autoencoder_trainer import AutoEncoderTrainer
+from compression.autoencoder_training_args import AutoEncoderTrainingArgs
 from compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer, \
   linear_compression_initialization_options
-from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, LinearCompressedTracrTransformerTrainer
+from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, \
+  LinearCompressedTracrTransformerTrainer
 from compression.non_linear_compressed_tracr_transformer_trainer import NonLinearCompressedTracrTransformerTrainer
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
@@ -170,20 +169,29 @@ def compress_non_linear(case: BenchmarkCase,
   """Compresses the residual stream of a Tracr model using a non-linear compression."""
   compression_size = parse_compression_size(args, tl_model)
 
+  autoencoder_training_args, _ = ArgumentParser(AutoEncoderTrainingArgs).parse_known_args(args.original_args)
   training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
   original_residual_stream_size = tl_model.cfg.d_model
 
   if compression_size != "auto":
     for compression_size in compression_size:
-      autoencoder_compression_layers = 2
+      autoencoder_compression_layers = autoencoder_training_args.ae_n_layers
       autoencoder = AutoEncoder(original_residual_stream_size, compression_size, autoencoder_compression_layers)
 
-      print(f" >>> Starting non-linear compression for {case} with residual stream compression size {compression_size}.")
-      training_args.wandb_name = None
-      trainer = AutoEncoderTrainer(case, autoencoder, tl_model, training_args)
-      final_metrics = trainer.train()
-      print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
-      print(final_metrics)
+      if autoencoder_training_args.ae_load_from_file is not None:
+        print(f" >>> Loading autoencoder for {case} with residual stream compression size {compression_size} from "
+              f"file {autoencoder_training_args.ae_load_from_file}.")
+        autoencoder.load_weights_from_file(autoencoder_training_args.ae_load_from_file)
+      else:
+        print(f" >>> Starting non-linear compression for {case} with residual stream compression size {compression_size}.")
+        autoencoder_training_args.wandb_name = None
+        trainer = AutoEncoderTrainer(case, autoencoder, tl_model, autoencoder_training_args)
+        final_metrics = trainer.train()
+        print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
+        print(final_metrics)
+
+        if autoencoder_training_args.ae_save_to_file is not None:
+          autoencoder.save_weights_to_file(autoencoder_training_args.ae_save_to_file)
 
       new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
         tl_model,

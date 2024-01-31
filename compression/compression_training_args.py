@@ -24,7 +24,7 @@ class CompressionTrainingArgs():
   beta_2: Optional[float] = 0.99
 
   # learning rate config
-  lr_warmup_steps: Optional[float] = 3e5 // 2  # by default, first half of total steps
+  lr_warmup_steps: Optional[float] = None  # by default, first half of total steps
   lr_start: Optional[float] = 1e-3
   lr_end: Optional[float] = 1e-6
 

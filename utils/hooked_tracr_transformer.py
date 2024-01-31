@@ -8,8 +8,7 @@ import numpy as np
 import pandas as pd
 import torch as t
 from jaxtyping import Float
-from torch import Tensor, nn
-from torch.nn import Parameter
+from torch import Tensor
 from transformer_lens import HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import NamesFilter
 

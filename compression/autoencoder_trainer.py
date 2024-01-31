@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from benchmark.benchmark_case import BenchmarkCase
 from compression.autencoder import AutoEncoder
-from compression.compression_training_args import CompressionTrainingArgs
+from compression.autoencoder_training_args import AutoEncoderTrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
 
@@ -19,7 +19,7 @@ class AutoEncoderTrainer:
   def __init__(self, case: BenchmarkCase,
                autoencoder: AutoEncoder,
                tl_model: HookedTracrTransformer,
-               args: CompressionTrainingArgs):
+               args: AutoEncoderTrainingArgs):
     super().__init__()
     self.case = case
     self.autoencoder = autoencoder
@@ -29,10 +29,8 @@ class AutoEncoderTrainer:
     self.tl_model.freeze_all_weights()
     self.device = autoencoder.device
 
-    # self.n_layers = self.model.get_tl_model().cfg.n_layers
-
     self.args = args
-    self.use_wandb = self.args.wandb_project is not None
+    self.use_wandb = self.args.ae_wandb_project is not None
 
     self.step = 0
     self.train_loss = np.nan
@@ -40,38 +38,51 @@ class AutoEncoderTrainer:
 
     self.setup_dataset(args)
 
+    # calculate number of epochs and steps
+    assert self.args.ae_epochs is not None or self.args.ae_steps is not None, "Must specify either epochs or steps."
+    self.epochs = self.args.ae_epochs if self.args.ae_epochs is not None else int(self.args.ae_steps // len(self.train_loader)) + 1
+    self.steps = self.args.ae_steps if self.args.ae_steps is not None else self.epochs * len(self.train_loader)
+
     self.optimizer = t.optim.AdamW(self.autoencoder.parameters(),
-                                   lr=args.lr_start,
-                                   weight_decay=args.weight_decay,
-                                   betas=(args.beta_1, args.beta_2))
+                                   lr=args.ae_lr_start,
+                                   weight_decay=args.ae_weight_decay,
+                                   betas=(args.ae_beta_1, args.ae_beta_2))
 
     # Learning rate scheduler with linear decay
-    lr_lambda = lambda step: max(args.lr_end,
-                                 args.lr_start - (args.lr_start - args.lr_end) * (step / args.lr_warmup_steps))
+    self.lr_warmup_steps = args.ae_lr_warmup_steps
+    if self.lr_warmup_steps is None:
+      # by default, half of total steps
+      self.lr_warmup_steps = self.steps // 2
+
+    lr_lambda = lambda step: max(args.ae_lr_end,
+                                 args.ae_lr_start - (args.ae_lr_start - args.ae_lr_end) * (step / self.lr_warmup_steps))
     self.lr_scheduler = LambdaLR(self.optimizer, lr_lambda)
 
-    if self.use_wandb and self.args.wandb_name is None:
-      self.args.wandb_name = f"case-{self.case.index_str}-autoencoder-{self.autoencoder.compression_size}"
+    if self.use_wandb and self.args.ae_wandb_name is None:
+      self.args.ae_wandb_name = f"case-{self.case.index_str}-autoencoder-{self.autoencoder.compression_size}"
 
-  def setup_dataset(self, args):
+  def setup_dataset(self, args: AutoEncoderTrainingArgs):
     """Prepare the dataset and split it into train and test sets."""
-    tl_dataset = self.case.get_clean_data(count=args.train_data_size)
+    tl_dataset = self.case.get_clean_data(count=args.ae_train_data_size)
     tl_inputs = tl_dataset.get_inputs()
     tl_output, tl_cache = self.tl_model.run_with_cache(tl_inputs)
 
     # collect the residual stream activations from all layers
     all_resid_pre = [tl_cache["resid_pre", layer] for layer in range(self.tl_model_n_layers)]
     last_resid_post = tl_cache["resid_post", self.tl_model_n_layers - 1]
-    self.tl_activations = t.cat(all_resid_pre + [last_resid_post])
+    tl_activations = t.cat(all_resid_pre + [last_resid_post])
 
     # shape of tl_activations is [activations_len, seq_len, d_model], we will convert to [activations_len, d_model] to
     # treat the residual stream for each sequence position as a separate sample.
     tl_activations: Float[Tensor, "activations_len, seq_len, d_model"] = (
-      self.tl_activations.transpose(0, 1).reshape(-1, self.tl_activations.shape[-1]))
+      tl_activations.transpose(0, 1).reshape(-1, tl_activations.shape[-1]))
 
-    if args.test_data_ratio is not None:
+    # shuffle tl_activations
+    tl_activations = tl_activations[t.randperm(len(tl_activations))]
+
+    if args.ae_test_data_ratio is not None:
       # split the data into train and test sets
-      test_data_size = int(len(tl_activations) * args.test_data_ratio)
+      test_data_size = int(len(tl_activations) * args.ae_test_data_ratio)
       train_data_size = len(tl_activations) - test_data_size
       train_data, test_data = tl_activations.split([train_data_size, test_data_size])
     else:
@@ -79,23 +90,20 @@ class AutoEncoderTrainer:
       train_data = tl_activations
       test_data = tl_activations
 
-    self.train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
+    self.train_loader = DataLoader(train_data, batch_size=args.ae_batch_size, shuffle=True)
     self.test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
 
   def train(self):
     """
-    Trains the model, for `self.args.epochs` epochs.
+    Trains the model, for `self.args.ae_epochs` epochs.
     """
     print(f'Starting run to train autoencoder: {self.autoencoder.input_size} -> {self.autoencoder.compression_size}.')
 
     if self.use_wandb:
-      wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
+      wandb.init(project=self.args.ae_wandb_project, name=self.args.ae_wandb_name, config=self.args)
 
-    assert self.args.epochs is not None or self.args.steps is not None, "Must specify either epochs or steps."
-    epochs = self.args.epochs if self.args.epochs is not None else int(self.args.steps // len(self.train_loader)) + 1
-
-    progress_bar = tqdm(total=len(self.train_loader) * epochs)
-    for epoch in range(epochs):
+    progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
+    for epoch in range(self.epochs):
       for i, batch in enumerate(self.train_loader):
         self.train_loss = self.training_step(batch)
 
@@ -105,8 +113,8 @@ class AutoEncoderTrainer:
 
       self.evaluate_test_metrics()
 
-      if (self.args.early_stop_test_accuracy is not None and
-          self.test_metrics["test_accuracy"] >= self.args.early_stop_test_accuracy):
+      if (self.args.ae_early_stop_test_accuracy is not None and
+          self.test_metrics["test_accuracy"] >= self.args.ae_early_stop_test_accuracy):
         break
 
     if self.use_wandb:

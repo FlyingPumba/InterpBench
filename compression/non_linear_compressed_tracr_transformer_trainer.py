@@ -8,7 +8,7 @@ from jaxtyping import Float
 from torch import Tensor
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
-from transformer_lens import ActivationCache, HookedTransformer
+from transformer_lens import ActivationCache
 
 from benchmark.benchmark_case import BenchmarkCase
 from benchmark.case_dataset import CaseDataset
@@ -42,14 +42,24 @@ class NonLinearCompressedTracrTransformerTrainer:
 
     self.setup_dataset(args)
 
+    # calculate number of epochs and steps
+    assert self.args.epochs is not None or self.args.steps is not None, "Must specify either epochs or steps."
+    self.epochs = self.args.epochs if self.args.epochs is not None else int(self.args.steps // len(self.train_loader)) + 1
+    self.steps = self.args.steps if self.args.steps is not None else self.epochs * len(self.train_loader)
+
     self.optimizer = t.optim.AdamW(self.new_tl_model.parameters(),
                                    lr=args.lr_start,
                                    weight_decay=args.weight_decay,
                                    betas=(args.beta_1, args.beta_2))
 
     # Learning rate scheduler with linear decay
+    self.lr_warmup_steps = args.lr_warmup_steps
+    if self.lr_warmup_steps is None:
+      # by default, half of total steps
+      self.lr_warmup_steps = self.steps // 2
+
     lr_lambda = lambda step: max(args.lr_end,
-                                 args.lr_start - (args.lr_start - args.lr_end) * (step / args.lr_warmup_steps))
+                                 args.lr_start - (args.lr_start - args.lr_end) * (step / self.lr_warmup_steps))
     self.lr_scheduler = LambdaLR(self.optimizer, lr_lambda)
 
     if self.use_wandb and self.args.wandb_name is None:
@@ -67,14 +77,11 @@ class NonLinearCompressedTracrTransformerTrainer:
     if self.use_wandb:
       wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
 
-    assert self.args.epochs is not None or self.args.steps is not None, "Must specify either epochs or steps."
-    epochs = self.args.epochs if self.args.epochs is not None else int(self.args.steps // len(self.train_loader)) + 1
-
     # freeze auto-encoder weights
     self.autoencoder.freeze_all_weights()
 
-    progress_bar = tqdm(total=len(self.train_loader) * epochs)
-    for epoch in range(epochs):
+    progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
+    for epoch in range(self.epochs):
       for i, batch in enumerate(self.train_loader):
         self.train_loss = self.training_step(batch)
 
