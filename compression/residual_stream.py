@@ -3,13 +3,20 @@ from argparse import Namespace
 from typing import Literal
 
 from argparse_dataclass import ArgumentParser
+from torch.nn import init
 
 from benchmark.benchmark_case import BenchmarkCase
-from compression.linear_compressed_tracr_transformer import CompressedTracrTransformer
-from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, CompressedTracrTransformerTrainer
+from compression.autencoder import AutoEncoder
+from compression.autoencoder_trainer import AutoEncoderTrainer
+from compression.autoencoder_training_args import AutoEncoderTrainingArgs
+from compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer, \
+  linear_compression_initialization_options
+from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, \
+  LinearCompressedTracrTransformerTrainer
+from compression.non_linear_compressed_tracr_transformer_trainer import NonLinearCompressedTracrTransformerTrainer
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
-residual_stream_compression_options_type = Literal["linear"]
+residual_stream_compression_options_type = Literal["linear", "nonlinear"]
 residual_stream_compression_options = list(typing.get_args(residual_stream_compression_options_type))
 
 
@@ -21,6 +28,9 @@ def setup_compression_training_args_for_parser(parser):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
+  parser.add_argument("--linear-compression-initialization", type=str, default="linear",
+                      choices=linear_compression_initialization_options,
+                      help="The initialization method for the linear compression matrix.")
   parser.add_argument("-o", "--output-dir", type=str, default="results",
                       help="The directory to save the results to.")
 
@@ -37,6 +47,8 @@ def compress(case: BenchmarkCase,
   """
   if compression_type == "linear":
     compress_linear(case, tl_model, args)
+  elif compression_type == "nonlinear":
+    compress_non_linear(case, tl_model, args)
   else:
     raise ValueError(f"Unknown compression type: {compression_type}")
 
@@ -63,18 +75,20 @@ def compress_linear(case: BenchmarkCase,
                     args: Namespace):
   """Compresses the residual stream of a Tracr model using a linear compression."""
   compression_size = parse_compression_size(args, tl_model)
+  initialization = args.linear_compression_initialization
 
   training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
   original_residual_stream_size = tl_model.cfg.d_model
 
   if compression_size != "auto":
     for compression_size in compression_size:
-      print(f" >>> Starting compression for {case} with residual stream compression size {compression_size}.")
-      compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
-                                                                int(compression_size),
-                                                                device=tl_model.device)
+      print(f" >>> Starting linear compression for {case} with residual stream compression size {compression_size}.")
+      compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
+                                                                      int(compression_size),
+                                                                      initialization=initialization,
+                                                                      device=tl_model.device)
       training_args.wandb_name = None
-      trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+      trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
       final_metrics = trainer.train()
       print(f" >>> Final metrics for {case} with residual stream compression size {compression_size}: ")
       print(final_metrics)
@@ -94,7 +108,7 @@ def compress_linear(case: BenchmarkCase,
     # test accuracy below the desired one. Then we do a binary search between the last size that was above the desired
     # accuracy and the last size that was below the desired accuracy.
 
-    print(f" >>> Starting auto compression for {case}.")
+    print(f" >>> Starting auto linear compression for {case}.")
     print(f" >>> Original residual stream size is {original_residual_stream_size}.")
     print(f" >>> Desired test accuracy is {desired_test_accuracy}.")
 
@@ -104,11 +118,12 @@ def compress_linear(case: BenchmarkCase,
 
     # Halve the residual stream size until we get a test accuracy below the desired one.
     while current_compression_size > 0:
-      compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
-                                                                current_compression_size,
-                                                                device=tl_model.device)
+      compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
+                                                                      current_compression_size,
+                                                                      initialization=initialization,
+                                                                      device=tl_model.device)
       training_args.wandb_name = None
-      trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+      trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
       final_metrics = trainer.train()
 
       if final_metrics["test_accuracy"] > desired_test_accuracy:
@@ -125,11 +140,12 @@ def compress_linear(case: BenchmarkCase,
 
       while lower_bound < upper_bound:
         current_compression_size = (lower_bound + upper_bound) // 2
-        compressed_tracr_transformer = CompressedTracrTransformer(tl_model,
-                                                                  current_compression_size,
-                                                                  device=tl_model.device)
+        compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
+                                                                        current_compression_size,
+                                                                        initialization=initialization,
+                                                                        device=tl_model.device)
         training_args.wandb_name = None
-        trainer = CompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+        trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
         final_metrics = trainer.train()
 
         if final_metrics["test_accuracy"] > desired_test_accuracy:
@@ -145,3 +161,57 @@ def compress_linear(case: BenchmarkCase,
       args.output_dir,
       f"case-{case.index_str}-resid-{str(compression_size)}-compression-matrix"
     )
+
+
+def compress_non_linear(case: BenchmarkCase,
+                        tl_model: HookedTracrTransformer,
+                        args: Namespace):
+  """Compresses the residual stream of a Tracr model using a non-linear compression."""
+  compression_size = parse_compression_size(args, tl_model)
+
+  autoencoder_training_args, _ = ArgumentParser(AutoEncoderTrainingArgs).parse_known_args(args.original_args)
+  training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
+  original_residual_stream_size = tl_model.cfg.d_model
+
+  if compression_size != "auto":
+    for compression_size in compression_size:
+      autoencoder_compression_layers = autoencoder_training_args.ae_n_layers
+      autoencoder = AutoEncoder(original_residual_stream_size, compression_size, autoencoder_compression_layers)
+
+      if autoencoder_training_args.ae_load_from_file is not None:
+        print(f" >>> Loading autoencoder for {case} with residual stream compression size {compression_size} from "
+              f"file {autoencoder_training_args.ae_load_from_file}.")
+        autoencoder.load_weights_from_file(autoencoder_training_args.ae_load_from_file)
+      else:
+        print(f" >>> Starting non-linear compression for {case} with residual stream compression size {compression_size}.")
+        autoencoder_training_args.wandb_name = None
+        trainer = AutoEncoderTrainer(case, autoencoder, tl_model, autoencoder_training_args)
+        final_metrics = trainer.train()
+        print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
+        print(final_metrics)
+
+        if autoencoder_training_args.ae_save_to_file is not None:
+          autoencoder.save_weights_to_file(autoencoder_training_args.ae_save_to_file)
+
+      new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
+        tl_model,
+        overwrite_cfg_dict={"d_model": compression_size},
+        init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
+      )
+
+      autoencoder.freeze_all_weights()
+      new_tl_model.unfreeze_all_weights()
+
+      print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compression_size}.")
+      training_args.wandb_name = None
+      trainer = NonLinearCompressedTracrTransformerTrainer(case, tl_model, new_tl_model, autoencoder, training_args)
+      final_metrics = trainer.train()
+      print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compression_size}: ")
+      print(final_metrics)
+
+      # compressed_tracr_transformer.dump_compression_matrix(
+      #   args.output_dir,
+      #   f"case-{case.index_str}-resid-{str(compression_size)}-compression-matrix"
+      # )
+  else:
+    raise NotImplementedError("Non-linear compression with auto compression size is not implemented yet.")

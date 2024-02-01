@@ -34,7 +34,7 @@ class HookedTracrTransformerTest(unittest.TestCase):
     tracr_output_decoded = tracr_model.apply(input).decoded
     print("Original Decoding:", tracr_output_decoded)
 
-    tl_model = HookedTracrTransformer(tracr_model)
+    tl_model = HookedTracrTransformer.from_tracr_model(tracr_model)
     tl_output_decoded = tl_model([input], return_type="decoded")[0]
     print("TransformerLens Replicated Decoding:", tl_output_decoded)
 

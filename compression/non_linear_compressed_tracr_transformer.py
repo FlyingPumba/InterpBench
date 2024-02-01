@@ -1,49 +1,30 @@
-import os
-import typing
-from typing import List, Tuple, Callable, Literal
+from typing import List, Tuple, Callable
 
-import numpy as np
 import torch as t
 from jaxtyping import Float
 from torch import nn, Tensor
-from torch.nn import Linear
 from transformer_lens.hook_points import HookPoint
 
+from compression.autencoder import AutoEncoder
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput, \
   HookedTracrTransformerReturnType
 
-LinearCompressedTracrTransformerInitialization = Literal["orthogonal", "linear"]
-linear_compression_initialization_options = list(typing.get_args(LinearCompressedTracrTransformerInitialization))
 
-
-class LinearCompressedTracrTransformer(nn.Module):
+class NonLinearCompressedTracrTransformer(nn.Module):
 
   def __init__(self,
                tl_model: HookedTracrTransformer,
                residual_stream_compression_size: int,
-               initialization: LinearCompressedTracrTransformerInitialization = "linear",
+               autoencoder: AutoEncoder,
                device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")):
     super().__init__()
-    self.residual_stream_compression_size = residual_stream_compression_size
     self.tl_model = tl_model
-    self.num_layers = self.tl_model.cfg.n_layers
+    self.original_residual_stream_size = self.tl_model.cfg.d_model
+    self.residual_stream_compression_size = residual_stream_compression_size
+
     self.device = device
 
-    self.original_residual_stream_size = self.tl_model.cfg.d_model
-
-    # To compress the model, we multiply with a matrix W when reading from
-    # the residual stream, and with W^T when writing to the residual stream.
-
-    # [to_size, from_size]
-    self.W_compress: Linear = nn.Linear(self.original_residual_stream_size,
-                                        self.residual_stream_compression_size,
-                                        device=self.device,
-                                        bias=False)
-
-    if initialization == "orthogonal":
-      # The (semi) orthogonal matrix is useful for our setup because the transpose is exactly the inverse, and we will
-      # use the same matrix for reading and writing from/to the residual stream.
-      nn.init.orthogonal_(self.W_compress.weight)
+    self.autoencoder = autoencoder
 
     self.tl_model.reset_hooks(including_permanent=True)
     self.tl_model.freeze_all_weights()
@@ -54,20 +35,17 @@ class LinearCompressedTracrTransformer(nn.Module):
   def build_hooks(self) -> List[Tuple[str, Callable]]:
     hooks = []
 
-    write_to_compressed_residual = lambda x: x @ self.W_compress.weight.T
-    read_from_compressed_residual = lambda x: x @ self.W_compress.weight
-
     def write_to_resid_hook_function(
         residual_stream: Float[Tensor, "batch seq_len d_model"],
         hook: HookPoint
     ) -> Float[Tensor, "batch seq_len d_model_compressed"]:
-      return write_to_compressed_residual(residual_stream)
+      return self.autoencoder.encoder(residual_stream)
 
     def read_from_resid_hook_function(
         residual_stream: Float[Tensor, "batch seq_len n_head d_model_compressed"],
         hook: HookPoint
     ) -> Float[Tensor, "batch seq_len n_head d_model"]:
-      return read_from_compressed_residual(residual_stream)
+      return self.autoencoder.decoder(residual_stream)
 
     # Add hooks for Attention heads and MLPs
     for hook_name in self.tl_model.hook_dict.keys():
@@ -106,8 +84,9 @@ class LinearCompressedTracrTransformer(nn.Module):
     return self.tl_model.run_with_cache(tokens)
 
   def dump_compression_matrix(self, output_dir: str, filename: str):
-    if not os.path.exists(output_dir):
-      os.makedirs(output_dir)
-
-    compression_matrix = self.W_compress.weight.detach().cpu().numpy()
-    np.save(os.path.join(output_dir, filename), compression_matrix)
+    pass
+    # if not os.path.exists(output_dir):
+    #   os.makedirs(output_dir)
+    #
+    # compression_matrix = self.W_compress.detach().cpu().numpy()
+    # np.save(os.path.join(output_dir, filename), compression_matrix)

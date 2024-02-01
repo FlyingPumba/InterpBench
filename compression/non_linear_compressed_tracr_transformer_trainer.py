@@ -12,21 +12,26 @@ from transformer_lens import ActivationCache
 
 from benchmark.benchmark_case import BenchmarkCase
 from benchmark.case_dataset import CaseDataset
+from compression.autencoder import AutoEncoder
 from compression.compression_training_args import CompressionTrainingArgs
-from compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
-from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
+from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput, HookedTracrTransformer
 
 
-class LinearCompressedTracrTransformerTrainer:
+class NonLinearCompressedTracrTransformerTrainer:
   def __init__(self, case: BenchmarkCase,
-               model: LinearCompressedTracrTransformer,
+               old_tl_model: HookedTracrTransformer,
+               new_tl_model: HookedTracrTransformer,
+               autoencoder: AutoEncoder,
                args: CompressionTrainingArgs):
     super().__init__()
     self.case = case
-    self.model = model
-    self.device = model.device
-    self.is_categorical = self.model.get_tl_model().is_categorical()
-    self.n_layers = self.model.get_tl_model().cfg.n_layers
+    self.old_tl_model: HookedTracrTransformer = old_tl_model
+    self.new_tl_model: HookedTracrTransformer = new_tl_model
+    self.autoencoder: AutoEncoder = autoencoder
+    self.device = old_tl_model.device
+
+    self.is_categorical = self.old_tl_model.is_categorical()
+    self.n_layers = self.new_tl_model.cfg.n_layers
 
     self.args = args
     self.use_wandb = self.args.wandb_project is not None
@@ -42,7 +47,7 @@ class LinearCompressedTracrTransformerTrainer:
     self.epochs = self.args.epochs if self.args.epochs is not None else int(self.args.steps // len(self.train_loader)) + 1
     self.steps = self.args.steps if self.args.steps is not None else self.epochs * len(self.train_loader)
 
-    self.optimizer = t.optim.AdamW(self.model.parameters(),
+    self.optimizer = t.optim.AdamW(self.new_tl_model.parameters(),
                                    lr=args.lr_start,
                                    weight_decay=args.weight_decay,
                                    betas=(args.beta_1, args.beta_2))
@@ -58,7 +63,7 @@ class LinearCompressedTracrTransformerTrainer:
     self.lr_scheduler = LambdaLR(self.optimizer, lr_lambda)
 
     if self.use_wandb and self.args.wandb_name is None:
-      self.args.wandb_name = f"case-{self.case.index_str}-resid-{self.model.residual_stream_compression_size}"
+      self.args.wandb_name = f"case-{self.case.index_str}-resid-{self.autoencoder.compression_size}"
 
   def setup_dataset(self, args):
     """Prepare the dataset and split it into train and test sets."""
@@ -69,11 +74,11 @@ class LinearCompressedTracrTransformerTrainer:
     """
     Trains the model, for `self.args.epochs` epochs.
     """
-    print(f'Starting run to compress residual stream from {self.model.original_residual_stream_size} to'
-          f' {self.model.residual_stream_compression_size} dimensions.')
-
     if self.use_wandb:
       wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
+
+    # freeze auto-encoder weights
+    self.autoencoder.freeze_all_weights()
 
     progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
     for epoch in range(self.epochs):
@@ -104,9 +109,9 @@ class LinearCompressedTracrTransformerTrainer:
     self.optimizer.zero_grad()
 
     # Run the input on both compressed and original model
-    input = batch[CaseDataset.INPUT_FIELD]
-    compressed_model_logits, compressed_model_cache = self.model.run_with_cache(input)
-    original_model_logits, original_model_cache = self.model.run_with_cache_on_original(input)
+    inputs = batch[CaseDataset.INPUT_FIELD]
+    compressed_model_logits, compressed_model_cache = self.new_tl_model.run_with_cache(inputs)
+    original_model_logits, original_model_cache = self.old_tl_model.run_with_cache(inputs)
 
     # compute the loss
     loss = self.compute_loss(
@@ -116,7 +121,7 @@ class LinearCompressedTracrTransformerTrainer:
       original_model_cache
     )
 
-    loss.backward()
+    loss.backward(retain_graph=True)
     self.optimizer.step()
     self.lr_scheduler.step()
 
@@ -131,20 +136,11 @@ class LinearCompressedTracrTransformerTrainer:
       original_model_logits: Float[Tensor, "batch seq_len d_vocab"],
       original_model_cache: ActivationCache,
   ) -> Float[Tensor, "batch posn-1"]:
-    if self.is_categorical:
-      # Cross entropy loss
-      loss = t.nn.functional.cross_entropy(compressed_model_logits.flatten(end_dim=-2),
-                                           original_model_logits.flatten(end_dim=-2))
-    else:
-      # MSE loss
-      loss = t.nn.functional.mse_loss(compressed_model_logits, original_model_logits)
-
-    if self.use_wandb:
-      wandb.log({"output_loss": loss}, step=self.step)
+    loss = t.tensor(0.0, device=self.device)
 
     # Sum the L2 of output vectors for all layers in both compressed and original model
     for layer in range(self.n_layers):
-      compressed_model_output = compressed_model_cache["resid_post", layer]
+      compressed_model_output = self.autoencoder.decoder(compressed_model_cache["resid_post", layer])
       original_model_output = original_model_cache["resid_post", layer]
 
       layer_loss = t.nn.functional.mse_loss(compressed_model_output, original_model_output)
@@ -162,7 +158,7 @@ class LinearCompressedTracrTransformerTrainer:
     test_data = next(iter(self.test_loader))
     inputs = test_data[CaseDataset.INPUT_FIELD]
     expected_outputs = test_data[CaseDataset.CORRECT_OUTPUT_FIELD]
-    predicted_outputs = self.model(inputs, return_type="decoded")
+    predicted_outputs = self.new_tl_model(inputs, return_type="decoded")
 
     correct_predictions = []
     expected_outputs_flattened = []
@@ -181,7 +177,7 @@ class LinearCompressedTracrTransformerTrainer:
       predicted_outputs_flattened.extend(predictions)
       expected_outputs_flattened.extend(expectations)
 
-      if self.model.get_tl_model().is_categorical():
+      if self.is_categorical:
         correct_predictions.extend(p == e for p, e in zip(predictions, expectations))
       else:
         correct_predictions.extend(np.isclose(predictions,
@@ -193,7 +189,7 @@ class LinearCompressedTracrTransformerTrainer:
     predicted_outputs_tensor = t.tensor(predicted_outputs_flattened)
     expected_outputs_tensor = t.tensor(expected_outputs_flattened)
 
-    if not self.model.get_tl_model().is_categorical():
+    if not self.is_categorical:
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
 

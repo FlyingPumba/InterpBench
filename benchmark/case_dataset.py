@@ -34,13 +34,18 @@ class CaseDataset(Dataset):
     batch.reset_index(inplace=True, drop=True)
     return batch
 
-  def train_test_split(self, args: CompressionTrainingArgs) -> (DataLoader, DataLoader):
+  def train_test_split(self, args: CompressionTrainingArgs,
+                       shuffle_before_split: bool = True) -> (DataLoader, DataLoader):
     test_data_ratio = args.test_data_ratio
     batch_size = args.batch_size
 
     # by default, we use the same data for training and testing
     train_data: Dataset = self
     test_data: Dataset = self
+
+    if shuffle_before_split:
+      self.dataframe = self.dataframe.sample(frac=1, axis=0)
+      self.dataframe.reset_index(inplace=True, drop=True)
 
     if args.test_data_ratio is not None:
       test_dataframe = self.dataframe.sample(frac=test_data_ratio, axis=0)
