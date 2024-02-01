@@ -3,7 +3,7 @@ from typing import Optional
 
 
 @dataclass
-class CompressionTrainingArgs():
+class TrainingArgs():
   # Wandb config
   wandb_project: Optional[str] = None
   wandb_name: Optional[str] = None

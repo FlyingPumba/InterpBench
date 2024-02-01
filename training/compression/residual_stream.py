@@ -6,14 +6,14 @@ from argparse_dataclass import ArgumentParser
 from torch.nn import init
 
 from benchmark.benchmark_case import BenchmarkCase
-from compression.autencoder import AutoEncoder
-from compression.autoencoder_trainer import AutoEncoderTrainer
-from compression.autoencoder_training_args import AutoEncoderTrainingArgs
-from compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer, \
+from training.compression.autencoder import AutoEncoder
+from training.compression.autoencoder_trainer import AutoEncoderTrainer
+from training.compression import AutoEncoderTrainingArgs
+from training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer, \
   linear_compression_initialization_options
-from compression.linear_compressed_tracr_transformer_trainer import CompressionTrainingArgs, \
+from training.compression.linear_compressed_tracr_transformer_trainer import TrainingArgs, \
   LinearCompressedTracrTransformerTrainer
-from compression.non_linear_compressed_tracr_transformer_trainer import NonLinearCompressedTracrTransformerTrainer
+from training.compression.non_linear_compressed_tracr_transformer_trainer import NonLinearCompressedTracrTransformerTrainer
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
 residual_stream_compression_options_type = Literal["linear", "nonlinear"]
@@ -77,7 +77,7 @@ def compress_linear(case: BenchmarkCase,
   compression_size = parse_compression_size(args, tl_model)
   initialization = args.linear_compression_initialization
 
-  training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
+  training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
   original_residual_stream_size = tl_model.cfg.d_model
 
   if compression_size != "auto":
@@ -170,7 +170,7 @@ def compress_non_linear(case: BenchmarkCase,
   compression_size = parse_compression_size(args, tl_model)
 
   autoencoder_training_args, _ = ArgumentParser(AutoEncoderTrainingArgs).parse_known_args(args.original_args)
-  training_args, _ = ArgumentParser(CompressionTrainingArgs).parse_known_args(args.original_args)
+  training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
   original_residual_stream_size = tl_model.cfg.d_model
 
   if compression_size != "auto":

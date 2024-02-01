@@ -4,7 +4,7 @@ import pandas as pd
 from datasets import Dataset
 from torch.utils.data import DataLoader
 
-from compression.compression_training_args import CompressionTrainingArgs
+from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
 
@@ -34,8 +34,7 @@ class CaseDataset(Dataset):
     batch.reset_index(inplace=True, drop=True)
     return batch
 
-  def train_test_split(self, args: CompressionTrainingArgs,
-                       shuffle_before_split: bool = True) -> (DataLoader, DataLoader):
+  def train_test_split(self, args: TrainingArgs, shuffle_before_split: bool = True) -> (DataLoader, DataLoader):
     test_data_ratio = args.test_data_ratio
     batch_size = args.batch_size
 

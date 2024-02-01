@@ -5,7 +5,7 @@ import torch
 import torch as t
 
 from benchmark.benchmark_case import BenchmarkCase
-from compression.residual_stream import compress, setup_compression_training_args_for_parser
+from training.compression.residual_stream import compress, setup_compression_training_args_for_parser
 from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput

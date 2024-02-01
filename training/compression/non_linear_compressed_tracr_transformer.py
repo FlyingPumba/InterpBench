@@ -5,7 +5,7 @@ from jaxtyping import Float
 from torch import nn, Tensor
 from transformer_lens.hook_points import HookPoint
 
-from compression.autencoder import AutoEncoder
+from training.compression.autencoder import AutoEncoder
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput, \
   HookedTracrTransformerReturnType
 

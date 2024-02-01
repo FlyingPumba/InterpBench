@@ -3,7 +3,8 @@ import unittest
 import torch as t
 
 from commands.build_main_parser import build_main_parser
-from commands.compilation.compile_benchmark import build_tracr_model, run_case_tests_on_tracr_model, build_transformer_lens_model, \
+from commands.compilation.compile_benchmark import build_tracr_model, run_case_tests_on_tracr_model, \
+  build_transformer_lens_model, \
   run_case_tests_on_tl_model, compile_all
 from utils.get_cases import get_cases
 
@@ -66,12 +67,12 @@ class CompileBenchmarkTest(unittest.TestCase):
   def test_non_linear_compression_works_for_case_3(self):
     args, _ = build_main_parser().parse_known_args(["compile",
                                                     "-i=3",
-                                                    "-f",
+                                                    # "-f",
                                                     "--fail-on-error",
                                                     "--compress-residual=nonlinear",
                                                     "--residual-stream-compression-size=8",
-                                                    "--train-data-size=10",
+                                                    "--train-data-size=5000",
                                                     "--test-data-ratio=0.3",
-                                                    "--epochs=20",
+                                                    "--epochs=100",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     compile_all(args)
