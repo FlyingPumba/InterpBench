@@ -136,7 +136,16 @@ class NonLinearCompressedTracrTransformerTrainer:
       original_model_logits: Float[Tensor, "batch seq_len d_vocab"],
       original_model_cache: ActivationCache,
   ) -> Float[Tensor, "batch posn-1"]:
-    loss = t.tensor(0.0, device=self.device)
+    if self.is_categorical:
+      # Cross entropy loss
+      loss = t.nn.functional.cross_entropy(compressed_model_logits.flatten(end_dim=-2),
+                                           original_model_logits.flatten(end_dim=-2))
+    else:
+      # MSE loss
+      loss = t.nn.functional.mse_loss(compressed_model_logits, original_model_logits)
+
+    if self.use_wandb:
+      wandb.log({"output_loss": loss}, step=self.step)
 
     # Sum the L2 of output vectors for all layers in both compressed and original model
     for layer in range(self.n_layers):
