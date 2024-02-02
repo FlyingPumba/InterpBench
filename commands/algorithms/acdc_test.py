@@ -1,8 +1,8 @@
 import unittest
 
 import torch as t
-from commands.algorithms.acdc import run_acdc
 
+from commands.algorithms.acdc import run_acdc
 from commands.build_main_parser import build_main_parser
 from utils.get_cases import get_cases
 

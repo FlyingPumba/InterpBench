@@ -80,9 +80,6 @@ class NonLinearCompressedTracrTransformer(nn.Module):
     with self.tl_model.hooks(fwd_hooks=self.build_hooks()):
       return self.tl_model.run_with_cache(tokens)
 
-  def run_with_cache_on_original(self, tokens: HookedTracrTransformerBatchInput):
-    return self.tl_model.run_with_cache(tokens)
-
   def dump_compression_matrix(self, output_dir: str, filename: str):
     pass
     # if not os.path.exists(output_dir):

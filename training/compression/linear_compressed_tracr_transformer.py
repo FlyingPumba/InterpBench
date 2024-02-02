@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import typing
 from typing import List, Tuple, Callable, Literal
@@ -7,32 +9,39 @@ import torch as t
 from jaxtyping import Float
 from torch import nn, Tensor
 from torch.nn import Linear
+from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookPoint
 
-from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput, \
-  HookedTracrTransformerReturnType
+from utils.hooked_tracr_transformer import HookedTracrTransformer
 
 LinearCompressedTracrTransformerInitialization = Literal["orthogonal", "linear"]
 linear_compression_initialization_options = list(typing.get_args(LinearCompressedTracrTransformerInitialization))
 
 
-class LinearCompressedTracrTransformer(nn.Module):
+class LinearCompressedTracrTransformer(HookedTracrTransformer):
+  """ A transformer model with a linearly compressed residual stream.
+  To train the model, we multiply with a matrix W when reading from the residual stream, and with W^T when writing to
+  the residual stream.
+  """
 
   def __init__(self,
                tl_model: HookedTracrTransformer,
                residual_stream_compression_size: int,
-               initialization: LinearCompressedTracrTransformerInitialization = "linear",
-               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")):
-    super().__init__()
+               linear_compression_initialization: LinearCompressedTracrTransformerInitialization = "linear",
+               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+               *args, **kwargs):
+    super().__init__(
+      cfg=tl_model.cfg,
+      tracr_input_encoder=tl_model.tracr_input_encoder,
+      tracr_output_encoder=tl_model.tracr_output_encoder,
+      residual_stream_labels=tl_model.residual_stream_labels,
+      device=device,
+      *args, **kwargs)
+    self.original_residual_stream_size = tl_model.cfg.d_model
     self.residual_stream_compression_size = residual_stream_compression_size
-    self.tl_model = tl_model
-    self.num_layers = self.tl_model.cfg.n_layers
     self.device = device
 
-    self.original_residual_stream_size = self.tl_model.cfg.d_model
-
-    # To train the model, we multiply with a matrix W when reading from
-    # the residual stream, and with W^T when writing to the residual stream.
+    self.load_weights_from_tl_model(tl_model)
 
     # [to_size, from_size]
     self.W_compress: Linear = nn.Linear(self.original_residual_stream_size,
@@ -40,18 +49,29 @@ class LinearCompressedTracrTransformer(nn.Module):
                                         device=self.device,
                                         bias=False)
 
-    if initialization == "orthogonal":
+    if linear_compression_initialization == "orthogonal":
       # The (semi) orthogonal matrix is useful for our setup because the transpose is exactly the inverse, and we will
       # use the same matrix for reading and writing from/to the residual stream.
       nn.init.orthogonal_(self.W_compress.weight)
 
-    self.tl_model.reset_hooks(including_permanent=True)
-    self.tl_model.freeze_all_weights()
+    self.reset_hooks(including_permanent=True)
+    self.add_linear_compression_hooks()
 
-  def get_tl_model(self) -> HookedTracrTransformer:
-    return self.tl_model
+  def load_weights_from_tl_model(self, tl_model: HookedTransformer):
+    """ Load the weights from a HookedTracrTransformer. We use strict=False because the tl_model will probably not have
+    weights for the linear compression matrix. We then freeze all weights.
+    """
+    self.load_state_dict(tl_model.state_dict(), strict=False)
 
-  def build_hooks(self) -> List[Tuple[str, Callable]]:
+    for param in self.parameters():
+      param.requires_grad = False
+
+  def add_linear_compression_hooks(self):
+    hooks = self.build_linear_compression_hooks()
+    for hook_name, hook_function in hooks:
+      self.add_hook(hook_name, hook_function, is_permanent=True)
+
+  def build_linear_compression_hooks(self) -> List[Tuple[str, Callable]]:
     hooks = []
 
     write_to_compressed_residual = lambda x: x @ self.W_compress.weight.T
@@ -70,7 +90,7 @@ class LinearCompressedTracrTransformer(nn.Module):
       return read_from_compressed_residual(residual_stream)
 
     # Add hooks for Attention heads and MLPs
-    for hook_name in self.tl_model.hook_dict.keys():
+    for hook_name in self.hook_dict.keys():
       if "hook_k_input" in hook_name or "hook_q_input" in hook_name or "hook_v_input" in hook_name:
         # Attention head matrices read directly from the residual stream
         hooks.append((hook_name, read_from_resid_hook_function))
@@ -88,22 +108,11 @@ class LinearCompressedTracrTransformer(nn.Module):
     # the same size as the original model.
     # Also, TransformerLens does not have a hook for the input of the unembedding, so we need to specially need to
     # change the dimension of the last residual stream back to whatever it was before compression.
-    for layer in range(self.num_layers):
+    for layer in range(self.cfg.n_layers):
       hooks.append((f"blocks.{layer}.hook_resid_pre", write_to_resid_hook_function))
       hooks.append((f"blocks.{layer}.hook_resid_post", read_from_resid_hook_function))
 
     return hooks
-
-  def __call__(self, tokens: HookedTracrTransformerBatchInput, return_type: HookedTracrTransformerReturnType="logits"):
-    with self.tl_model.hooks(fwd_hooks=self.build_hooks()):
-      return self.tl_model(tokens, return_type=return_type)
-
-  def run_with_cache(self, tokens: HookedTracrTransformerBatchInput):
-    with self.tl_model.hooks(fwd_hooks=self.build_hooks()):
-      return self.tl_model.run_with_cache(tokens)
-
-  def run_with_cache_on_original(self, tokens: HookedTracrTransformerBatchInput):
-    return self.tl_model.run_with_cache(tokens)
 
   def dump_compression_matrix(self, output_dir: str, filename: str):
     if not os.path.exists(output_dir):

@@ -1,5 +1,3 @@
-import traceback
-
 from commands.train import linear_compression, non_linear_compression, autoencoder
 from commands.train.autoencoder import train_autoencoder
 from commands.train.linear_compression import train_linear_compression

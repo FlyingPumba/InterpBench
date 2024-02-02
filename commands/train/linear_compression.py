@@ -39,12 +39,14 @@ def run_single_linear_compression_training(case: BenchmarkCase,
   training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
 
   print(f" >>> Starting linear compression for {case} with residual stream compression size {compression_size}.")
-  compressed_tracr_transformer = LinearCompressedTracrTransformer(tl_model,
-                                                                  int(compression_size),
-                                                                  initialization=initialization,
-                                                                  device=tl_model.device)
+  compressed_tracr_transformer = LinearCompressedTracrTransformer(
+    tl_model,
+    int(compression_size),
+    initialization,
+    tl_model.device)
+
   training_args.wandb_name = None
-  trainer = LinearCompressedTracrTransformerTrainer(case, compressed_tracr_transformer, training_args)
+  trainer = LinearCompressedTracrTransformerTrainer(case, tl_model, compressed_tracr_transformer, training_args)
   final_metrics = trainer.train()
   print(f" >>> Final metrics for {case} with residual stream compression size {compression_size}: ")
   print(final_metrics)

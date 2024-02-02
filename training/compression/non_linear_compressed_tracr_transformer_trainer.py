@@ -1,7 +1,7 @@
 import transformer_lens.utils as utils
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import ActivationCache
+from transformer_lens import ActivationCache, HookedTransformer
 
 from benchmark.benchmark_case import BenchmarkCase
 from training.compression.autencoder import AutoEncoder
@@ -39,7 +39,7 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
       inputs: HookedTracrTransformerBatchInput
   ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
     compressed_model_logits, compressed_model_cache = self.new_tl_model.run_with_cache(inputs)
-    
+
     for layer in range(self.n_layers):
       cache_key = utils.get_act_name("resid_post", layer)
       compressed_model_cache.cache_dict[cache_key] = self.autoencoder.decoder(
@@ -52,6 +52,12 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
       inputs: HookedTracrTransformerBatchInput
   ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
     return self.old_tl_model.run_with_cache(inputs)
+
+  def get_original_model(self) -> HookedTransformer:
+    return self.old_tl_model
+
+  def get_compressed_model(self) -> HookedTransformer:
+    return self.new_tl_model
 
   def build_wandb_name(self):
     return f"case-{self.case.index_str}-non-linear-resid-{self.autoencoder.compression_size}"

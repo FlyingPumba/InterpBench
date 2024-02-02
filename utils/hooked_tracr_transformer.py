@@ -82,6 +82,8 @@ class HookedTracrTransformer(HookedTransformer):
 
     if init_params_fn is not None:
       instance.reset_parameters(init_params_fn)
+    else:
+      instance.load_state_dict(tl_model.state_dict())
 
     return instance
 

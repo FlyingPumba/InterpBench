@@ -6,13 +6,14 @@ import wandb
 from jaxtyping import Float
 from torch import Tensor
 from torch.nn import Parameter
-from transformer_lens import ActivationCache
+from transformer_lens import ActivationCache, HookedTransformer
 
 from benchmark.benchmark_case import BenchmarkCase
 from benchmark.case_dataset import CaseDataset
 from training.generic_trainer import GenericTrainer
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
+from utils.resampling_ablation_accuracy import get_resampling_ablation_accuracy
 
 
 class CompressedTracrTransformerTrainer(GenericTrainer):
@@ -29,8 +30,15 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     self.n_layers = n_layers
 
   def setup_dataset(self):
-    self.dataset = self.case.get_clean_data(count=self.args.train_data_size)
-    self.train_loader, self.test_loader = self.dataset.train_test_split(self.args)
+    self.clean_dataset = self.case.get_clean_data(count=self.args.train_data_size)
+    self.corrupted_dataset = self.case.get_corrupted_data(count=self.args.train_data_size)
+    self.train_loader, self.test_loader = self.clean_dataset.train_test_split(self.args)
+
+  def get_logits_and_cache_from_original_model(
+      self,
+      inputs: HookedTracrTransformerBatchInput
+  ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
+    raise NotImplementedError
 
   def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
     raise NotImplementedError
@@ -41,10 +49,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
   ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
     raise NotImplementedError
 
-  def get_logits_and_cache_from_original_model(
-      self,
-      inputs: HookedTracrTransformerBatchInput
-  ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
+  def get_original_model(self) -> HookedTransformer:
+    raise NotImplementedError
+
+  def get_compressed_model(self) -> HookedTransformer:
     raise NotImplementedError
 
   def compute_train_loss(self, batch: CaseDataset) -> Float[Tensor, ""]:
@@ -116,6 +124,12 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if not self.is_categorical:
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
+      self.test_metrics["resample_acc"] = get_resampling_ablation_accuracy(
+          clean_inputs=inputs,
+          corrupted_inputs=self.corrupted_dataset.get_inputs(),
+          base_model=self.get_original_model(),
+          hypothesis_model=self.get_compressed_model()
+      ).item()
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
