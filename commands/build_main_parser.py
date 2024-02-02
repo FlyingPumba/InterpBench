@@ -3,6 +3,7 @@ import argparse
 from commands.algorithms import run_algorithm
 from commands.analysis import perform_analysis
 from commands.compilation import compile_benchmark
+from commands.train import train
 
 
 def build_main_parser():
@@ -15,6 +16,7 @@ def build_main_parser():
   compile_benchmark.setup_args_parser(subparsers)
   run_algorithm.setup_args_parser(subparsers)
   perform_analysis.setup_args_parser(subparsers)
+  train.setup_args_parser(subparsers)
 
   return parser
 

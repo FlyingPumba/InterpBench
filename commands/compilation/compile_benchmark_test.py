@@ -5,7 +5,7 @@ import torch as t
 from commands.build_main_parser import build_main_parser
 from commands.compilation.compile_benchmark import build_tracr_model, run_case_tests_on_tracr_model, \
   build_transformer_lens_model, \
-  run_case_tests_on_tl_model, compile_all
+  run_case_tests_on_tl_model
 from utils.get_cases import get_cases
 
 
@@ -35,44 +35,3 @@ class CompileBenchmarkTest(unittest.TestCase):
                                               tracr_output=tracr_output,
                                               device=args.device)
       run_case_tests_on_tl_model(case, tl_model)
-
-  def test_linear_compression_does_not_throw_exceptions_on_any_case(self):
-    args, _ = build_main_parser().parse_known_args(["compile",
-                                                    "-i=2,3",
-                                                    "-f",
-                                                    "--fail-on-error",
-                                                    "--compress-residual=linear",
-                                                    "--residual-stream-compression-size=5",
-                                                    "--epochs=2",
-                                                    "--train-data-size=10",
-                                                    "--test-data-ratio=0.3",
-                                                    "--batch-size=2",
-                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
-    compile_all(args)
-
-  def test_auto_linear_compression_works_for_case_2(self):
-    # Case 2 has a size of 117 for the residual stream. Let's try to compress it to 80.
-    args, _ = build_main_parser().parse_known_args(["compile",
-                                                    "-i=2",
-                                                    "-f",
-                                                    "--fail-on-error",
-                                                    "--compress-residual=linear",
-                                                    "--residual-stream-compression-size=auto",
-                                                    "--train-data-size=10",
-                                                    "--auto-compression-accuracy=0.01",
-                                                    "--early-stop-test-accuracy=0.01",
-                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
-    compile_all(args)
-
-  def test_non_linear_compression_works_for_case_3(self):
-    args, _ = build_main_parser().parse_known_args(["compile",
-                                                    "-i=3",
-                                                    # "-f",
-                                                    "--fail-on-error",
-                                                    "--compress-residual=nonlinear",
-                                                    "--residual-stream-compression-size=8",
-                                                    "--train-data-size=5000",
-                                                    "--test-data-ratio=0.3",
-                                                    "--epochs=100",
-                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
-    compile_all(args)

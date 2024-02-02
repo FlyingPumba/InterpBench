@@ -31,7 +31,7 @@ class LinearCompressedTracrTransformer(nn.Module):
 
     self.original_residual_stream_size = self.tl_model.cfg.d_model
 
-    # To compress the model, we multiply with a matrix W when reading from
+    # To train the model, we multiply with a matrix W when reading from
     # the residual stream, and with W^T when writing to the residual stream.
 
     # [to_size, from_size]
