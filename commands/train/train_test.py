@@ -50,6 +50,6 @@ class TrainTest(unittest.TestCase):
                                                     "--train-data-size=10",
                                                     "--test-data-ratio=0.3",
                                                     "--epochs=2",
-                                                    "--ae-path=results/case-3-resid-8-ae.pt",
+                                                    "--ae-path=results/case-00003-resid-8-ae.pt",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)

@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import List
 
 import numpy as np
 import torch as t
@@ -19,7 +19,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
   def __init__(self,
                case: BenchmarkCase,
-               parameters: Iterator[Parameter],
+               parameters: List[Parameter],
                training_args: TrainingArgs,
                is_categorical: bool,
                 n_layers: int):
@@ -80,7 +80,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     return loss
 
-  def evaluate_test_metrics(self):
+  def compute_test_metrics(self):
     test_data = next(iter(self.test_loader))
     inputs = test_data[CaseDataset.INPUT_FIELD]
     expected_outputs = test_data[CaseDataset.CORRECT_OUTPUT_FIELD]

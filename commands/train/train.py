@@ -23,16 +23,11 @@ def run(args):
     training_type = args.type
     print(f"\nRunning training {args.type} on {case}")
 
-    try:
-      if training_type == "linear-compression":
-        train_linear_compression(case, args)
-      elif training_type == "non-linear-compression":
-        train_non_linear_compression(case, args)
-      elif training_type == "autoencoder":
-        train_autoencoder(case, args)
-      else:
-        raise ValueError(f"Unknown training: {training_type}")
-
-    except Exception as e:
-      print(f" >>> Failed to run training {args.type} on {case}:")
-      traceback.print_exc()
+    if training_type == "linear-compression":
+      train_linear_compression(case, args)
+    elif training_type == "non-linear-compression":
+      train_non_linear_compression(case, args)
+    elif training_type == "autoencoder":
+      train_autoencoder(case, args)
+    else:
+      raise ValueError(f"Unknown training: {training_type}")

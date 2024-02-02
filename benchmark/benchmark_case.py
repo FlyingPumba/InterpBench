@@ -1,5 +1,5 @@
 import importlib
-from typing import Set
+from typing import Set, Optional
 
 import numpy as np
 from networkx import DiGraph
@@ -43,7 +43,7 @@ class BenchmarkCase(object):
     """Returns the vocabulary to be used by Tracr."""
     raise NotImplementedError()
 
-  def  get_clean_data(self, count: int = 10) -> CaseDataset:
+  def get_clean_data(self, count: Optional[int] = 10) -> CaseDataset:
     """Returns the clean data for the benchmark case."""
     seq_len = self.get_max_seq_len()
     input_data: HookedTracrTransformerBatchInput = []

@@ -19,13 +19,11 @@ class AutoEncoderTrainer(GenericTrainer):
                autoencoder: AutoEncoder,
                tl_model: HookedTracrTransformer,
                args: TrainingArgs):
-    super().__init__(case, autoencoder.parameters(), args)
-
     self.autoencoder = autoencoder
     self.tl_model = tl_model
     self.tl_model_n_layers = tl_model.cfg.n_layers
-
     self.tl_model.freeze_all_weights()
+    super().__init__(case, list(autoencoder.parameters()), args)
 
   def setup_dataset(self):
     tl_dataset = self.case.get_clean_data(count=self.args.train_data_size)
@@ -59,7 +57,8 @@ class AutoEncoderTrainer(GenericTrainer):
     self.test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
 
   def compute_train_loss(self, inputs: Float[Tensor, "batch_size d_model"]) -> Float[Tensor, "batch posn-1"]:
-    output: Float[Tensor, "batch_size d_model"] = self.autoencoder(inputs)
+    output = self.autoencoder(inputs)
+
     loss = t.nn.functional.mse_loss(inputs, output)
 
     if self.use_wandb:

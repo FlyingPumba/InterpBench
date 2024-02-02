@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import List
 
 import numpy as np
 import torch as t
@@ -18,7 +18,7 @@ class GenericTrainer():
 
   def __init__(self,
                case: BenchmarkCase,
-               parameters: Iterator[Parameter],
+               parameters: List[Parameter],
                training_args: TrainingArgs):
     self.case = case
     self.parameters = parameters
@@ -40,10 +40,10 @@ class GenericTrainer():
     self.steps = self.args.steps if self.args.steps is not None else self.epochs * len(self.train_loader)
 
     # assert at least one parameter
-    assert len(list(self.parameters)) > 0, "No parameters to optimize."
+    assert len(self.parameters) > 0, "No parameters to optimize."
 
     # get the device from parameters
-    self.device = next(self.parameters).device
+    self.device = self.parameters[0].device
 
     self.optimizer = t.optim.AdamW(self.parameters,
                                    lr=self.args.lr_start,

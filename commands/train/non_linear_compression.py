@@ -37,6 +37,7 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                            tl_model: HookedTracrTransformer,
                                            args: Namespace,
                                            compression_size: int):
+  original_residual_stream_size = tl_model.cfg.d_model
   training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
 
   new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
@@ -46,7 +47,6 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
   )
 
   # Load AutoEncoder model
-  original_residual_stream_size = tl_model.cfg.d_model
   autoencoder = AutoEncoder(original_residual_stream_size, compression_size, args.ae_layers)
   autoencoder.load_weights_from_file(args.ae_path)
 

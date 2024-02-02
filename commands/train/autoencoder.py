@@ -38,7 +38,7 @@ def train_autoencoder(case: BenchmarkCase, args: Namespace):
     training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
     original_residual_stream_size = tl_model.cfg.d_model
 
-    compression_layers = args.ae_n_layers
+    compression_layers = args.ae_layers
     autoencoder = AutoEncoder(original_residual_stream_size, compression_size, compression_layers)
 
     print(
