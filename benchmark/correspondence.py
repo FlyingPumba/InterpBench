@@ -11,7 +11,7 @@ import numpy as np
 import torch as t
 from typing import Callable
 
-from commands.compile_benchmark import build_tracr_model
+from commands.compilation.compile_benchmark import build_tracr_model
 from benchmark.benchmark_case import BenchmarkCase
 from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
