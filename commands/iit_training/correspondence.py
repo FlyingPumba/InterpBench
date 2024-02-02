@@ -89,17 +89,26 @@ class TracrCorrespondence:
     #     for direction in node["OUTPUT_BASIS"]:
     #       self._dict[direction] = self._unit_output_bases[direction]
 
+  @staticmethod
+  def from_output(tracr_output: TracrOutput):
+    return TracrCorrespondence(tracr_output.graph, tracr_output.craft_model)
+
   def __getitem__(self, key):
     return self._dict[key]
   
   def __repr__(self) -> str:
-    return f"TracrCorrespondence(\n{self._dict}\n)"
+    dict_repr = '\n'.join([f"\t{k.name, k.value}: {v}" for k, v in self._dict.items()])
+    return f"TracrCorrespondence(\n{dict_repr}\n)"
+  
+  def items(self):
+    return self._dict.items()
 
 
-tracr_output = build_tracr_model(BenchmarkCase("benchmark/case-00003"), force=True)
-graph3 = tracr_output.graph
-craft_model3 = tracr_output.craft_model
-corr = TracrCorrespondence(graph3, craft_model3)
-print(corr)
+if __name__ == "__main__":
+  tracr_output = build_tracr_model(BenchmarkCase("benchmark/case-00003"), force=True)
+  graph3 = tracr_output.graph
+  craft_model3 = tracr_output.craft_model
+  corr = TracrCorrespondence(graph3, craft_model3)
+  print(corr)
 
 # %%
