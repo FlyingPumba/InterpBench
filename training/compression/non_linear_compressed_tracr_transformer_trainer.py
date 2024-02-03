@@ -60,4 +60,4 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
     return self.new_tl_model
 
   def build_wandb_name(self):
-    return f"case-{self.case.index_str}-non-linear-resid-{self.autoencoder.compression_size}"
+    return f"case-{self.case.get_index()}-non-linear-resid-{self.autoencoder.compression_size}"

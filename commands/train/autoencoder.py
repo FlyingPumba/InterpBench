@@ -48,4 +48,4 @@ def train_autoencoder(case: BenchmarkCase, args: Namespace):
     print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
     print(final_metrics)
 
-    autoencoder.save_weights_to_file(f"{args.output_dir}/case-{case.index_str}-resid-{str(compression_size)}-ae.pt")
+    autoencoder.save_weights_to_file(f"{args.output_dir}/case-{case.get_index()}-resid-{str(compression_size)}-ae.pt")

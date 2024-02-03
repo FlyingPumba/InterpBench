@@ -2,6 +2,7 @@ import unittest
 
 import torch as t
 
+from benchmark.cases.case_3 import Case3
 from commands.build_main_parser import build_main_parser
 from commands.compilation.compile_benchmark import build_tracr_model, run_case_tests_on_tracr_model, \
   build_transformer_lens_model, \
@@ -35,3 +36,7 @@ class CompileBenchmarkTest(unittest.TestCase):
                                               tracr_output=tracr_output,
                                               device=args.device)
       run_case_tests_on_tl_model(case, tl_model)
+
+  def test_cases_can_be_instantiated_directly(self):
+    case = Case3()
+    assert case.get_index() == "3"

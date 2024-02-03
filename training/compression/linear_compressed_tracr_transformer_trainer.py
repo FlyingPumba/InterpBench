@@ -45,4 +45,4 @@ class LinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer)
     return self.compressed_model
 
   def build_wandb_name(self):
-    return f"case-{self.case.index_str}-linear-resid-{self.compressed_model.residual_stream_compression_size}"
+    return f"case-{self.case.get_index()}-linear-resid-{self.compressed_model.residual_stream_compression_size}"

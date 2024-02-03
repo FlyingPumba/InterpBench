@@ -1,4 +1,5 @@
 import importlib
+import os.path
 from typing import Set, Optional
 
 import numpy as np
@@ -9,15 +10,14 @@ from benchmark.case_dataset import CaseDataset
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.rasp import rasp
 from utils.cloudpickle import load_from_pickle, dump_to_pickle
+from utils.detect_project_root import detect_project_root
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
-from utils.relativize_path import relativize_path_to_project_root
 
 
 class BenchmarkCase(object):
 
-  def __init__(self, file_path_from_root: str):
-    self.file_path_from_root = file_path_from_root
-    self.index_str = file_path_from_root.split("/")[1].split("-")[1]
+  def __init__(self):
+    self.case_file_absolute_path = os.path.join(detect_project_root(), self.get_relative_path_from_root())
     self.data_generation_seed = 42
 
   @staticmethod
@@ -103,50 +103,45 @@ class BenchmarkCase(object):
     Default implementation: 10."""
     return 10
 
-  def get_file_path_from_root(self) -> str:
-    return self.file_path_from_root
-
-  def get_benchmark_index(self) -> str:
-    return self.index_str
+  def get_index(self) -> str:
+    class_name = self.__class__.__name__  # Looks like "CaseN"
+    return class_name[4:]
 
   def __str__(self):
-    return self.file_path_from_root
+    return self.case_file_absolute_path
 
-  def get_tracr_model_path_from_root(self) -> str:
-    return self.file_path_from_root.replace("rasp.py", "tracr_model.pkl")
+  def get_tracr_model_pickle_path(self) -> str:
+    return self.case_file_absolute_path.replace(".py", "_tracr_model.pkl")
 
-  def get_tracr_graph_path_from_root(self) -> str:
-    return self.file_path_from_root.replace("rasp.py", "tracr_graph.pkl")
+  def get_tracr_graph_pickle_path(self) -> str:
+    return self.case_file_absolute_path.replace(".py", "_tracr_graph.pkl")
 
-  def get_tl_model_path_from_root(self) -> str:
-    return self.file_path_from_root.replace("rasp.py", "tl_model.pkl")
+  def get_tl_model_pickle_path(self) -> str:
+    return self.case_file_absolute_path.replace(".py", "_tl_model.pkl")
 
   def load_tracr_model(self) -> AssembledTransformerModel | None:
     """Loads the tracr model from disk, if it exists."""
-    tracr_model_output_path = relativize_path_to_project_root(self.get_tracr_model_path_from_root())
-    return load_from_pickle(tracr_model_output_path)
+    return load_from_pickle(self.get_tracr_model_pickle_path())
 
   def load_tracr_graph(self) -> DiGraph | None:
     """Loads the tracr graph from disk, if it exists."""
-    tracr_graph_output_path = relativize_path_to_project_root(self.get_tracr_graph_path_from_root())
-    return load_from_pickle(tracr_graph_output_path)
+    return load_from_pickle(self.get_tracr_graph_pickle_path())
 
   def load_tl_model(self) -> HookedTracrTransformer | None:
     """Loads the transformer_lens model from disk, if it exists."""
-    tl_model_output_path = relativize_path_to_project_root(self.get_tl_model_path_from_root())
-    return load_from_pickle(tl_model_output_path)
+    return load_from_pickle(self.get_tl_model_pickle_path())
 
   def dump_tracr_model(self, tracr_model: AssembledTransformerModel) -> None:
     """Dumps the tracr model to disk."""
-    tracr_model_output_path = relativize_path_to_project_root(self.get_tracr_model_path_from_root())
-    dump_to_pickle(tracr_model_output_path, tracr_model)
+    dump_to_pickle(self.get_tracr_model_pickle_path(), tracr_model)
 
   def dump_tracr_graph(self, tracr_graph: DiGraph) -> None:
     """Dumps the tracr graph to disk."""
-    tracr_graph_output_path = relativize_path_to_project_root(self.get_tracr_graph_path_from_root())
-    dump_to_pickle(tracr_graph_output_path, tracr_graph)
+    dump_to_pickle(self.get_tracr_graph_pickle_path(), tracr_graph)
 
   def dump_tl_model(self, tl_model: HookedTracrTransformer) -> None:
     """Dumps the transformer_lens model to disk."""
-    tl_model_output_path = relativize_path_to_project_root(self.get_tl_model_path_from_root())
-    dump_to_pickle(tl_model_output_path, tl_model)
+    dump_to_pickle(self.get_tl_model_pickle_path(), tl_model)
+
+  def get_relative_path_from_root(self) -> str:
+    return f"benchmark/cases/case_{self.get_index()}.py"

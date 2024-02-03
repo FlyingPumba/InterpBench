@@ -1,28 +1,18 @@
-import glob
-import os
+from argparse import Namespace
 from typing import List
 
 from benchmark.benchmark_case import BenchmarkCase
-from utils.relativize_path import relativize_path_to_project_root
+from utils.find_all_subclasses import find_all_subclasses_in_package
 
 BENCHMARK_DIR = "benchmark"
 
-def get_cases(args) -> List[BenchmarkCase]:
-  relative_benchmark_dir = relativize_path_to_project_root(BENCHMARK_DIR)
+
+def get_cases(args: Namespace | None = None) -> List[BenchmarkCase]:
+  classes = find_all_subclasses_in_package(BenchmarkCase, "benchmark.cases")
+
   if args is not None and args.indices is not None:
-    # convert index to 5 digits
-    files = [f"{relative_benchmark_dir}/case-{int(index):05d}/rasp.py" for index in args.indices.split(",")]
+    # filter class names that are "CaseN" where N in indices
+    classes = [cls for cls in classes if cls.__name__[4:] in args.indices.split(",")]
 
-    # Check that all the files exist.
-    for file_path in files:
-      if not os.path.exists(file_path):
-        raise ValueError(f"Case with path {file_path} does not exist.")
-  else:
-    files = sorted(glob.glob(os.path.join(relative_benchmark_dir, "case-*", "rasp.py")))
-
-  # remove "../" prefix from files, as many times as needed
-  for i in range(len(files)):
-    while files[i][:3] == "../":
-      files[i] = files[i][3:]
-
-  return [BenchmarkCase.get_instance_for_file_path(path) for path in files]
+  # instantiate all classes found
+  return [cls() for cls in classes]

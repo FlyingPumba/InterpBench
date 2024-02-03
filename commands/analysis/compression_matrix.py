@@ -56,7 +56,7 @@ def run(args):
   )
 
   fig.write_image(f"{output_dir}/sgd-compression.png")
-  plotly.offline.plot(fig, filename=f"{output_dir}/sgd-compression.html")
+  # plotly.offline.plot(fig, filename=f"{output_dir}/sgd-compression.html")
 
   # U, S, Vh = torch.svd(W_E)
   #

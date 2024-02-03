@@ -13,9 +13,3 @@ class GetCasesTest(unittest.TestCase):
     args = AttrDict({"indices": "1,2,3"})
     cases = get_cases(args)
     self.assertEqual(len(cases), 3)
-
-  def no_parent_directory_prefix(self):
-    args = AttrDict({"indices": "1,2,3"})
-    cases = get_cases(args)
-    for case in cases:
-      self.assertNotEqual(case.get_file_path_from_root()[:3], "../")

@@ -76,4 +76,4 @@ class AutoEncoderTrainer(GenericTrainer):
       wandb.log(self.test_metrics, step=self.step)
 
   def build_wandb_name(self):
-    return f"case-{self.case.index_str}-autoencoder-{self.autoencoder.compression_size}"
+    return f"case-{self.case.get_index()}-autoencoder-{self.autoencoder.compression_size}"

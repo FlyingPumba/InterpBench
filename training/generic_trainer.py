@@ -125,4 +125,4 @@ class GenericTrainer():
       return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in self.test_metrics.items()]))[:-2]
 
   def build_wandb_name(self):
-    return f"case-{self.case.index_str}-generic-training"
+    return f"case-{self.case.get_index()}-generic-training"
