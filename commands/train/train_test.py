@@ -53,3 +53,14 @@ class TrainTest(unittest.TestCase):
                                                     "--ae-path=results/case-3-resid-8-ae.pt",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
+
+  def test_natural_compression_works_for_cases_2_and_3(self):
+    args, _ = build_main_parser().parse_known_args(["train",
+                                                    "natural-compression",
+                                                    "-i=2,3",
+                                                    "--residual-stream-compression-size=8",
+                                                    "--train-data-size=10",
+                                                    "--test-data-ratio=0.3",
+                                                    "--epochs=2",
+                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
+    train.run(args)

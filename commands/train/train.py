@@ -1,4 +1,4 @@
-from commands.train import linear_compression, non_linear_compression, autoencoder
+from commands.train import linear_compression, non_linear_compression, autoencoder, natural_compression
 from commands.train.autoencoder import train_autoencoder
 from commands.train.linear_compression import train_linear_compression
 from commands.train.non_linear_compression import train_non_linear_compression
@@ -14,6 +14,7 @@ def setup_args_parser(subparsers):
   linear_compression.setup_args_parser(run_subparsers)
   non_linear_compression.setup_args_parser(run_subparsers)
   autoencoder.setup_args_parser(run_subparsers)
+  natural_compression.setup_args_parser(run_subparsers)
 
 
 def run(args):
@@ -27,5 +28,7 @@ def run(args):
       train_non_linear_compression(case, args)
     elif training_type == "autoencoder":
       train_autoencoder(case, args)
+    elif training_type == "natural-compression":
+      natural_compression.train_natural_compression(case, args)
     else:
       raise ValueError(f"Unknown training: {training_type}")
