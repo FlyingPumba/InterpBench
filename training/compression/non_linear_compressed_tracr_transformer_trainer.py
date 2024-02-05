@@ -21,16 +21,16 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
                autoencoder: AutoEncoder,
                args: TrainingArgs,
                output_dir: str | None = None):
+    self.old_tl_model: HookedTracrTransformer = old_tl_model
+    self.new_tl_model: HookedTracrTransformer = new_tl_model
+    self.autoencoder: AutoEncoder = autoencoder
+    self.device = old_tl_model.device
     super().__init__(case,
                      list(new_tl_model.parameters()),
                      args,
                      old_tl_model.is_categorical(),
                      new_tl_model.cfg.n_layers,
                      output_dir=output_dir)
-    self.old_tl_model: HookedTracrTransformer = old_tl_model
-    self.new_tl_model: HookedTracrTransformer = new_tl_model
-    self.autoencoder: AutoEncoder = autoencoder
-    self.device = old_tl_model.device
 
   def update_params(self, loss: Float[Tensor, ""]):
     loss.backward(retain_graph=True)
