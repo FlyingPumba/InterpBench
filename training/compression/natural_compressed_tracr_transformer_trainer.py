@@ -102,46 +102,6 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
 
     return loss
 
-  def compute_test_metrics(self):
-    test_data = next(iter(self.test_loader))
-    inputs = test_data[CaseDataset.INPUT_FIELD]
-    expected_outputs = test_data[CaseDataset.CORRECT_OUTPUT_FIELD]
-    predicted_outputs = self.get_decoded_outputs_from_compressed_model(inputs)
-
-    correct_predictions = []
-    expected_outputs_flattened = []
-    predicted_outputs_flattened = []
-
-    # The [1:] is for discarding the BOS token from comparison
-    for predicted_output, expected_output in zip(predicted_outputs, expected_outputs):
-      predictions = predicted_output[1:]
-      expectations = expected_output[1:]
-
-      if isinstance(predictions[0], str):
-        # We have chars, convert them to numbers using ord to avoid the torch issue: "too many dimensions 'str'"
-        predictions = [ord(p) for p in predictions]
-        expectations = [ord(e) for e in expectations]
-
-      predicted_outputs_flattened.extend(predictions)
-      expected_outputs_flattened.extend(expectations)
-
-      if self.is_categorical:
-        correct_predictions.extend(p == e for p, e in zip(predictions, expectations))
-      else:
-        correct_predictions.extend(np.isclose(predictions, expectations, atol=self.args.test_accuracy_atol).tolist())
-
-    self.test_metrics["test_accuracy"] = np.mean(correct_predictions)
-
-    predicted_outputs_tensor = t.tensor(predicted_outputs_flattened)
-    expected_outputs_tensor = t.tensor(expected_outputs_flattened)
-
-    if not self.is_categorical:
-      self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
-                                                               expected_outputs_tensor).item()
-
-    if self.use_wandb:
-      wandb.log(self.test_metrics, step=self.step)
-
   def save_artifacts(self):
     if not os.path.exists(self.output_dir):
       os.makedirs(self.output_dir)
