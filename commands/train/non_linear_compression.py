@@ -54,7 +54,8 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
   new_tl_model.unfreeze_all_weights()
 
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compression_size}.")
-  trainer = NonLinearCompressedTracrTransformerTrainer(case, tl_model, new_tl_model, autoencoder, training_args)
+  trainer = NonLinearCompressedTracrTransformerTrainer(case, tl_model, new_tl_model, autoencoder, training_args,
+                                                       output_dir=args.output_dir)
   final_metrics = trainer.train()
   print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compression_size}: ")
   print(final_metrics)

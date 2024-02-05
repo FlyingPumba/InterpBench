@@ -41,7 +41,8 @@ def run_single_natural_compression_training(case: BenchmarkCase,
   )
 
   training_args.wandb_name = None
-  trainer = NaturalCompressedTracrTransformerTrainer(case, tl_model, new_tl_model, training_args)
+  trainer = NaturalCompressedTracrTransformerTrainer(case, tl_model, new_tl_model, training_args,
+                                                     output_dir=args.output_dir)
   final_metrics = trainer.train()
   print(f" >>> Final metrics for {case} with residual stream compression size {compression_size}: ")
   print(final_metrics)
