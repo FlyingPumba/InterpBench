@@ -6,11 +6,13 @@ from typing import List, Tuple, Callable, Literal
 
 import numpy as np
 import torch as t
+import wandb
 from jaxtyping import Float
 from torch import nn, Tensor
 from torch.nn import Linear
 from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookPoint
+from wandb.sdk.wandb_run import Run
 
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
@@ -114,9 +116,27 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
 
     return hooks
 
-  def dump_compression_matrix(self, output_dir: str, filename: str):
+  def save(self, output_dir: str, prefix: str, wandb_run: Run | None = None):
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
 
+    # save compression matrix by its own
     compression_matrix = self.W_compress.weight.detach().cpu().numpy()
-    np.save(os.path.join(output_dir, filename), compression_matrix)
+    compression_matrix_path = os.path.join(output_dir, f"{prefix}-linear-compression-matrix.npy")
+    np.save(compression_matrix_path, compression_matrix)
+
+    # save the weights of the model using state_dict
+    weights_path = os.path.join(output_dir, f"{prefix}-linear-compression-weights.pt")
+    t.save(self.state_dict(), weights_path)
+
+    # save the entire model
+    model_path = os.path.join(output_dir, f"{prefix}-linearly-compressed-tracr-transformer.pt")
+    t.save(self, model_path)
+
+    if wandb_run is not None:
+      # save the files as artifacts to wandb
+      artifact = wandb.Artifact(f"{prefix}-linearly-compressed-tracr-transformer", type="model")
+      artifact.add_file(weights_path)
+      artifact.add_file(compression_matrix_path)
+      artifact.add_file(model_path)
+      wandb_run.log_artifact(artifact)

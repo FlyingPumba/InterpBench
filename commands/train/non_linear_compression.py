@@ -59,11 +59,6 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
   print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compression_size}: ")
   print(final_metrics)
 
-  # compressed_tracr_transformer.dump_compression_matrix(
-  #   args.output_dir,
-  #   f"case-{case.get_index()}-resid-{str(compression_size)}-compression-matrix"
-  # )
-
   return final_metrics
 
 

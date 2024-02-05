@@ -19,11 +19,14 @@ class GenericTrainer():
   def __init__(self,
                case: BenchmarkCase,
                parameters: List[Parameter],
-               training_args: TrainingArgs):
+               training_args: TrainingArgs,
+               output_dir: str | None = None):
     self.case = case
     self.parameters = parameters
     self.args = training_args
+    self.output_dir = output_dir
 
+    self.wandb_run = None
     self.use_wandb = self.args.wandb_project is not None
 
     self.step = 0
@@ -72,7 +75,7 @@ class GenericTrainer():
     Trains the model, for `self.args.epochs` epochs.
     """
     if self.use_wandb:
-      wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
+      self.wandb_run = wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
 
     progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
     for epoch in range(self.epochs):
@@ -88,6 +91,9 @@ class GenericTrainer():
       if (self.args.early_stop_test_accuracy is not None and
           self.test_metrics["test_accuracy"] >= self.args.early_stop_test_accuracy):
         break
+
+    if self.output_dir is not None:
+      self.save_artifacts()
 
     if self.use_wandb:
       wandb.finish()
@@ -126,3 +132,6 @@ class GenericTrainer():
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-generic-training"
+
+  def save_artifacts(self):
+    pass

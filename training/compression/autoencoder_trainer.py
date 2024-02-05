@@ -1,3 +1,5 @@
+import os
+
 import torch as t
 import wandb
 from jaxtyping import Float
@@ -18,12 +20,13 @@ class AutoEncoderTrainer(GenericTrainer):
                case: BenchmarkCase,
                autoencoder: AutoEncoder,
                tl_model: HookedTracrTransformer,
-               args: TrainingArgs):
+               args: TrainingArgs,
+               output_dir: str | None = None):
     self.autoencoder = autoencoder
     self.tl_model = tl_model
     self.tl_model_n_layers = tl_model.cfg.n_layers
     self.tl_model.freeze_all_weights()
-    super().__init__(case, list(autoencoder.parameters()), args)
+    super().__init__(case, list(autoencoder.parameters()), args, output_dir=output_dir)
 
   def setup_dataset(self):
     tl_dataset = self.case.get_clean_data(count=self.args.train_data_size)
@@ -77,3 +80,24 @@ class AutoEncoderTrainer(GenericTrainer):
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-autoencoder-{self.autoencoder.compression_size}"
+
+  def save_artifacts(self):
+    if not os.path.exists(self.output_dir):
+      os.makedirs(self.output_dir)
+
+    prefix = f"case-{self.case.get_index()}-resid-{self.autoencoder.compression_size}"
+
+    # save the weights of the model using state_dict
+    weights_path = os.path.join(self.output_dir, f"{prefix}-autoencoder-weights.pt")
+    t.save(self.autoencoder.state_dict(), weights_path)
+
+    # save the entire model
+    model_path = os.path.join(self.output_dir, f"{prefix}-autoencoder.pt")
+    t.save(self.autoencoder, model_path)
+
+    if self.wandb_run is not None:
+      # save the files as artifacts to wandb
+      artifact = wandb.Artifact(f"{prefix}-autoencoder", type="model")
+      artifact.add_file(weights_path)
+      artifact.add_file(model_path)
+      self.wandb_run.log_artifact(artifact)

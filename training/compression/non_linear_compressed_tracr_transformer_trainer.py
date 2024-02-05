@@ -1,4 +1,8 @@
+import os
+
+import torch as t
 import transformer_lens.utils as utils
+import wandb
 from jaxtyping import Float
 from torch import Tensor
 from transformer_lens import ActivationCache, HookedTransformer
@@ -15,12 +19,14 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
                old_tl_model: HookedTracrTransformer,
                new_tl_model: HookedTracrTransformer,
                autoencoder: AutoEncoder,
-               args: TrainingArgs):
+               args: TrainingArgs,
+               output_dir: str | None = None):
     super().__init__(case,
                      list(new_tl_model.parameters()),
                      args,
                      old_tl_model.is_categorical(),
-                     new_tl_model.cfg.n_layers)
+                     new_tl_model.cfg.n_layers,
+                     output_dir=output_dir)
     self.old_tl_model: HookedTracrTransformer = old_tl_model
     self.new_tl_model: HookedTracrTransformer = new_tl_model
     self.autoencoder: AutoEncoder = autoencoder
@@ -61,3 +67,24 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-non-linear-resid-{self.autoencoder.compression_size}"
+
+  def save_artifacts(self):
+    if not os.path.exists(self.output_dir):
+      os.makedirs(self.output_dir)
+
+    prefix = f"case-{self.case.get_index()}-resid-{self.autoencoder.compression_size}"
+
+    # save the weights of the model using state_dict
+    weights_path = os.path.join(self.output_dir, f"{prefix}-non-linear-compression-weights.pt")
+    t.save(self.autoencoder.state_dict(), weights_path)
+
+    # save the entire model
+    model_path = os.path.join(self.output_dir, f"{prefix}-non-linearly-compressed-tracr-transformer.pt")
+    t.save(self.autoencoder, model_path)
+
+    if self.wandb_run is not None:
+      # save the files as artifacts to wandb
+      artifact = wandb.Artifact(f"{prefix}-non-linearly-compressed-tracr-transformer", type="model")
+      artifact.add_file(weights_path)
+      artifact.add_file(model_path)
+      self.wandb_run.log_artifact(artifact)

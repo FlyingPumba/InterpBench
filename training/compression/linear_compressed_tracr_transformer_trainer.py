@@ -14,12 +14,14 @@ class LinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer)
                case: BenchmarkCase,
                original_model: HookedTracrTransformer,
                compressed_model: LinearCompressedTracrTransformer,
-               args: TrainingArgs):
+               args: TrainingArgs,
+               output_dir: str | None = None):
     super().__init__(case,
                      list(compressed_model.parameters()),
                      args,
                      original_model.is_categorical(),
-                     original_model.cfg.n_layers)
+                     original_model.cfg.n_layers,
+                     output_dir=output_dir)
     self.original_model = original_model
     self.compressed_model = compressed_model
 
@@ -46,3 +48,6 @@ class LinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer)
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-linear-resid-{self.compressed_model.residual_stream_compression_size}"
+
+  def save_artifacts(self):
+    self.compressed_model.save(self.output_dir, self.wandb_run)

@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch as t
 import wandb
@@ -17,14 +19,16 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
                case: BenchmarkCase,
                original_model: HookedTracrTransformer,
                compressed_model: HookedTracrTransformer,
-               args: TrainingArgs):
+               args: TrainingArgs,
+               output_dir: str | None = None):
     self.original_model = original_model
     self.compressed_model = compressed_model
     super().__init__(case,
                      list(compressed_model.parameters()),
                      args,
                      original_model.is_categorical(),
-                     original_model.cfg.n_layers)
+                     original_model.cfg.n_layers,
+                     output_dir=output_dir)
 
   def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
     return self.compressed_model(inputs, return_type="decoded")
@@ -137,3 +141,24 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
+
+  def save_artifacts(self):
+    if not os.path.exists(self.output_dir):
+      os.makedirs(self.output_dir)
+
+    prefix = f"case-{self.case.get_index()}-resid-{self.compressed_model.cfg.d_model}"
+
+    # save the weights of the model using state_dict
+    weights_path = os.path.join(self.output_dir, f"{prefix}-natural-compression-weights.pt")
+    t.save(self.compressed_model.state_dict(), weights_path)
+
+    # save the entire model
+    model_path = os.path.join(self.output_dir, f"{prefix}-natural-compressed-tracr-transformer.pt")
+    t.save(self.compressed_model, model_path)
+
+    if self.wandb_run is not None:
+      # save the files as artifacts to wandb
+      artifact = wandb.Artifact(f"{prefix}-naturally-compressed-tracr-transformer", type="model")
+      artifact.add_file(weights_path)
+      artifact.add_file(model_path)
+      self.wandb_run.log_artifact(artifact)

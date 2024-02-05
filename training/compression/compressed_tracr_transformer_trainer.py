@@ -23,8 +23,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
                parameters: List[Parameter],
                training_args: TrainingArgs,
                is_categorical: bool,
-                n_layers: int):
-    super().__init__(case, parameters, training_args)
+               n_layers: int,
+               output_dir: str | None = None):
+    super().__init__(case, parameters, training_args, output_dir=output_dir)
 
     self.is_categorical = is_categorical
     self.n_layers = n_layers
@@ -125,10 +126,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
       self.test_metrics["resample_acc"] = get_resampling_ablation_accuracy(
-          clean_inputs=inputs,
-          corrupted_inputs=self.corrupted_dataset.get_inputs(),
-          base_model=self.get_original_model(),
-          hypothesis_model=self.get_compressed_model()
+        clean_inputs=inputs,
+        corrupted_inputs=self.corrupted_dataset.get_inputs(),
+        base_model=self.get_original_model(),
+        hypothesis_model=self.get_compressed_model()
       ).item()
 
     if self.use_wandb:
