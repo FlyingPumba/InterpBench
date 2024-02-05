@@ -16,14 +16,14 @@ class LinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer)
                compressed_model: LinearCompressedTracrTransformer,
                args: TrainingArgs,
                output_dir: str | None = None):
+    self.original_model = original_model
+    self.compressed_model = compressed_model
     super().__init__(case,
                      list(compressed_model.parameters()),
                      args,
                      original_model.is_categorical(),
                      original_model.cfg.n_layers,
                      output_dir=output_dir)
-    self.original_model = original_model
-    self.compressed_model = compressed_model
 
   def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
     return self.compressed_model(inputs, return_type="decoded")
