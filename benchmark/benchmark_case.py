@@ -3,6 +3,7 @@ import os.path
 from typing import Set, Optional
 
 import numpy as np
+import torch as t
 from networkx import DiGraph
 from torch import Tensor
 
@@ -129,7 +130,14 @@ class BenchmarkCase(object):
 
   def load_tl_model(self) -> HookedTracrTransformer | None:
     """Loads the transformer_lens model from disk, if it exists."""
-    return load_from_pickle(self.get_tl_model_pickle_path())
+    tl_model: HookedTracrTransformer | None = load_from_pickle(self.get_tl_model_pickle_path())
+
+    if tl_model is not None:
+      # move the model to the correct device
+      device = "cuda" if t.cuda.is_available() else "cpu"
+      tl_model.to(device)
+
+    return tl_model
 
   def dump_tracr_model(self, tracr_model: AssembledTransformerModel) -> None:
     """Dumps the tracr model to disk."""
