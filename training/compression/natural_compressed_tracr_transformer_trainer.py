@@ -72,7 +72,8 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
       expected_outputs = [e[1:] for e in expected_outputs]
 
       # use tracr original encoding to map expected_outputs
-      expected_outputs = t.tensor([self.get_original_model().tracr_output_encoder.encode(o) for o in expected_outputs])
+      expected_outputs = t.tensor([self.get_original_model().tracr_output_encoder.encode(o) for o in expected_outputs],
+                                  device=self.device)
 
       # vocab size is 28, but logits size is 26
 
@@ -83,7 +84,8 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
       loss = -self.get_log_probs(predicted_outputs, expected_outputs).mean()
     else:
       # Just drop the BOS token from the expected outputs
-      expected_outputs = t.tensor([e[1:] for e in expected_outputs])
+      expected_outputs = t.tensor([e[1:] for e in expected_outputs],
+                                  device=self.device)
 
       # We drop the BOS token and squeeze because the predicted output has only one numerical element as output
       predicted_outputs = predicted_outputs[:, 1:].squeeze()
