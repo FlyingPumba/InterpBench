@@ -50,4 +50,5 @@ class LinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer)
     return f"case-{self.case.get_index()}-linear-resid-{self.compressed_model.residual_stream_compression_size}"
 
   def save_artifacts(self):
-    self.compressed_model.save(self.output_dir, self.wandb_run)
+    prefix = f"case-{self.case.get_index()}-resid-{self.compressed_model.residual_stream_compression_size}"
+    self.compressed_model.save(self.output_dir, prefix, self.wandb_run)
