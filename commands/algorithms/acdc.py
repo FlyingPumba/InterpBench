@@ -9,18 +9,13 @@ import wandb
 from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from benchmark.benchmark_case import BenchmarkCase
+from commands.common_args import add_common_args
 from utils.project_paths import get_default_output_dir
 
 
 def setup_args_parser(subparsers):
   parser = subparsers.add_parser("acdc")
-  parser.add_argument("-i", "--indices", type=str, default=None,
-                      help="A list of comma separated indices of the cases to run against. "
-                           "If not specified, all cases will be run.")
-  parser.add_argument("-f", "--force", action="store_true",
-                      help="Force compilation of cases, even if they have already been compiled.")
-  parser.add_argument("-o", "--output-dir", type=str, default=get_default_output_dir(),
-                      help="The directory to save the results to.")
+  add_common_args(parser)
 
   parser.add_argument('--threshold', type=float, required=True, help='Value for threshold')
   parser.add_argument('--metric', type=str, required=True, choices=["kl", "l2"],
@@ -43,10 +38,7 @@ def setup_args_parser(subparsers):
   parser.add_argument("--wandb-mode", type=str, default="online")
   parser.add_argument('--indices-mode', type=str, default="normal")
   parser.add_argument('--names-mode', type=str, default="normal")
-  parser.add_argument("-d", "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
-                      help="The device to use for ACDC.")
   parser.add_argument('--torch-num-threads', type=int, default=0, help="How many threads to use for torch (0=all)")
-  parser.add_argument('--seed', type=int, default=1234)
   parser.add_argument("--max-num-epochs", type=int, default=100_000)
   parser.add_argument('--single-step', action='store_true', help='Use single step, mostly for testing')
   parser.add_argument("--abs-value-threshold", action='store_true',

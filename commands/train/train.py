@@ -1,3 +1,8 @@
+import random
+
+import numpy as np
+import torch as t
+
 from commands.train import linear_compression, non_linear_compression, autoencoder, natural_compression
 from commands.train.autoencoder import train_autoencoder
 from commands.train.linear_compression import train_linear_compression
@@ -21,6 +26,13 @@ def run(args):
   for case in get_cases(args):
     training_type = args.type
     print(f"\nRunning training {args.type} on {case}")
+
+    # Set numpy, torch and ptyhon seed
+    seed = args.seed
+    assert seed is not None, "Seed is always required"
+    np.random.seed(args.seed)
+    t.manual_seed(seed)
+    random.seed(seed)
 
     if training_type == "linear-compression":
       train_linear_compression(case, args)

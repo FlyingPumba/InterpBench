@@ -20,7 +20,6 @@ class CompileBenchmarkTest(unittest.TestCase):
 
     args, _ = build_main_parser().parse_known_args(["compile",
                                                     ("-i=" + ",".join(indices)),
-                                                    "-f",
                                                     "--fail-on-error",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     cases = get_cases(args)

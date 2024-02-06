@@ -3,23 +3,17 @@ from argparse import Namespace
 from argparse_dataclass import ArgumentParser
 
 from benchmark.benchmark_case import BenchmarkCase
+from commands.common_args import add_common_args
 from commands.train.compression_training_utils import parse_compression_size
 from training.compression.autencoder import AutoEncoder
 from training.compression.autoencoder_trainer import AutoEncoderTrainer
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformer
-from utils.project_paths import get_default_output_dir
 
 
 def setup_args_parser(subparsers):
   parser = subparsers.add_parser("autoencoder")
-  parser.add_argument("-i", "--indices", type=str, default=None,
-                      help="A list of comma separated indices of the cases to run against. "
-                           "If not specified, all cases will be run.")
-  parser.add_argument("-f", "--force", action="store_true",
-                      help="Force compilation of cases, even if they have already been compiled.")
-  parser.add_argument("-o", "--output-dir", type=str, default=get_default_output_dir(),
-                      help="The directory to save the results to.")
+  add_common_args(parser)
 
   parser.add_argument("--residual-stream-compression-size", type=str, required=True,
                       help="A list of comma separated sizes for the compressed residual stream.")
