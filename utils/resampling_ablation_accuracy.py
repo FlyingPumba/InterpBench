@@ -10,7 +10,7 @@ from transformer_lens.hook_points import HookPoint
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
 
-def get_resampling_ablation_accuracy(
+def get_resampling_ablation_loss(
     clean_inputs: HookedTracrTransformerBatchInput,
     corrupted_inputs: HookedTracrTransformerBatchInput,
     base_model: HookedTransformer,

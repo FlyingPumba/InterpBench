@@ -13,7 +13,7 @@ from benchmark.case_dataset import CaseDataset
 from training.generic_trainer import GenericTrainer
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-from utils.resampling_ablation_accuracy import get_resampling_ablation_accuracy
+from utils.resampling_ablation_accuracy import get_resampling_ablation_loss
 
 
 class CompressedTracrTransformerTrainer(GenericTrainer):
@@ -125,7 +125,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if not self.is_categorical:
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
-      self.test_metrics["resample_acc"] = get_resampling_ablation_accuracy(
+      self.test_metrics["resample_ablation_loss"] = get_resampling_ablation_loss(
         clean_inputs=inputs,
         corrupted_inputs=self.corrupted_dataset.get_inputs(),
         base_model=self.get_original_model(),
