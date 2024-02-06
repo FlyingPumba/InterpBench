@@ -32,11 +32,6 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
                      new_tl_model.cfg.n_layers,
                      output_dir=output_dir)
 
-  def update_params(self, loss: Float[Tensor, ""]):
-    loss.backward(retain_graph=True)
-    self.optimizer.step()
-    self.lr_scheduler.step()
-
   def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
     return self.new_tl_model(inputs, return_type="decoded")
 
