@@ -8,8 +8,11 @@ from networkx import DiGraph
 from torch import Tensor
 
 from benchmark.case_dataset import CaseDataset
+from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
+from tracr.compiler.compiling import TracrOutput
 from tracr.rasp import rasp
+from tracr.transformer.encoder import CategoricalEncoder
 from utils.cloudpickle import load_from_pickle, dump_to_pickle
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
 from utils.project_paths import detect_project_root
@@ -120,21 +123,37 @@ class BenchmarkCase(object):
   def get_tl_model_pickle_path(self) -> str:
     return self.case_file_absolute_path.replace(".py", "_tl_model.pkl")
 
-  def load_tracr_model(self) -> AssembledTransformerModel | None:
+  def get_tracr_model(self) -> AssembledTransformerModel | None:
     """Loads the tracr model from disk, if it exists."""
-    return load_from_pickle(self.get_tracr_model_pickle_path())
+    tracr_model: AssembledTransformerModel | None = load_from_pickle(self.get_tracr_model_pickle_path())
 
-  def load_tracr_graph(self) -> DiGraph | None:
-    """Loads the tracr graph from disk, if it exists."""
-    return load_from_pickle(self.get_tracr_graph_pickle_path())
+    if tracr_model is None:
+      tracr_output = self.build_tracr_model()
+      return tracr_output.model
+    else:
+      return tracr_model
 
-  def load_tl_model(self) -> HookedTracrTransformer | None:
-    """Loads the transformer_lens model from disk, if it exists."""
+  def get_tracr_graph(self) -> DiGraph | None:
+    """Loads the tracr graph from disk, if it exists, otherwise build."""
+    tracr_graph: DiGraph | None = load_from_pickle(self.get_tracr_graph_pickle_path())
+
+    if tracr_graph is None:
+      tracr_output = self.build_tracr_model()
+      return tracr_output.graph
+    else:
+      return tracr_graph
+
+  def get_tl_model(self,
+                   device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
+                   ) -> HookedTracrTransformer | None:
+    """Loads the transformer_lens model from disk, if it exists, otherwise build."""
     tl_model: HookedTracrTransformer | None = load_from_pickle(self.get_tl_model_pickle_path())
 
-    if tl_model is not None:
+    if tl_model is None:
+      tracr_model = self.get_tracr_model()
+      tl_model = self.build_transformer_lens_model(tracr_model=tracr_model, device=device)
+    else:
       # move the model to the correct device
-      device = "cuda" if t.cuda.is_available() else "cpu"
       tl_model.to(device)
 
     return tl_model
@@ -153,3 +172,92 @@ class BenchmarkCase(object):
 
   def get_relative_path_from_root(self) -> str:
     return f"benchmark/cases/case_{self.get_index()}.py"
+
+  def build_tracr_model(self) -> TracrOutput:
+    """Compiles a single case to a tracr model."""
+    program = self.get_program()
+    max_seq_len = self.get_max_seq_len()
+    vocab = self.get_vocab()
+
+    tracr_output = compiling.compile_rasp_to_model(
+      program,
+      vocab=vocab,
+      max_seq_len=max_seq_len,
+      compiler_bos="BOS",
+    )
+
+    # write tracr model and graph to disk
+    self.dump_tracr_model(tracr_output.model)
+    self.dump_tracr_graph(tracr_output.graph)
+
+    return tracr_output
+
+  def build_transformer_lens_model(self,
+                                   tracr_model: AssembledTransformerModel = None,
+                                   device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
+                                   ) -> HookedTracrTransformer:
+    """Compiles a tracr model to transformer lens."""
+    if tracr_model is None:
+      tracr_model = self.get_tracr_model()
+
+    tl_model = HookedTracrTransformer.from_tracr_model(tracr_model, device=device)
+    self.dump_tl_model(tl_model)
+
+    return tl_model
+
+  def run_case_tests_on_tracr_model(self,
+                                    tracr_model: AssembledTransformerModel = None,
+                                    atol: float = 1.e-5):
+    if tracr_model is None:
+      tracr_model = self.get_tracr_model()
+
+    dataset = self.get_clean_data()
+    inputs = dataset.get_inputs()
+    expected_outputs = dataset.get_correct_outputs()
+
+    is_categorical = isinstance(tracr_model.output_encoder, CategoricalEncoder)
+
+    for i in range(len(inputs)):
+      input = inputs[i]
+      expected_output = expected_outputs[i]
+      decoded_output = tracr_model.apply(input).decoded
+
+      if is_categorical:
+        correct = all(elem1 == elem2 for elem1, elem2 in zip(decoded_output, expected_output))
+      else:
+        # compare how close the outputs are numerically without taking into account the BOS token
+        correct = np.allclose(expected_output[1:], decoded_output[1:], atol=atol)
+
+      if not correct:
+        raise ValueError(f"Failed test for {self} on tracr model."
+                         f"\n >>> Input: {input}"
+                         f"\n >>> Expected: {expected_output}"
+                         f"\n >>> Got: {decoded_output}")
+
+  def run_case_tests_on_tl_model(self,
+                                 tl_model: HookedTracrTransformer = None,
+                                 atol: float = 1.e-5):
+    if tl_model is None:
+      tl_model = self.get_tl_model()
+
+    dataset = self.get_clean_data()
+    inputs = dataset.get_inputs()
+    expected_outputs = dataset.get_correct_outputs()
+    decoded_outputs = tl_model(inputs, return_type="decoded")
+
+    for i in range(len(expected_outputs)):
+      input = inputs[i]
+      expected_output = expected_outputs[i]
+      decoded_output = decoded_outputs[i]
+
+      if tl_model.is_categorical():
+        correct = all(elem1 == elem2 for elem1, elem2 in zip(decoded_output, expected_output))
+      else:
+        # compare how close the outputs are numerically without taking into account the BOS token
+        correct = np.allclose(expected_output[1:], decoded_output[1:], atol=atol)
+
+      if not correct:
+        raise ValueError(f"Failed test for {self} on tl model."
+                         f"\n >>> Input: {input}"
+                         f"\n >>> Expected: {expected_output}"
+                         f"\n >>> Got: {decoded_output}")

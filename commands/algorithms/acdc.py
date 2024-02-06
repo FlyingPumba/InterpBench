@@ -9,7 +9,6 @@ import wandb
 from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from benchmark.benchmark_case import BenchmarkCase
-from commands.compilation.compile_benchmark import build_transformer_lens_model
 from utils.project_paths import get_default_output_dir
 
 
@@ -55,7 +54,7 @@ def setup_args_parser(subparsers):
 
 
 def run_acdc(case: BenchmarkCase, args):
-  tl_model = build_transformer_lens_model(case, force=args.force, device=args.device)
+  tl_model = case.get_tl_model(device=args.device)
 
   output_dir = args.output_dir
   if not os.path.exists(output_dir):

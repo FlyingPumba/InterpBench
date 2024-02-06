@@ -29,7 +29,7 @@ def setup_args_parser(subparsers):
 
 def train_autoencoder(case: BenchmarkCase, args: Namespace):
   """Trains an autoencoder to compress and decompress the residual stream space of a transformer."""
-  tl_model: HookedTracrTransformer = case.load_tl_model()
+  tl_model: HookedTracrTransformer = case.get_tl_model()
 
   compression_size = parse_compression_size(args, tl_model)
   if compression_size == "auto":

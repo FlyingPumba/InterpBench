@@ -53,5 +53,5 @@ def run_single_natural_compression_training(case: BenchmarkCase,
 
 def train_natural_compression(case: BenchmarkCase, args: Namespace):
   """Trains a transformer from scratch, using the provided compression size."""
-  tl_model: HookedTracrTransformer = case.load_tl_model()
+  tl_model: HookedTracrTransformer = case.get_tl_model()
   run_auto_compression_training(case, tl_model, args, run_single_natural_compression_training)

@@ -66,5 +66,5 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
 
 def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
   """Compresses the residual stream of a Tracr model using a linear compression."""
-  tl_model: HookedTracrTransformer = case.load_tl_model()
+  tl_model: HookedTracrTransformer = case.get_tl_model()
   run_auto_compression_training(case, tl_model, args, run_single_non_linear_compression_training)
