@@ -130,13 +130,14 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
     t.save(self.state_dict(), weights_path)
 
     # save the entire model
-    model_path = os.path.join(output_dir, f"{prefix}-linearly-compressed-tracr-transformer.pt")
-    t.save(self, model_path)
+    # The following is commented out due to a pickle error: "Can't pickle local object 'HookPoint.add_hook.<locals>.full_hook'"
+    # model_path = os.path.join(output_dir, f"{prefix}-linearly-compressed-tracr-transformer.pt")
+    # t.save(self, model_path)
 
     if wandb_run is not None:
       # save the files as artifacts to wandb
       artifact = wandb.Artifact(f"{prefix}-linearly-compressed-tracr-transformer", type="model")
       artifact.add_file(weights_path)
       artifact.add_file(compression_matrix_path)
-      artifact.add_file(model_path)
+      # artifact.add_file(model_path)
       wandb_run.log_artifact(artifact)
