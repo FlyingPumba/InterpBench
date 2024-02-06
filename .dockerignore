@@ -1,4 +1,7 @@
-wandb
 **/*.pkl
 **/__pycache__
+**/*.pt
+**/*.pth
+wandb
 results
+k8s
