@@ -10,6 +10,7 @@ from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from benchmark.benchmark_case import BenchmarkCase
 from commands.compilation.compile_benchmark import build_transformer_lens_model
+from utils.project_paths import get_default_output_dir
 
 
 def setup_args_parser(subparsers):
@@ -19,7 +20,7 @@ def setup_args_parser(subparsers):
                            "If not specified, all cases will be run.")
   parser.add_argument("-f", "--force", action="store_true",
                       help="Force compilation of cases, even if they have already been compiled.")
-  parser.add_argument("-o", "--output-dir", type=str, default="results",
+  parser.add_argument("-o", "--output-dir", type=str, default=get_default_output_dir(),
                       help="The directory to save the results to.")
 
   parser.add_argument('--threshold', type=float, required=True, help='Value for threshold')

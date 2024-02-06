@@ -7,6 +7,7 @@ from transformer_lens.utils import to_numpy
 
 from tracr.compiler.assemble import AssembledTransformerModel
 from utils.cloudpickle import load_from_pickle
+from utils.project_paths import get_default_output_dir
 
 
 def setup_args_parser(subparsers):
@@ -15,7 +16,7 @@ def setup_args_parser(subparsers):
                       help="The path to the matrix to use (.npy file).")
   parser.add_argument("--tracr-model", type=str, required=True,
                       help="The path to the tracr model to use (.pkl file).")
-  parser.add_argument("-o", "--output-dir", type=str, default="results",
+  parser.add_argument("-o", "--output-dir", type=str, default=get_default_output_dir(),
                       help="The directory to save the results to.")
 
 

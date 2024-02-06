@@ -11,8 +11,8 @@ from benchmark.case_dataset import CaseDataset
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.rasp import rasp
 from utils.cloudpickle import load_from_pickle, dump_to_pickle
-from utils.detect_project_root import detect_project_root
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
+from utils.project_paths import detect_project_root
 
 
 class BenchmarkCase(object):

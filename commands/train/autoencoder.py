@@ -8,6 +8,7 @@ from training.compression.autencoder import AutoEncoder
 from training.compression.autoencoder_trainer import AutoEncoderTrainer
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformer
+from utils.project_paths import get_default_output_dir
 
 
 def setup_args_parser(subparsers):
@@ -17,7 +18,7 @@ def setup_args_parser(subparsers):
                            "If not specified, all cases will be run.")
   parser.add_argument("-f", "--force", action="store_true",
                       help="Force compilation of cases, even if they have already been compiled.")
-  parser.add_argument("-o", "--output-dir", type=str, default="results",
+  parser.add_argument("-o", "--output-dir", type=str, default=get_default_output_dir(),
                       help="The directory to save the results to.")
 
   parser.add_argument("--residual-stream-compression-size", type=str, required=True,
