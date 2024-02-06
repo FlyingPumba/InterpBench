@@ -1,0 +1,54 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@2
+
+jobs:
+  test:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - checkout
+      - run:
+          name: Init submodules
+          command: git submodule update --init --recursive
+      - run:
+          name: Install pygraphviz
+          command: sudo apt-get update && sudo apt-get install -y graphviz libgraphviz-dev
+      - python/install-packages:
+          pkg-manager: poetry
+      - run:
+          name: Run tests
+          command: poetry run pytest --junitxml=junit.xml || ((($? == 5)) && echo 'Did not find any tests to run.')
+      - store_test_results:
+          path: junit.xml
+  deploy:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Init submodules
+          command: git submodule update --init --recursive
+      - run:
+          name: Install pygraphviz
+          command: sudo apt-get update && sudo apt-get install -y graphviz libgraphviz-dev
+      - python/install-packages:
+          pkg-manager: poetry
+      - run:
+          name: Build Docker image
+          command: docker build . -t iarcuschin/circuits-benchmark
+      - run:
+          name: Publish Docker image
+          command: |
+            echo "${DOCKERHUB_PASS}" | docker login --username "${DOCKERHUB_USERNAME}" --password-stdin
+            docker push iarcuschin/circuits-benchmark
+
+workflows:
+  test-and-deploy:
+    jobs:
+      - test
+      - deploy:
+          requires:
+            - test
