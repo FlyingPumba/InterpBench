@@ -66,3 +66,7 @@ class AutoEncoder(nn.Module):
     """Unfreezes all weights in the autoencoder."""
     for param in self.parameters():
       param.requires_grad = True
+
+  def load_weights_from_file(self, path: str):
+    """Loads the autoencoder weights from file."""
+    self.load_state_dict(t.load(path))
