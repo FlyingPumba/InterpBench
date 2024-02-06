@@ -6,7 +6,7 @@ import torch as t
 from benchmark.cases.case_3 import Case3
 from commands.analysis.compression_matrix import run
 from commands.build_main_parser import build_main_parser
-from utils.detect_project_root import detect_project_root
+from utils.project_paths import detect_project_root
 
 
 class CompressionMatrixAnalysisTest(unittest.TestCase):
