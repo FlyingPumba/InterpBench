@@ -80,6 +80,9 @@ class GenericTrainer():
     progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
     for epoch in range(self.epochs):
       for i, batch in enumerate(self.train_loader):
+        if self.use_wandb:
+          wandb.log({"lr": self.lr_scheduler.get_last_lr()}, step=self.step)
+
         self.train_loss = self.training_step(batch)
 
         progress_bar.update()
