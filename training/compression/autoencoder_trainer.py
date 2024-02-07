@@ -56,7 +56,8 @@ class AutoEncoderTrainer(GenericTrainer):
       train_data = tl_activations
       test_data = tl_activations
 
-    self.train_loader = DataLoader(train_data, batch_size=self.args.batch_size, shuffle=True)
+    batch_size = self.args.batch_size if self.args.batch_size is not None else len(train_data)
+    self.train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     self.test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
 
   def compute_train_loss(self, inputs: Float[Tensor, "batch_size d_model"]) -> Float[Tensor, "batch posn-1"]:

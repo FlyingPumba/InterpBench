@@ -36,7 +36,6 @@ class CaseDataset(Dataset):
 
   def train_test_split(self, args: TrainingArgs, shuffle_before_split: bool = True) -> (DataLoader, DataLoader):
     test_data_ratio = args.test_data_ratio
-    batch_size = args.batch_size
 
     # by default, we use the same data for training and testing
     train_data: Dataset = self
@@ -63,6 +62,7 @@ class CaseDataset(Dataset):
       return {self.INPUT_FIELD: [item[self.INPUT_FIELD] for item in items],
               self.CORRECT_OUTPUT_FIELD: [item[self.CORRECT_OUTPUT_FIELD] for item in items]}
 
+    batch_size = args.batch_size if args.batch_size is not None else len(train_data)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True,
                               collate_fn=custom_collate)
     test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False,
