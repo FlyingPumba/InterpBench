@@ -35,7 +35,6 @@ def run_single_natural_compression_training(case: BenchmarkCase,
     init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
   )
 
-  training_args.wandb_name = None
   trainer = NaturalCompressedTracrTransformerTrainer(case, tl_model, new_tl_model, training_args,
                                                      output_dir=args.output_dir)
   final_metrics = trainer.train()
