@@ -74,6 +74,9 @@ class AutoEncoderTrainer(GenericTrainer):
 
     self.test_metrics["test_mse"] = t.nn.functional.mse_loss(inputs, outputs).item()
 
+    correct_predictions = t.isclose(inputs, outputs, atol=self.args.test_accuracy_atol)
+    self.test_metrics["test_accuracy"] = correct_predictions.float().mean().item()
+
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
 
