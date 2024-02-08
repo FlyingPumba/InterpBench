@@ -6,7 +6,7 @@ import wandb
 from jaxtyping import Float
 from torch import Tensor
 from torch.nn import Parameter
-from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import LambdaLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -53,15 +53,10 @@ class GenericTrainer():
                                    weight_decay=self.args.weight_decay,
                                    betas=(self.args.beta_1, self.args.beta_2))
 
-    # Learning rate scheduler with linear decay
-    self.lr_warmup_steps = self.args.lr_warmup_steps
-    if self.lr_warmup_steps is None:
-      # by default, half of total steps
-      self.lr_warmup_steps = self.steps // 2
-
-    lr_lambda = lambda step: max(self.args.lr_end,
-                                 self.args.lr_start - (self.args.lr_start - self.args.lr_end) * (step / self.lr_warmup_steps))
-    self.lr_scheduler = LambdaLR(self.optimizer, lr_lambda)
+    # We will set up the learning rate scheduler to look at the test accuracy metric. The learning rate will be reduced
+    # by a factor of 0.75 if the test accuracy does not improve at least by 0.005 (0.05%) in 1000 epochs.
+    self.lr_scheduler = ReduceLROnPlateau(self.optimizer, factor=0.9, patience=500, mode="max",
+                                          threshold_mode="abs", threshold=0.005)
 
     if self.use_wandb and self.args.wandb_name is None:
       self.args.wandb_name = self.build_wandb_name()
@@ -79,17 +74,19 @@ class GenericTrainer():
 
     progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
     for epoch in range(self.epochs):
+      if self.use_wandb:
+        wandb.log({"lr": self.optimizer.param_groups[0]["lr"]}, step=self.step)
+
       for i, batch in enumerate(self.train_loader):
-        if self.use_wandb:
-          wandb.log({"lr": self.lr_scheduler.get_last_lr()[0]}, step=self.step)
-
         self.train_loss = self.training_step(batch)
-
         progress_bar.update()
         progress_bar.set_description(f"Epoch {epoch + 1}, train_loss: {self.train_loss:.3f}" +
                                      self.build_test_metrics_string())
 
+      # compute test metrics and update learning rate using them
       self.compute_test_metrics()
+      lr_validation_metric = self.test_metrics["test_accuracy"]
+      self.lr_scheduler.step(lr_validation_metric)
 
       if (self.args.early_stop_test_accuracy is not None and
           self.test_metrics["test_accuracy"] >= self.args.early_stop_test_accuracy):
@@ -119,7 +116,6 @@ class GenericTrainer():
     """Performs a gradient update step."""
     loss.backward()
     self.optimizer.step()
-    self.lr_scheduler.step()
 
   def compute_train_loss(self, inputs) -> Float[Tensor, ""]:
     raise NotImplementedError
