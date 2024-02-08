@@ -26,12 +26,14 @@ def setup_args_parser(subparsers):
                       help="Path to trained AutoEncoder model.")
   parser.add_argument("--ae-layers", type=int, default=2,
                       help="The desired number of layers for the autoencoder.")
+  parser.add_argument("--freeze-ae-weights", action="store_true", default=False,
+                      help="Freeze the weights of the autoencoder during the non-linear compression training.")
 
 
 def run_single_non_linear_compression_training(case: BenchmarkCase,
-                                           tl_model: HookedTracrTransformer,
-                                           args: Namespace,
-                                           compression_size: int):
+                                               tl_model: HookedTracrTransformer,
+                                               args: Namespace,
+                                               compression_size: int):
   original_residual_stream_size = tl_model.cfg.d_model
   training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
 
@@ -45,12 +47,14 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
   autoencoder = AutoEncoder(original_residual_stream_size, compression_size, args.ae_layers)
   autoencoder.load_weights_from_file(args.ae_path)
 
-  autoencoder.freeze_all_weights()
-  new_tl_model.unfreeze_all_weights()
-
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compression_size}.")
-  trainer = NonLinearCompressedTracrTransformerTrainer(case, tl_model, new_tl_model, autoencoder, training_args,
-                                                       output_dir=args.output_dir)
+  trainer = NonLinearCompressedTracrTransformerTrainer(case,
+                                                       tl_model,
+                                                       new_tl_model,
+                                                       autoencoder,
+                                                       training_args,
+                                                       output_dir=args.output_dir,
+                                                       freeze_ae_weights=args.freeze_ae_weights)
   final_metrics = trainer.train()
   print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compression_size}: ")
   print(final_metrics)

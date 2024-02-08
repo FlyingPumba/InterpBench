@@ -1,3 +1,4 @@
+import dataclasses
 import os
 
 import torch as t
@@ -9,6 +10,7 @@ from transformer_lens import ActivationCache, HookedTransformer
 
 from benchmark.benchmark_case import BenchmarkCase
 from training.compression.autencoder import AutoEncoder
+from training.compression.autoencoder_trainer import AutoEncoderTrainer
 from training.compression.compressed_tracr_transformer_trainer import CompressedTracrTransformerTrainer
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
@@ -20,17 +22,58 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
                new_tl_model: HookedTracrTransformer,
                autoencoder: AutoEncoder,
                args: TrainingArgs,
-               output_dir: str | None = None):
+               output_dir: str | None = None,
+               freeze_ae_weights: bool = False):
     self.old_tl_model: HookedTracrTransformer = old_tl_model
     self.new_tl_model: HookedTracrTransformer = new_tl_model
     self.autoencoder: AutoEncoder = autoencoder
     self.device = old_tl_model.device
+
+    self.freeze_ae_weights = freeze_ae_weights
+    if self.freeze_ae_weights:
+      self.autoencoder.freeze_all_weights()
+      self.autoencoder_trainer = None
+    else:
+      self.ae_epochs_per_training_step = 1
+      # make a copy of the training args
+      autoencoder_training_args = dataclasses.replace(args)
+      self.autoencoder_trainer = AutoEncoderTrainer(case, self.autoencoder, self.old_tl_model,
+                                                    autoencoder_training_args, output_dir=None)
+
     super().__init__(case,
                      list(new_tl_model.parameters()),
                      args,
                      old_tl_model.is_categorical(),
                      new_tl_model.cfg.n_layers,
                      output_dir=output_dir)
+
+  def training_step(self, inputs) -> Float[Tensor, ""]:
+    # train the autoencoder for some epochs before actually training the transformer
+    avg_ae_train_loss = t.tensor(0.0, device=self.device)
+    if not self.freeze_ae_weights:
+      ae_train_losses = []
+      for epoch in range(self.ae_epochs_per_training_step):
+        for i, batch in enumerate(self.autoencoder_trainer.train_loader):
+          ae_train_loss = self.autoencoder_trainer.training_step(batch)
+          ae_train_losses.append(ae_train_loss)
+
+      avg_ae_train_loss = t.mean(t.stack(ae_train_losses))
+
+      if self.use_wandb:
+        # log average train loss and test mse
+        test_inputs = next(iter(self.autoencoder_trainer.test_loader))
+        outputs = self.autoencoder(test_inputs)
+
+        ae_test_mse = t.nn.functional.mse_loss(test_inputs, outputs).item()
+        wandb.log({
+          "ae_test_mse": ae_test_mse,
+          "ae_train_loss": avg_ae_train_loss
+        }, step=self.step)
+
+    train_loss = super().training_step(inputs)
+    loss = train_loss + avg_ae_train_loss
+
+    return loss
 
   def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
     return self.new_tl_model(inputs, return_type="decoded")
@@ -83,3 +126,8 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
       artifact.add_file(weights_path)
       artifact.add_file(model_path)
       self.wandb_run.log_artifact(artifact)
+
+    if not self.freeze_ae_weights:
+      # The autoencoder has changed during the non-linear compression training, so we will save it.
+      prefix = f"case-{self.case.get_index()}-resid-{self.autoencoder.compression_size}-final"
+      self.autoencoder.save(self.output_dir, prefix, self.wandb_run)

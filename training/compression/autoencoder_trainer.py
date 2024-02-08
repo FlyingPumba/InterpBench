@@ -1,5 +1,3 @@
-import os
-
 import torch as t
 import wandb
 from jaxtyping import Float
@@ -83,22 +81,5 @@ class AutoEncoderTrainer(GenericTrainer):
     return f"case-{self.case.get_index()}-autoencoder-{self.autoencoder.compression_size}"
 
   def save_artifacts(self):
-    if not os.path.exists(self.output_dir):
-      os.makedirs(self.output_dir)
-
     prefix = f"case-{self.case.get_index()}-resid-{self.autoencoder.compression_size}"
-
-    # save the weights of the model using state_dict
-    weights_path = os.path.join(self.output_dir, f"{prefix}-autoencoder-weights.pt")
-    t.save(self.autoencoder.state_dict(), weights_path)
-
-    # save the entire model
-    model_path = os.path.join(self.output_dir, f"{prefix}-autoencoder.pt")
-    t.save(self.autoencoder, model_path)
-
-    if self.wandb_run is not None:
-      # save the files as artifacts to wandb
-      artifact = wandb.Artifact(f"{prefix}-autoencoder", type="model")
-      artifact.add_file(weights_path)
-      artifact.add_file(model_path)
-      self.wandb_run.log_artifact(artifact)
+    self.autoencoder.save(self.output_dir, prefix, self.wandb_run)

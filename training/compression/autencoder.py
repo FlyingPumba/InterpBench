@@ -1,5 +1,9 @@
+import os
+
 import torch as t
+import wandb
 from torch import nn
+from wandb.sdk.wandb_run import Run
 
 
 class AutoEncoder(nn.Module):
@@ -70,3 +74,22 @@ class AutoEncoder(nn.Module):
   def load_weights_from_file(self, path: str):
     """Loads the autoencoder weights from file."""
     self.load_state_dict(t.load(path))
+
+  def save(self, output_dir: str, prefix: str, wandb_run: Run | None = None):
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+
+    # save the weights of the model using state_dict
+    weights_path = os.path.join(output_dir, f"{prefix}-autoencoder-weights.pt")
+    t.save(self.state_dict(), weights_path)
+
+    # save the entire model
+    model_path = os.path.join(output_dir, f"{prefix}-autoencoder.pt")
+    t.save(self, model_path)
+
+    if wandb_run is not None:
+      # save the files as artifacts to wandb
+      artifact = wandb.Artifact(f"{prefix}-autoencoder", type="model")
+      artifact.add_file(weights_path)
+      artifact.add_file(model_path)
+      wandb_run.log_artifact(artifact)
