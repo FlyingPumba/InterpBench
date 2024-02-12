@@ -43,13 +43,7 @@ def get_resampling_ablation_loss(
         hook: HookPoint,
         corrupted_cache: ActivationCache = None
     ):
-      # We will replace the output residual_stream with an average of the corrupted ones.
-      # However, we may have different batch sizes, so we need to take care of that.
-      avg_corrupted_residual_stream = t.mean(corrupted_cache[hook.name], dim=0)
-
-      # We repeat the average corrupted residual stream to match the batch size of the clean inputs.
-      new_residual_stream = avg_corrupted_residual_stream.repeat(residual_stream.shape[0], 1, 1)
-      return new_residual_stream
+      return corrupted_cache[hook.name]
 
     # We intervene both models at the same point, run them on the clean data and save the output.
     with base_model.hooks(fwd_hooks=[(hook_name,

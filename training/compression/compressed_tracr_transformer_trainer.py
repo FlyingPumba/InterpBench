@@ -126,7 +126,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
       self.test_metrics["resample_ablation_loss"] = get_resampling_ablation_loss(
-        clean_inputs=inputs,
+        clean_inputs=self.clean_dataset.get_inputs(),
         corrupted_inputs=self.corrupted_dataset.get_inputs(),
         base_model=self.get_original_model(),
         hypothesis_model=self.get_compressed_model()
