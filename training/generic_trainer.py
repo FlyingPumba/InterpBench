@@ -84,7 +84,9 @@ class GenericTrainer():
                                      self.build_test_metrics_string())
 
       # compute test metrics and update learning rate using them
-      self.compute_test_metrics()
+      with t.no_grad():
+        self.compute_test_metrics()
+
       lr_validation_metric = self.test_metrics["test_accuracy"]
       self.lr_scheduler.step(lr_validation_metric)
 
