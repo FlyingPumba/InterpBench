@@ -1,7 +1,10 @@
 from argparse import Namespace
 
+from argparse_dataclass import ArgumentParser
+
 from benchmark.benchmark_case import BenchmarkCase
 from commands.train.compression_training_utils import parse_compression_size
+from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 
 
@@ -11,7 +14,9 @@ def run_auto_compression_training(case: BenchmarkCase,
                                   run_single_compression_training_fn):
   original_residual_stream_size = tl_model.cfg.d_model
   compression_size = parse_compression_size(args, tl_model)
-  original_wandb_name = args.wandb_name
+
+  training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
+  original_wandb_name = training_args.wandb_name
 
   if compression_size != "auto":
     for compression_size in compression_size:
