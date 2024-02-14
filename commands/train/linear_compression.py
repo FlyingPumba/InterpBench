@@ -29,9 +29,9 @@ def setup_args_parser(subparsers):
 def run_single_linear_compression_training(case: BenchmarkCase,
                                            tl_model: HookedTracrTransformer,
                                            args: Namespace,
+                                           training_args: TrainingArgs,
                                            compression_size: int):
   initialization = args.linear_compression_initialization
-  training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
 
   print(f" >>> Starting linear compression for {case} with residual stream compression size {compression_size}.")
   compressed_tracr_transformer = LinearCompressedTracrTransformer(

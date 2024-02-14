@@ -20,7 +20,12 @@ def run_auto_compression_training(case: BenchmarkCase,
 
   if compression_size != "auto":
     for compression_size in compression_size:
-      run_single_compression_training_fn(case, tl_model, args, compression_size)
+      if original_wandb_name is not None:
+        # add a suffix to the wandb name to indicate the current compression size
+        training_args.wandb_name = f"{original_wandb_name}-size-{compression_size}"
+      run_single_compression_training_fn(case, tl_model,
+                                         args, training_args,
+                                         compression_size)
   else:
     desired_test_accuracy = args.auto_compression_accuracy
     assert 0 < desired_test_accuracy <= 1, f"Invalid desired test accuracy: {desired_test_accuracy}. " \
@@ -43,8 +48,10 @@ def run_auto_compression_training(case: BenchmarkCase,
     while current_compression_size > 0:
       if original_wandb_name is not None:
         # add a suffix to the wandb name to indicate the current compression size
-        args.wandb_name = f"{original_wandb_name}-size-{current_compression_size}"
-      final_metrics = run_single_compression_training_fn(case, tl_model, args, current_compression_size)
+        training_args.wandb_name = f"{original_wandb_name}-size-{current_compression_size}"
+      final_metrics = run_single_compression_training_fn(case, tl_model,
+                                                         args, training_args,
+                                                         current_compression_size)
 
       if final_metrics["test_accuracy"] > desired_test_accuracy:
         best_compression_size = current_compression_size
@@ -63,8 +70,10 @@ def run_auto_compression_training(case: BenchmarkCase,
 
         if original_wandb_name is not None:
           # add a suffix to the wandb name to indicate the current compression size
-          args.wandb_name = f"{original_wandb_name}-size-{current_compression_size}"
-        final_metrics = run_single_compression_training_fn(case, tl_model, args, current_compression_size)
+          training_args.wandb_name = f"{original_wandb_name}-size-{current_compression_size}"
+        final_metrics = run_single_compression_training_fn(case, tl_model,
+                                                           args, training_args,
+                                                           current_compression_size)
 
         if final_metrics["test_accuracy"] > desired_test_accuracy:
           upper_bound = current_compression_size

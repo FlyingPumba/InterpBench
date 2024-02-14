@@ -38,9 +38,9 @@ def setup_args_parser(subparsers):
 def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                tl_model: HookedTracrTransformer,
                                                args: Namespace,
+                                               training_args: TrainingArgs,
                                                compression_size: int):
   original_residual_stream_size = tl_model.cfg.d_model
-  training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
 
   new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
     tl_model,
