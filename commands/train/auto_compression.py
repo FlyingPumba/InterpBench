@@ -11,6 +11,7 @@ def run_auto_compression_training(case: BenchmarkCase,
                                   run_single_compression_training_fn):
   original_residual_stream_size = tl_model.cfg.d_model
   compression_size = parse_compression_size(args, tl_model)
+  original_wandb_name = args.wandb_name
 
   if compression_size != "auto":
     for compression_size in compression_size:
@@ -32,10 +33,12 @@ def run_auto_compression_training(case: BenchmarkCase,
 
     current_compression_size = original_residual_stream_size // 2
     best_compression_size = original_residual_stream_size
-    compressed_tracr_transformer = None
 
     # Halve the residual stream size until we get a test accuracy below the desired one.
     while current_compression_size > 0:
+      if original_wandb_name is not None:
+        # add a suffix to the wandb name to indicate the current compression size
+        args.wandb_name = f"{original_wandb_name}-size-{current_compression_size}"
       final_metrics = run_single_compression_training_fn(case, tl_model, args, current_compression_size)
 
       if final_metrics["test_accuracy"] > desired_test_accuracy:
@@ -52,6 +55,10 @@ def run_auto_compression_training(case: BenchmarkCase,
 
       while lower_bound < upper_bound:
         current_compression_size = (lower_bound + upper_bound) // 2
+
+        if original_wandb_name is not None:
+          # add a suffix to the wandb name to indicate the current compression size
+          args.wandb_name = f"{original_wandb_name}-size-{current_compression_size}"
         final_metrics = run_single_compression_training_fn(case, tl_model, args, current_compression_size)
 
         if final_metrics["test_accuracy"] > desired_test_accuracy:
