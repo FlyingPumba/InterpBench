@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Set
+from typing import Set, Sequence
 
 import torch
 import torch.nn.functional as F
@@ -46,3 +46,8 @@ class Case48(BenchmarkCase):
     else:
       return partial(l2_metric, baseline_output=baseline_output, is_categorical=False)
 
+  def get_correct_output_for_input(self, input: Sequence) -> Sequence:
+    """Returns the fraction of 'x' in the input up to the i-th position for all i.
+    We define this method so that we don't need to call the original program to get the correct output for each input.
+    """
+    return [input[:i + 1].count("x") / (i + 1) for i in range(len(input))]

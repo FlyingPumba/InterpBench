@@ -1,6 +1,6 @@
 import importlib
 import os.path
-from typing import Set, Optional
+from typing import Set, Optional, Sequence
 
 import numpy as np
 import torch as t
@@ -83,12 +83,18 @@ class BenchmarkCase(object):
       else:
         sample = np.random.choice(vals, size=seq_len - 1).tolist()  # sample with replacement
 
-      output = self.get_program()(sample)
+      output = self.get_correct_output_for_input(sample)
 
       input_data.append(["BOS"] + sample)
       output_data.append(["BOS"] + output)
 
     return CaseDataset(input_data, output_data)
+
+  def get_correct_output_for_input(self, input: Sequence) -> Sequence:
+    """Returns the correct output for the given input.
+    By default, we run the program and use its output as ground truth.
+    """
+    return self.get_program()(input)
 
   def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
     """Returns the validation metric for the benchmark case."""
