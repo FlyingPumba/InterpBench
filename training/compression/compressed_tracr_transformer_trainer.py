@@ -127,8 +127,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
                                                                expected_outputs_tensor).item()
       # Compute the resampling ablation loss
       resample_ablation_loss_args = {
-        "clean_inputs": self.clean_dataset.get_inputs(),
-        "corrupted_inputs": self.corrupted_dataset.get_inputs(),
+        "clean_inputs": self.clean_dataset,
+        "corrupted_inputs": self.corrupted_dataset,
         "base_model": self.get_original_model(),
         "hypothesis_model": self.get_compressed_model()
       }

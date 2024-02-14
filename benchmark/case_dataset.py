@@ -34,6 +34,16 @@ class CaseDataset(Dataset):
     batch.reset_index(inplace=True, drop=True)
     return batch
 
+  def __eq__(self, other: Any) -> bool:
+    if not isinstance(other, CaseDataset):
+      return False
+    return self.dataframe.equals(other.dataframe)
+
+  @staticmethod
+  def custom_collate(items: List[Dict[str, List[Any]]]) -> dict[str, HookedTracrTransformerBatchInput]:
+    return {CaseDataset.INPUT_FIELD: [item[CaseDataset.INPUT_FIELD] for item in items],
+            CaseDataset.CORRECT_OUTPUT_FIELD: [item[CaseDataset.CORRECT_OUTPUT_FIELD] for item in items]}
+
   def train_test_split(self, args: TrainingArgs, shuffle_before_split: bool = True) -> (DataLoader, DataLoader):
     test_data_ratio = args.test_data_ratio
 
@@ -58,14 +68,13 @@ class CaseDataset(Dataset):
                                list(train_dataframe[self.CORRECT_OUTPUT_FIELD]))
 
     # prepare data loaders
-    def custom_collate(items: List[Dict[str, List[Any]]]) -> dict[str, HookedTracrTransformerBatchInput]:
-      return {self.INPUT_FIELD: [item[self.INPUT_FIELD] for item in items],
-              self.CORRECT_OUTPUT_FIELD: [item[self.CORRECT_OUTPUT_FIELD] for item in items]}
-
     batch_size = args.batch_size if args.batch_size is not None else len(train_data)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True,
-                              collate_fn=custom_collate)
+                              collate_fn=CaseDataset.custom_collate)
     test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False,
-                             collate_fn=custom_collate)
+                             collate_fn=CaseDataset.custom_collate)
 
     return train_loader, test_loader
+
+  def get_inputs_loader(self, batch_size: int|None = None) -> DataLoader:
+    return DataLoader(self, batch_size=batch_size, collate_fn=CaseDataset.custom_collate)
