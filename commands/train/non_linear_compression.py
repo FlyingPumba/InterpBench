@@ -7,6 +7,7 @@ from benchmark.benchmark_case import BenchmarkCase
 from commands.common_args import add_common_args
 from commands.train.auto_compression import run_auto_compression_training
 from training.compression.autencoder import AutoEncoder
+from training.compression.autoencoder_trainer import AutoEncoderTrainer
 from training.compression.non_linear_compressed_tracr_transformer_trainer import \
   NonLinearCompressedTracrTransformerTrainer
 from training.training_args import TrainingArgs
@@ -22,10 +23,14 @@ def setup_args_parser(subparsers):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
-  parser.add_argument("--ae-path", type=str, required=True,
+  parser.add_argument("--ae-path", type=str, default=None,
                       help="Path to trained AutoEncoder model.")
   parser.add_argument("--ae-layers", type=int, default=2,
                       help="The desired number of layers for the autoencoder.")
+  parser.add_argument("--ae-epochs", type=int, default=9000,
+                      help="The number of epochs to use for autoencoder training.")
+  parser.add_argument("--ae-lr-start", type=float, default=0.01,
+                      help="The number of epochs to use for autoencoder training.")
   parser.add_argument("--freeze-ae-weights", action="store_true", default=False,
                       help="Freeze the weights of the autoencoder during the non-linear compression training.")
 
@@ -43,9 +48,22 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
   )
 
-  # Load AutoEncoder model
   autoencoder = AutoEncoder(original_residual_stream_size, compression_size, args.ae_layers)
-  autoencoder.load_weights_from_file(args.ae_path)
+  if args.ae_path is not None:
+    # Load AutoEncoder model weights
+    autoencoder.load_weights_from_file(args.ae_path)
+  else:
+    # Train an AutoEncoder model
+    ae_training_args = TrainingArgs()
+    ae_training_args.seed = args.seed
+    ae_training_args.epochs = args.ae_epochs
+    ae_training_args.lr_start = args.ae_lr_start
+    print(
+      f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
+    trainer = AutoEncoderTrainer(case, autoencoder, tl_model, ae_training_args, output_dir=args.output_dir)
+    final_metrics = trainer.train()
+    print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
+    print(final_metrics)
 
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compression_size}.")
   trainer = NonLinearCompressedTracrTransformerTrainer(case,

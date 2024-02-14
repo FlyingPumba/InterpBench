@@ -45,6 +45,19 @@ class TrainTest(unittest.TestCase):
     train.run(args)
 
   def test_non_linear_compression_works_for_case_3(self):
+    args, _ = build_main_parser().parse_known_args(["train",
+                                                    "non-linear-compression",
+                                                    "-i=3",
+                                                    "--residual-stream-compression-size=8",
+                                                    "--train-data-size=10",
+                                                    "--test-data-ratio=0.3",
+                                                    "--ae-epochs=2",
+                                                    "--freeze-ae-weights",
+                                                    "--epochs=2",
+                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
+    train.run(args)
+
+  def test_non_linear_compression_works_for_case_3_when_loading_ae_weights(self):
     output_dir = get_default_output_dir()
     ae_weights_path = os.path.join(output_dir, "case-3-resid-8-autoencoder-weights.pt")
 
