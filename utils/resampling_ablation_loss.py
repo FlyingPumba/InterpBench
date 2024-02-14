@@ -34,6 +34,8 @@ def get_resampling_ablation_loss(
   # assert that clean and corrupted inputs are not exactly the same, otherwise the comparison is flawed.
   assert clean_inputs != corrupted_inputs, "clean and corrupted inputs should have different data."
 
+  combinations = build_intervention_points(base_model, hook_filters, autoencoder)
+
   losses = []
   for clean_inputs_batch, corrupted_inputs_batch in zip(clean_inputs.get_inputs_loader(batch_size),
                                                         corrupted_inputs.get_inputs_loader(batch_size)):
@@ -43,8 +45,6 @@ def get_resampling_ablation_loss(
     # first, we run the corrupted inputs on both models and save the activation caches.
     _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_inputs_batch)
     _, hypothesis_model_corrupted_cache = hypothesis_model.run_with_cache(corrupted_inputs_batch)
-
-    combinations = build_intervention_points(base_model, hook_filters, autoencoder)
 
     # for each intervention combination, run both models, calculate MSE and add it to the losses
     for (regular_hook_name, encoder_hook_name, decoder_hook_name) in combinations:
