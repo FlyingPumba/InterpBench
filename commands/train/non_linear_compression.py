@@ -58,6 +58,9 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     ae_training_args.seed = args.seed
     ae_training_args.epochs = args.ae_epochs
     ae_training_args.lr_start = args.ae_lr_start
+    ae_training_args.batch_size = training_args.batch_size
+    ae_training_args.train_data_size = training_args.train_data_size
+    ae_training_args.test_data_ratio = training_args.test_data_ratio
     print(
       f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
     trainer = AutoEncoderTrainer(case, autoencoder, tl_model, ae_training_args, output_dir=args.output_dir)
