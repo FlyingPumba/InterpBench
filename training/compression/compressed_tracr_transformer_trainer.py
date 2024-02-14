@@ -125,11 +125,20 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if not self.is_categorical:
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
+      # Compute the resampling ablation loss
+      resample_ablation_loss_args = {
+        "clean_inputs": self.clean_dataset.get_inputs(),
+        "corrupted_inputs": self.corrupted_dataset.get_inputs(),
+        "base_model": self.get_original_model(),
+        "hypothesis_model": self.get_compressed_model()
+      }
+
+      # provide autoencoder argument if it is available as a property in this class (self.autoencoder)
+      if hasattr(self, "autoencoder"):
+        resample_ablation_loss_args["autoencoder"] = self.autoencoder
+
       self.test_metrics["resample_ablation_loss"] = get_resampling_ablation_loss(
-        clean_inputs=self.clean_dataset.get_inputs(),
-        corrupted_inputs=self.corrupted_dataset.get_inputs(),
-        base_model=self.get_original_model(),
-        hypothesis_model=self.get_compressed_model()
+        **resample_ablation_loss_args
       ).item()
 
     if self.use_wandb:
