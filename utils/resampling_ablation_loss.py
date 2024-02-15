@@ -47,18 +47,29 @@ def get_resampling_ablation_loss(
     _, hypothesis_model_corrupted_cache = hypothesis_model.run_with_cache(corrupted_inputs_batch)
 
     # for each intervention combination, run both models, calculate MSE and add it to the losses
-    for (regular_hook_name, encoder_hook_name, decoder_hook_name) in combinations:
-      assert regular_hook_name in hypothesis_model.hook_dict, f"hook {regular_hook_name} not found in hypothesis model."
-      assert (encoder_hook_name is None or
-              encoder_hook_name in hypothesis_model.hook_dict), f"hook {encoder_hook_name} not found in hypothesis model."
-      assert (decoder_hook_name is None or
-              decoder_hook_name in hypothesis_model.hook_dict), f"hook {decoder_hook_name} not found in hypothesis model."
+    for (regular_base_hook_name, regular_hypothesis_hook_name, encoder_hook_name, decoder_hook_name) in combinations:
+      assert regular_base_hook_name in base_model.hook_dict, \
+        f"hook {regular_base_hook_name} not found in base model."
+      assert regular_hypothesis_hook_name in hypothesis_model.hook_dict, \
+        f"hook {regular_hypothesis_hook_name} not found in hypothesis model."
+      assert (encoder_hook_name is None or encoder_hook_name in hypothesis_model.hook_dict), \
+        f"hook {encoder_hook_name} not found in hypothesis model."
+      assert (decoder_hook_name is None or decoder_hook_name in base_model.hook_dict), \
+        f"hook {decoder_hook_name} not found in base model."
 
-      # We intervene both models at the same point, run them on the clean data and save the output.
-      base_model_hooks = [(regular_hook_name, partial(regular_corrupted_intervention_hook_fn,
-                                                      corrupted_cache=base_model_corrupted_cache))]
-      hypothesis_model_hooks = [(regular_hook_name, partial(regular_corrupted_intervention_hook_fn,
-                                                            corrupted_cache=hypothesis_model_corrupted_cache))]
+      # We intervene the models according to the provided hook names, run them, and calculate the MSE.
+      base_model_hooks = []
+      hypothesis_model_hooks = []
+
+      if regular_base_hook_name is not None:
+        base_model_hooks.append((regular_base_hook_name,
+                                 partial(regular_corrupted_intervention_hook_fn,
+                                         corrupted_cache=base_model_corrupted_cache)))
+
+      if regular_hypothesis_hook_name is not None:
+        hypothesis_model_hooks.append((regular_hypothesis_hook_name,
+                                       partial(regular_corrupted_intervention_hook_fn,
+                                               corrupted_cache=hypothesis_model_corrupted_cache)))
 
       if encoder_hook_name is not None:
         hypothesis_model_hooks.append((encoder_hook_name, partial(encoder_corrupted_intervention_hook_fn,
@@ -81,35 +92,50 @@ def get_resampling_ablation_loss(
 
 
 def build_intervention_points(base_model, hook_filters, autoencoder):
-  # we have P different hooks to work on, each time we choose one for the regular patching, we are left with P-1 hooks
-  # for the encoder-patching and P-1 hooks for the decoder-patching. If we also add the possibility of not using
-  # encoder-patching or decoder-patching, we have P^3 different combinations.
+  """Builds the different combinations of intervention points for the base model and the hypothesis model.
+  We have 4 different types of interventions:
+  - A. Regular patching on the base model: we replace the output of the hook with the corrupted output.
+  - B. Regular patching on the hypothesis model: we replace the output of the hook with the corrupted output.
+  - C. Encoder patching on the hypothesis model: we replace the output of the hook with the corrupted output from base
+    model passed through the encoder.
+  - D. Decoder patching on the base model: we replace the output of the hook with the corrupted output from hypothesis
+    model passed through the decoder.
+
+  Important: we also want to avoid conflicting interventions, e.g., patching the same hook twice by combining A and D
+    interventions, or B and C interventions.
+  """
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
+  hook_names_for_regular_patching = hook_names + [None]
 
   if autoencoder is not None:
-    hook_names_for_encoder_decoder_patching = hook_names + [None]
+    hook_names_for_encoder_decoder_patching = hook_names_for_regular_patching
   else:
     hook_names_for_encoder_decoder_patching = [None]
 
   combinations = []
-  for regular_hook_name in hook_names:
-    for encoder_hook_name in hook_names_for_encoder_decoder_patching:
-      for decoder_hook_name in hook_names_for_encoder_decoder_patching:
-        if should_hook_name_be_skipped_due_to_filters(regular_hook_name, hook_filters):
-          continue
-        if should_hook_name_be_skipped_due_to_filters(encoder_hook_name, hook_filters):
-          continue
-        if should_hook_name_be_skipped_due_to_filters(decoder_hook_name, hook_filters):
-          continue
+  for regular_base_hook_name in hook_names:
+    for regular_hypothesis_hook_name in hook_names:
+      for encoder_hook_name in hook_names_for_encoder_decoder_patching:
+        for decoder_hook_name in hook_names_for_encoder_decoder_patching:
+          hook_name_candidates = [regular_base_hook_name, regular_hypothesis_hook_name, encoder_hook_name,
+                                  decoder_hook_name]
+          if any(should_hook_name_be_skipped_due_to_filters(hook_name, hook_filters)
+                 for hook_name in hook_name_candidates):
+            continue
 
-        if encoder_hook_name is not None and regular_hook_name == encoder_hook_name:
-          # we don't want to patch the same hook twice
-          continue
-        if decoder_hook_name is not None and regular_hook_name == decoder_hook_name:
-          # we don't want to patch the same hook twice
-          continue
+          # check for conflicts
+          if regular_base_hook_name is not None and decoder_hook_name is not None and \
+              regular_base_hook_name == decoder_hook_name:
+            continue
 
-        combinations.append((regular_hook_name, encoder_hook_name, decoder_hook_name))
+          if regular_hypothesis_hook_name is not None and encoder_hook_name is not None and \
+              regular_hypothesis_hook_name == encoder_hook_name:
+            continue
+
+          combinations.append((regular_base_hook_name,
+                               regular_hypothesis_hook_name,
+                               encoder_hook_name,
+                               decoder_hook_name))
 
   return combinations
 
