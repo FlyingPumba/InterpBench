@@ -1,3 +1,4 @@
+import random
 from functools import partial
 from typing import List
 
@@ -19,7 +20,8 @@ def get_resampling_ablation_loss(
     hypothesis_model: HookedTransformer,
     autoencoder: AutoEncoder | None = None,
     hook_filters: List[str] = ["hook_embed", "hook_pos_embed", "hook_attn_out", "hook_mlp_out"],
-    batch_size: int = 2048
+    batch_size: int = 2048,
+    intervention_samples_ratio: float|None = 0.3
 ) -> Float[Tensor, ""]:
   # we assume that both models have the same architecture. Otherwise, the comparison is flawed since they have different
   # intervention points.
@@ -35,6 +37,13 @@ def get_resampling_ablation_loss(
   assert clean_inputs != corrupted_inputs, "clean and corrupted inputs should have different data."
 
   combinations = build_intervention_points(base_model, hook_filters, autoencoder)
+  assert len(combinations) > 0, "No valid intervention points found."
+
+  if intervention_samples_ratio is not None:
+    # if we have a limit on the number of intervention samples, we sample a subset of the combinations (no replacement).
+    assert 0 < intervention_samples_ratio <= 1, "intervention_samples_ratio should be between 0 and 1."
+    intervention_samples = max(int(intervention_samples_ratio * len(combinations)), 1)
+    combinations = random.sample(combinations, intervention_samples)
 
   losses = []
   for clean_inputs_batch, corrupted_inputs_batch in zip(clean_inputs.get_inputs_loader(batch_size),
