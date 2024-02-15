@@ -54,9 +54,14 @@ class GenericTrainer():
                                    betas=(self.args.beta_1, self.args.beta_2))
 
     # We will set up the learning rate scheduler to look at the test accuracy metric. The learning rate will be reduced
-    # by a factor of 0.75 if the test accuracy does not improve at least by 0.005 (0.05%) in 1000 epochs.
-    self.lr_scheduler = ReduceLROnPlateau(self.optimizer, factor=0.9, patience=500, mode="max",
-                                          threshold_mode="abs", threshold=0.005)
+    # by a given factor (default 0.9) if the test accuracy does not improve at least by some threshold (default 0.005)
+    # in a given number of epochs (default 500).
+    self.lr_scheduler = ReduceLROnPlateau(self.optimizer,
+                                          factor=self.args.lr_factor,
+                                          patience=self.args.lr_patience,
+                                          mode="max",
+                                          threshold_mode="abs",
+                                          threshold=self.args.lr_threshold)
 
     if self.use_wandb and self.args.wandb_name is None:
       self.args.wandb_name = self.build_wandb_name()

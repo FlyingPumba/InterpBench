@@ -36,8 +36,9 @@ class AutoEncoderTrainer(GenericTrainer):
     last_resid_post = tl_cache["resid_post", self.tl_model_n_layers - 1]
     tl_activations = t.cat(all_resid_pre + [last_resid_post])
 
-    # shape of tl_activations is [activations_len, seq_len, d_model], we will convert to [activations_len, d_model] to
+    # Shape of tl_activations is [activations_len, seq_len, d_model], we will convert to [activations_len, d_model] to
     # treat the residual stream for each sequence position as a separate sample.
+    # The final length of tl_activations is train_data_size*(n_layers + 1)*seq_len
     tl_activations: Float[Tensor, "activations_len, seq_len, d_model"] = (
       tl_activations.transpose(0, 1).reshape(-1, tl_activations.shape[-1]))
 

@@ -23,8 +23,11 @@ class TrainingArgs():
   beta_1: Optional[float] = 0.9
   beta_2: Optional[float] = 0.99
 
-  # learning rate config
+  # lr scheduler config
   lr_start: Optional[float] = 1e-3
+  lr_factor: Optional[float] = 0.9
+  lr_patience: Optional[int] = 500
+  lr_threshold: Optional[float] = 0.005
 
   # test metrics config
   test_accuracy_atol: Optional[float] = 1e-2

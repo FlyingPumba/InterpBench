@@ -29,6 +29,8 @@ def setup_args_parser(subparsers):
                       help="The desired number of layers for the autoencoder.")
   parser.add_argument("--ae-epochs", type=int, default=9000,
                       help="The number of epochs to use for autoencoder training.")
+  parser.add_argument("--ae-batch-size", type=int, default=2**12,
+                      help="The batch size to use for autoencoder training.")
   parser.add_argument("--ae-lr-start", type=float, default=0.01,
                       help="The number of epochs to use for autoencoder training.")
   parser.add_argument("--freeze-ae-weights", action="store_true", default=False,
@@ -58,9 +60,12 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     ae_training_args.seed = args.seed
     ae_training_args.epochs = args.ae_epochs
     ae_training_args.lr_start = args.ae_lr_start
-    ae_training_args.batch_size = training_args.batch_size
-    ae_training_args.train_data_size = training_args.train_data_size
+    ae_training_args.batch_size = args.ae_batch_size
     ae_training_args.test_data_ratio = training_args.test_data_ratio
+    ae_training_args.train_data_size = training_args.train_data_size
+    ae_training_args.early_stop_test_accuracy = training_args.early_stop_test_accuracy if training_args.early_stop_test_accuracy is not None else 0.97
+    ae_training_args.lr_patience = 15
+
     print(
       f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
     trainer = AutoEncoderTrainer(case, autoencoder, tl_model, ae_training_args, output_dir=args.output_dir)
