@@ -56,7 +56,7 @@ class AutoEncoderTrainer(GenericTrainer):
 
     batch_size = self.args.batch_size if self.args.batch_size is not None else len(train_data)
     self.train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    self.test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
+    self.test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
   def compute_train_loss(self, inputs: Float[Tensor, "batch_size d_model"]) -> Float[Tensor, "batch posn-1"]:
     output = self.autoencoder(inputs)
@@ -69,13 +69,19 @@ class AutoEncoderTrainer(GenericTrainer):
     return loss
 
   def compute_test_metrics(self):
-    inputs = next(iter(self.test_loader))
-    outputs = self.autoencoder(inputs)
+    # compute MSE and accuracy on each batch and take average at the end
+    mse = t.tensor(0.0, device=self.device)
+    accuracy = t.tensor(0.0, device=self.device)
+    count = 0
 
-    self.test_metrics["test_mse"] = t.nn.functional.mse_loss(inputs, outputs).item()
+    for inputs in self.test_loader:
+      outputs = self.autoencoder(inputs)
+      mse = mse + t.nn.functional.mse_loss(inputs, outputs)
+      accuracy = accuracy + t.isclose(inputs, outputs, atol=self.args.test_accuracy_atol).float().mean()
+      count = count + 1
 
-    correct_predictions = t.isclose(inputs, outputs, atol=self.args.test_accuracy_atol)
-    self.test_metrics["test_accuracy"] = correct_predictions.float().mean().item()
+    self.test_metrics["test_mse"] = (mse / count).item()
+    self.test_metrics["test_accuracy"] = (accuracy / count).item()
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
