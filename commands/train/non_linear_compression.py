@@ -27,7 +27,7 @@ def setup_args_parser(subparsers):
                       help="Path to trained AutoEncoder model.")
   parser.add_argument("--ae-layers", type=int, default=2,
                       help="The desired number of layers for the autoencoder.")
-  parser.add_argument("--ae-epochs", type=int, default=9000,
+  parser.add_argument("--ae-epochs", type=int, default=70,
                       help="The number of epochs to use for autoencoder training.")
   parser.add_argument("--ae-batch-size", type=int, default=2**12,
                       help="The batch size to use for autoencoder training.")
