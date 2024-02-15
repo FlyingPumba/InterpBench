@@ -29,7 +29,7 @@ class AutoEncoderTrainer(GenericTrainer):
   def setup_dataset(self):
     tl_dataset = self.case.get_clean_data(count=self.args.train_data_size)
     tl_inputs = tl_dataset.get_inputs()
-    tl_output, tl_cache = self.tl_model.run_with_cache(tl_inputs)
+    _, tl_cache = self.tl_model.run_with_cache(tl_inputs)
 
     # collect the residual stream activations from all layers
     all_resid_pre = [tl_cache["resid_pre", layer] for layer in range(self.tl_model_n_layers)]
