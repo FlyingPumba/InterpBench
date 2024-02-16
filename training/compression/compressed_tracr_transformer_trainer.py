@@ -13,7 +13,7 @@ from benchmark.case_dataset import CaseDataset
 from training.generic_trainer import GenericTrainer
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-from utils.resampling_ablation_loss import get_resampling_ablation_loss
+from utils.resampling_ablation_loss.resampling_ablation_loss import get_resampling_ablation_loss
 
 
 class CompressedTracrTransformerTrainer(GenericTrainer):
