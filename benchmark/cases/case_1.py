@@ -11,7 +11,7 @@ class Case1(BenchmarkCase):
     return make_token_rotation_identifier(rasp.tokens, 2)
 
   def get_vocab(self) -> Set:
-    return vocabs.get_words_vocab().union({"hello", "llohe", "lohel"})
+    return vocabs.get_ascii_letters_vocab(count=5)
 
 
 def make_token_rotation_identifier(sop: rasp.SOp, rotation: int) -> rasp.SOp:
@@ -20,8 +20,12 @@ def make_token_rotation_identifier(sop: rasp.SOp, rotation: int) -> rasp.SOp:
 
     Example usage:
       rotation_identifier = make_token_rotation_identifier(rasp.tokens, 2)
-      rotation_identifier(["hello", "llohe", "lohel"])
-      >> [True, True, True]
+      rotation_identifier(['d', 'e', 'c', 'e', 'e', 'b', 'c', 'c', 'c'])
+      >> [None, None, False, True, False, False, False, False, True]
+      Because:
+        Orig:    ['d', 'e', 'c', 'e', 'e', 'b', 'c', 'c', 'c']
+        Shift 2: [_  , _  , 'd', 'e', 'c', 'e', 'e', 'b', 'c']
+        Equals:  [_  , _  ,  F ,  T ,  F ,  F ,  F ,  F ,  T ]
     """
     rotated_token = shift_by(rotation, sop)
     rotation_identifier = rasp.SequenceMap(lambda x, y: x == y, sop, rotated_token)

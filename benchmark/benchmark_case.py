@@ -14,6 +14,7 @@ from tracr.compiler.compiling import TracrOutput
 from tracr.rasp import rasp
 from tracr.transformer.encoder import CategoricalEncoder
 from utils.cloudpickle import load_from_pickle, dump_to_pickle
+from utils.compare_tracr_output import compare_valid_positions
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
 from utils.project_paths import detect_project_root
 
@@ -227,12 +228,7 @@ class BenchmarkCase(object):
       input = inputs[i]
       expected_output = expected_outputs[i]
       decoded_output = tracr_model.apply(input).decoded
-
-      if is_categorical:
-        correct = all(elem1 == elem2 for elem1, elem2 in zip(decoded_output, expected_output))
-      else:
-        # compare how close the outputs are numerically without taking into account the BOS token
-        correct = np.allclose(expected_output[1:], decoded_output[1:], atol=atol)
+      correct = all(compare_valid_positions(expected_output, decoded_output, is_categorical, atol))
 
       if not correct:
         raise ValueError(f"Failed test for {self} on tracr model."
@@ -255,12 +251,7 @@ class BenchmarkCase(object):
       input = inputs[i]
       expected_output = expected_outputs[i]
       decoded_output = decoded_outputs[i]
-
-      if tl_model.is_categorical():
-        correct = all(elem1 == elem2 for elem1, elem2 in zip(decoded_output, expected_output))
-      else:
-        # compare how close the outputs are numerically without taking into account the BOS token
-        correct = np.allclose(expected_output[1:], decoded_output[1:], atol=atol)
+      correct = all(compare_valid_positions(expected_output, decoded_output, tl_model.is_categorical(), atol))
 
       if not correct:
         raise ValueError(f"Failed test for {self} on tl model."

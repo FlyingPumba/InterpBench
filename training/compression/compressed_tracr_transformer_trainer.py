@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 import torch as t
@@ -13,6 +13,7 @@ from benchmark.case_dataset import CaseDataset
 from training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from training.generic_trainer import GenericTrainer
 from training.training_args import TrainingArgs
+from utils.compare_tracr_output import compare_valid_positions, compare_positions_excluding_BOS
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from utils.resampling_ablation_loss.resampling_ablation_loss import get_resampling_ablation_loss
 
@@ -60,7 +61,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
   def get_residual_stream_mapper(self) -> ResidualStreamMapper | None:
     return None
 
-  def compute_train_loss(self, batch: CaseDataset) -> Float[Tensor, ""]:
+  def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     # Run the input on both compressed and original model
     inputs = batch[CaseDataset.INPUT_FIELD]
     compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
@@ -94,7 +95,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     return loss
 
   def compute_test_metrics(self):
-    test_data = next(iter(self.test_loader))
+    test_data: Dict[str, HookedTracrTransformerBatchInput] = next(iter(self.test_loader))
     inputs = test_data[CaseDataset.INPUT_FIELD]
     expected_outputs = test_data[CaseDataset.CORRECT_OUTPUT_FIELD]
     predicted_outputs = self.get_decoded_outputs_from_compressed_model(inputs)
@@ -108,18 +109,25 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       predictions = predicted_output[1:]
       expectations = expected_output[1:]
 
-      if isinstance(predictions[0], str):
-        # We have chars, convert them to numbers using ord to avoid the torch issue: "too many dimensions 'str'"
-        predictions = [ord(p) for p in predictions]
-        expectations = [ord(e) for e in expectations]
+      if any(isinstance(p, str) for p in predictions):
+        # We have chars, convert them to numbers using ord to avoid the torch issue: "too many dimensions 'str'".
+        predictions = [ord(p) if p is not None else None for p in predictions]
+        expectations = [ord(e) if e is not None else None for e in expectations]
+
+      # Replace all predictions and expectations values where expectations have None with 0.
+      # We do this so that we don't compare the loss of invalid positions (None values)
+      indices = [i for i, e in enumerate(expectations) if e is None]
+      for i in indices:
+        predictions[i] = 0
+        expectations[i] = 0
 
       predicted_outputs_flattened.extend(predictions)
       expected_outputs_flattened.extend(expectations)
 
-      if self.is_categorical:
-        correct_predictions.extend(p == e for p, e in zip(predictions, expectations))
-      else:
-        correct_predictions.extend(np.isclose(predictions, expectations, atol=self.args.test_accuracy_atol).tolist())
+      correct_predictions.extend(compare_positions_excluding_BOS(expectations,
+                                                                 predictions,
+                                                                 self.is_categorical,
+                                                                 self.args.test_accuracy_atol))
 
     self.test_metrics["test_accuracy"] = np.mean(correct_predictions)
 

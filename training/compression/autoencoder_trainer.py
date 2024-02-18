@@ -59,10 +59,10 @@ class AutoEncoderTrainer(GenericTrainer):
     self.train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     self.test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
-  def compute_train_loss(self, inputs: Float[Tensor, "batch_size d_model"]) -> Float[Tensor, "batch posn-1"]:
-    output = self.autoencoder(inputs)
+  def compute_train_loss(self, batch: Float[Tensor, "batch_size d_model"]) -> Float[Tensor, "batch posn-1"]:
+    output = self.autoencoder(batch)
 
-    loss = t.nn.functional.mse_loss(inputs, output)
+    loss = t.nn.functional.mse_loss(batch, output)
 
     if self.use_wandb:
       wandb.log({"train_loss": loss}, step=self.step)

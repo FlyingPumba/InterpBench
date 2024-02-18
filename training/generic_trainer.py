@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any, Dict
 
 import numpy as np
 import torch as t
@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from benchmark.benchmark_case import BenchmarkCase
 from training.training_args import TrainingArgs
+from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
 
 class GenericTrainer():
@@ -124,7 +125,7 @@ class GenericTrainer():
     loss.backward()
     self.optimizer.step()
 
-  def compute_train_loss(self, inputs) -> Float[Tensor, ""]:
+  def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     raise NotImplementedError
 
   def compute_test_metrics(self):
