@@ -12,8 +12,7 @@ class CompileBenchmarkTest(unittest.TestCase):
     indices = [str(i) for i in range(1, 48)]
 
     # remove cases that are known to fail and we have yet to fix
-    failing_cases = ["6", "8", "10", "11", "12", "16", "17", "18", "19", "20", "23", "25", "30", "31", "32", "33",
-                     "34", "36", "38", "39", "41", "44", "46", "47"]
+    failing_cases = ["8", "10", "11", "16", "18", "20", "23", "36"]
     for failing_case in failing_cases:
       if failing_case in indices:
         indices.remove(failing_case)
