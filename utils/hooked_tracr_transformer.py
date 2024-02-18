@@ -40,8 +40,8 @@ class HookedTracrTransformer(HookedTransformer):
     self.tracr_output_encoder = tracr_output_encoder
     self.residual_stream_labels = residual_stream_labels
 
-    if "use_hook_mlp_in" in self.cfg.to_dict(): # Tracr models always include MLPs
-        self.set_use_hook_mlp_in(True)
+    if "use_hook_mlp_in" in self.cfg.to_dict():  # Tracr models always include MLPs
+      self.set_use_hook_mlp_in(True)
 
     self.weights_frozen = False
 
@@ -97,7 +97,9 @@ class HookedTracrTransformer(HookedTransformer):
       return super().__call__(*args, **kwargs)
 
   def run_tracr_input(self, batch_input: HookedTracrTransformerBatchInput,
-                      return_type: HookedTracrTransformerReturnType = "logits") -> HookedTracrTransformerBatchInput | Float[Tensor, "batch_size seq_len d_vocab_out"]:
+                      return_type: HookedTracrTransformerReturnType = "logits") -> HookedTracrTransformerBatchInput | \
+                                                                                   Float[
+                                                                                     Tensor, "batch_size seq_len d_vocab_out"]:
     """Applies the internal transformer_lens model to an input."""
     tl_batch_input = self.map_tracr_input_to_tl_input(batch_input)
     logits = self(tl_batch_input)
@@ -130,7 +132,7 @@ class HookedTracrTransformer(HookedTransformer):
     """Loads the weights from a tracr model into the transformer_lens model."""
     self.load_tracr_state_dict(self.extract_tracr_state_dict(tracr_model))
 
-  def load_tracr_state_dict(self, sd: dict[str, np.ndarray|jnp.ndarray]) -> None:
+  def load_tracr_state_dict(self, sd: dict[str, np.ndarray | jnp.ndarray]) -> None:
     """Creates a transformer_lens model from a config and state dict."""
 
     # Convert weights to tensors and load into the tl_model
@@ -195,44 +197,44 @@ class HookedTracrTransformer(HookedTransformer):
       sd[f"blocks.{l}.attn.W_K"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/key"]["w"],
         "d_model (n_heads d_head) -> n_heads d_model d_head",
-        d_head = self.cfg.d_head,
-        n_heads = self.cfg.n_heads
+        d_head=self.cfg.d_head,
+        n_heads=self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.b_K"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/key"]["b"],
         "(n_heads d_head) -> n_heads d_head",
-        d_head = self.cfg.d_head,
-        n_heads = self.cfg.n_heads
+        d_head=self.cfg.d_head,
+        n_heads=self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.W_Q"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/query"]["w"],
         "d_model (n_heads d_head) -> n_heads d_model d_head",
-        d_head = self.cfg.d_head,
-        n_heads = self.cfg.n_heads
+        d_head=self.cfg.d_head,
+        n_heads=self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.b_Q"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/query"]["b"],
         "(n_heads d_head) -> n_heads d_head",
-        d_head = self.cfg.d_head,
-        n_heads = self.cfg.n_heads
+        d_head=self.cfg.d_head,
+        n_heads=self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.W_V"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/value"]["w"],
         "d_model (n_heads d_head) -> n_heads d_model d_head",
-        d_head = self.cfg.d_head,
-        n_heads = self.cfg.n_heads
+        d_head=self.cfg.d_head,
+        n_heads=self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.b_V"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/value"]["b"],
         "(n_heads d_head) -> n_heads d_head",
-        d_head = self.cfg.d_head,
-        n_heads = self.cfg.n_heads
+        d_head=self.cfg.d_head,
+        n_heads=self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.W_O"] = einops.rearrange(
         model.params[f"transformer/layer_{l}/attn/linear"]["w"],
         "(n_heads d_head) d_model -> n_heads d_head d_model",
-        d_head = self.cfg.d_head,
-        n_heads = self.cfg.n_heads
+        d_head=self.cfg.d_head,
+        n_heads=self.cfg.n_heads
       )
       sd[f"blocks.{l}.attn.b_O"] = model.params[f"transformer/layer_{l}/attn/linear"]["b"]
 
@@ -249,7 +251,7 @@ class HookedTracrTransformer(HookedTransformer):
       if ":" in label:
         # basis has name and value
         basis_name_and_value = label.split(":")
-        residual_space.append(BasisDirection(basis_name_and_value[0], self.int_or_string(basis_name_and_value[1])))
+        residual_space.append(BasisDirection(basis_name_and_value[0], self.str_to_correct_type(basis_name_and_value[1])))
       else:
         # basis has only name
         residual_space.append(BasisDirection(label, None))
@@ -283,18 +285,33 @@ class HookedTracrTransformer(HookedTransformer):
     for name, param in self.named_parameters():
       init_fn(param)
 
-  def int_or_string(self, value):
-    """Converts a value to an int if possible, otherwise returns the value as a string.
+  def str_to_correct_type(self, value):
+    """Converts a value to the correct type, otherwise returns the value as a string.
     THIS IS A HACK: The proper way to do this would be for model.params to contain an entry for "unembed".
     """
+    # try converting to int or bool
+    if value == "True":
+      return True
+
+    if value == "False":
+      return False
+
     try:
       return int(value)
     except ValueError:
-      return value
+      pass
+
+    try:
+      return float(value)
+    except ValueError:
+      pass
+
+    # just return the string value
+    return value
 
   def to(self,
-        device_or_dtype: Union[t.device, str, t.dtype],
-        print_details: bool = True,):
+         device_or_dtype: Union[t.device, str, t.dtype],
+         print_details: bool = True):
     """Moves the model to a device and updates the device in the config."""
     self.device = device_or_dtype
     return super().to(device_or_dtype, print_details=print_details)
