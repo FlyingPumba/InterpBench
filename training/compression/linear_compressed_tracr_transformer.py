@@ -45,9 +45,8 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
 
     self.load_weights_from_tl_model(tl_model)
 
-    # [to_size, from_size]
-    self.W_compress: Linear = nn.Linear(self.original_residual_stream_size,
-                                        self.residual_stream_compression_size,
+    self.W_compress: Linear = nn.Linear(self.residual_stream_compression_size,
+                                        self.original_residual_stream_size,
                                         device=self.device,
                                         bias=False)
 
@@ -55,6 +54,8 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
       # The (semi) orthogonal matrix is useful for our setup because the transpose is exactly the inverse, and we will
       # use the same matrix for reading and writing from/to the residual stream.
       nn.init.orthogonal_(self.W_compress.weight)
+
+    assert self.W_compress.weight.shape == (self.original_residual_stream_size, self.residual_stream_compression_size)
 
     self.reset_hooks(including_permanent=True)
     self.add_linear_compression_hooks()
@@ -75,44 +76,43 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
 
   def build_linear_compression_hooks(self) -> List[Tuple[str, Callable]]:
     hooks = []
+    compression_matrix = self.W_compress.weight
 
-    write_to_compressed_residual = lambda x: x @ self.W_compress.weight.T
-    read_from_compressed_residual = lambda x: x @ self.W_compress.weight
-
-    def write_to_resid_hook_function(
+    def compress_resid_hook_fn(
         residual_stream: Float[Tensor, "batch seq_len d_model"],
         hook: HookPoint
     ) -> Float[Tensor, "batch seq_len d_model_compressed"]:
-      return write_to_compressed_residual(residual_stream)
+      return residual_stream @ compression_matrix
 
-    def read_from_resid_hook_function(
+    def decompress_resid_hook_fn(
         residual_stream: Float[Tensor, "batch seq_len n_head d_model_compressed"],
         hook: HookPoint
     ) -> Float[Tensor, "batch seq_len n_head d_model"]:
-      return read_from_compressed_residual(residual_stream)
+      return residual_stream @ compression_matrix.T
 
-    # Add hooks for Attention heads and MLPs
+    # Initial hooks for the input and positional embeddings, so that the first residual stream has compressed size.
+    hooks.append((f"hook_embed", compress_resid_hook_fn))
+    hooks.append((f"hook_pos_embed", compress_resid_hook_fn))
+
+    # Add hooks for Attention heads and MLPs.
+    # Each input hook decompresses the residual stream, and each output hook compresses back the residual stream.
     for hook_name in self.hook_dict.keys():
       if "hook_k_input" in hook_name or "hook_q_input" in hook_name or "hook_v_input" in hook_name:
         # Attention head matrices read directly from the residual stream
-        hooks.append((hook_name, read_from_resid_hook_function))
+        hooks.append((hook_name, decompress_resid_hook_fn))
       elif "hook_attn_out" in hook_name:
         # the output of attention heads is written directly to the residual stream
-        hooks.append((hook_name, write_to_resid_hook_function))
+        hooks.append((hook_name, compress_resid_hook_fn))
       elif "hook_mlp_out" in hook_name:
         # the output of the MLP is written directly to the residual stream
-        hooks.append((hook_name, write_to_resid_hook_function))
+        hooks.append((hook_name, compress_resid_hook_fn))
       elif "hook_mlp_in" in hook_name:
         # the input of the MLP is read directly from the residual stream
-        hooks.append((hook_name, read_from_resid_hook_function))
+        hooks.append((hook_name, decompress_resid_hook_fn))
 
-    # Add hooks for the pre-residual stream and the post-residual stream of all layers, so that the residual stream has
-    # the same size as the original model.
-    # Also, TransformerLens does not have a hook for the input of the unembedding, so we need to specially need to
-    # change the dimension of the last residual stream back to whatever it was before compression.
-    for layer in range(self.cfg.n_layers):
-      hooks.append((f"blocks.{layer}.hook_resid_pre", write_to_resid_hook_function))
-      hooks.append((f"blocks.{layer}.hook_resid_post", read_from_resid_hook_function))
+    # TransformerLens does not have a hook for the input of the unembedding, so we need to decompress the residual
+    # stream produced by the last layer.
+    hooks.append((f"blocks.{self.cfg.n_layers - 1}.hook_resid_post", decompress_resid_hook_fn))
 
     return hooks
 

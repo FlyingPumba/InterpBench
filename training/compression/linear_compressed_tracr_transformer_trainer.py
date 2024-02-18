@@ -1,10 +1,12 @@
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import ActivationCache, HookedTransformer
+from transformer_lens import ActivationCache, HookedTransformer, utils
 
 from benchmark.benchmark_case import BenchmarkCase
 from training.compression.compressed_tracr_transformer_trainer import CompressedTracrTransformerTrainer
 from training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
+from training.compression.residual_stream_mapper.linear_mapper import LinearMapper
+from training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput, HookedTracrTransformer
 
@@ -32,7 +34,16 @@ class LinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer)
       self,
       inputs: HookedTracrTransformerBatchInput
   ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
-    return self.compressed_model.run_with_cache(inputs)
+    compressed_model_logits, compressed_model_cache = self.compressed_model.run_with_cache(inputs)
+
+    # Decompress the residual streams of all layers except the last one, which we have already decompressed for using
+    # the unembedding since TransformerLens does not have a hook for that.
+    for layer in range(self.n_layers - 1):
+      cache_key = utils.get_act_name("resid_post", layer)
+      compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
+        compressed_model_cache.cache_dict[cache_key])
+
+    return compressed_model_logits, compressed_model_cache
 
   def get_logits_and_cache_from_original_model(
       self,
@@ -45,6 +56,9 @@ class LinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer)
 
   def get_compressed_model(self) -> HookedTransformer:
     return self.compressed_model
+
+  def get_residual_stream_mapper(self) -> ResidualStreamMapper:
+    return LinearMapper(self.compressed_model.W_compress)
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-linear-resid-{self.compressed_model.residual_stream_compression_size}"

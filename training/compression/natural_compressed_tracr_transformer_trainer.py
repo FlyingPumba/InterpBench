@@ -1,6 +1,5 @@
 import os
 
-import numpy as np
 import torch as t
 import wandb
 from jaxtyping import Float, Int

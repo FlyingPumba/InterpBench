@@ -8,7 +8,7 @@ from torch import Tensor
 from transformer_lens import HookedTransformer
 
 from benchmark.case_dataset import CaseDataset
-from training.compression.autencoder import AutoEncoder
+from training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from utils.resampling_ablation_loss.intervention import Intervention
 from utils.resampling_ablation_loss.intervention_type import InterventionType
 
@@ -18,7 +18,7 @@ def get_resampling_ablation_loss(
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
-    autoencoder: AutoEncoder | None = None,
+    residual_stream_mapper: ResidualStreamMapper | None = None,
     hook_filters : List[str] | None = None,
     batch_size: int = 2048,
     max_interventions: int = 100
@@ -43,8 +43,11 @@ def get_resampling_ablation_loss(
 
   # for each intervention, run both models, calculate MSE and add it to the losses.
   losses = []
-  for intervention in get_interventions(base_model, hypothesis_model, hook_filters, autoencoder, max_interventions):
-
+  for intervention in get_interventions(base_model,
+                                        hypothesis_model,
+                                        hook_filters,
+                                        residual_stream_mapper,
+                                        max_interventions):
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
     intervention_losses = []
     for clean_inputs_batch, corrupted_inputs_batch in zip(clean_inputs.get_inputs_loader(batch_size),
@@ -68,7 +71,7 @@ def get_interventions(
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     hook_filters : List[str],
-    autoencoder: AutoEncoder | None = None,
+    residual_stream_mapper: ResidualStreamMapper | None = None,
     max_interventions: int = 100) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
@@ -80,7 +83,7 @@ def get_interventions(
     "All hook names for patching should be present in the hypothesis model."
 
   # For each hook name we need to decide what type of intervention we want to apply.
-  options = InterventionType.get_available_interventions(autoencoder)
+  options = InterventionType.get_available_interventions(residual_stream_mapper)
 
   # If max_interventions is greater than the total number of possible combinations, we will use all of them.
   # Otherwise, we will use a random sample of max_interventions.
@@ -95,7 +98,7 @@ def get_interventions(
     # build intervention for index
     intervention_types = np.base_repr(index, base=len(options)).zfill(len(hook_names_for_patching))
     intervention_types = [options[int(digit)] for digit in intervention_types]
-    intervention = Intervention(hook_names_for_patching, intervention_types, autoencoder)
+    intervention = Intervention(hook_names_for_patching, intervention_types, residual_stream_mapper)
     yield intervention
 
 

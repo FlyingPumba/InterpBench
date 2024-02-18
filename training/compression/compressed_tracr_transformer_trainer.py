@@ -10,6 +10,7 @@ from transformer_lens import ActivationCache, HookedTransformer
 
 from benchmark.benchmark_case import BenchmarkCase
 from benchmark.case_dataset import CaseDataset
+from training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from training.generic_trainer import GenericTrainer
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
@@ -55,6 +56,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
   def get_compressed_model(self) -> HookedTransformer:
     raise NotImplementedError
+
+  def get_residual_stream_mapper(self) -> ResidualStreamMapper | None:
+    return None
 
   def compute_train_loss(self, batch: CaseDataset) -> Float[Tensor, ""]:
     # Run the input on both compressed and original model
@@ -125,21 +129,21 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if not self.is_categorical:
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
-      # Compute the resampling ablation loss
-      resample_ablation_loss_args = {
-        "clean_inputs": self.clean_dataset,
-        "corrupted_inputs": self.corrupted_dataset,
-        "base_model": self.get_original_model(),
-        "hypothesis_model": self.get_compressed_model()
-      }
+    # Compute the resampling ablation loss
+    resample_ablation_loss_args = {
+      "clean_inputs": self.clean_dataset,
+      "corrupted_inputs": self.corrupted_dataset,
+      "base_model": self.get_original_model(),
+      "hypothesis_model": self.get_compressed_model(),
+    }
 
-      # provide autoencoder argument if it is available as a property in this class (self.autoencoder)
-      if hasattr(self, "autoencoder"):
-        resample_ablation_loss_args["autoencoder"] = self.autoencoder
+    residual_stream_mapper = self.get_residual_stream_mapper()
+    if residual_stream_mapper is not None:
+      resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
 
-      self.test_metrics["resample_ablation_loss"] = get_resampling_ablation_loss(
-        **resample_ablation_loss_args
-      ).item()
+    self.test_metrics["resample_ablation_loss"] = get_resampling_ablation_loss(
+      **resample_ablation_loss_args
+    ).item()
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)

@@ -12,6 +12,8 @@ from benchmark.benchmark_case import BenchmarkCase
 from training.compression.autencoder import AutoEncoder
 from training.compression.autoencoder_trainer import AutoEncoderTrainer
 from training.compression.compressed_tracr_transformer_trainer import CompressedTracrTransformerTrainer
+from training.compression.residual_stream_mapper.autoencoder_mapper import AutoEncoderMapper
+from training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
 
@@ -86,7 +88,7 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
 
     for layer in range(self.n_layers):
       cache_key = utils.get_act_name("resid_post", layer)
-      compressed_model_cache.cache_dict[cache_key] = self.autoencoder.decoder(
+      compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
         compressed_model_cache.cache_dict[cache_key])
 
     return compressed_model_logits, compressed_model_cache
@@ -102,6 +104,9 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
 
   def get_compressed_model(self) -> HookedTransformer:
     return self.new_tl_model
+
+  def get_residual_stream_mapper(self) -> ResidualStreamMapper:
+    return AutoEncoderMapper(self.autoencoder)
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-non-linear-resid-{self.autoencoder.compression_size}"

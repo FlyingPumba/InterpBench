@@ -7,7 +7,7 @@ from torch import Tensor
 from transformer_lens import ActivationCache, HookedTransformer
 from transformer_lens.hook_points import HookPoint
 
-from training.compression.autencoder import AutoEncoder
+from training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from utils.resampling_ablation_loss.intervention_type import InterventionType
 
@@ -21,49 +21,49 @@ def regular_intervention_hook_fn(
   return corrupted_cache[hook.name]
 
 
-def encoder_intervention_hook_fn(
+def compression_intervention_hook_fn(
     residual_stream: Float[Tensor, "batch seq_len d_model"],
     hook: HookPoint,
     corrupted_cache: ActivationCache = None,
-    autoencoder: AutoEncoder = None
+    residual_stream_mapper: ResidualStreamMapper | None = None
 ):
-  """This hook replaces the output with a corrupted output passed through the encoder."""
-  return autoencoder.encoder(corrupted_cache[hook.name])
+  """This hook replaces the output with a corrupted output passed through the compressor."""
+  return residual_stream_mapper.compress(corrupted_cache[hook.name])
 
 
-def decoder_intervention_hook_fn(
+def decompression_intervention_hook_fn(
     residual_stream: Float[Tensor, "batch seq_len d_model"],
     hook: HookPoint,
     corrupted_cache: ActivationCache = None,
-    autoencoder: AutoEncoder = None
+    residual_stream_mapper: ResidualStreamMapper | None = None
 ):
-  """This hook replaces the output with a corrupted output passed through the decoder."""
-  return autoencoder.decoder(corrupted_cache[hook.name])
+  """This hook replaces the output with a corrupted output passed through the decompressor."""
+  return residual_stream_mapper.decompress(corrupted_cache[hook.name])
 
 
 class Intervention(object):
   def __init__(self,
                hook_names: List[str],
                hook_intervention_types: List[InterventionType],
-               autoencoder: AutoEncoder | None = None):
+               residual_stream_mapper: ResidualStreamMapper | None = None):
     self.hook_names = hook_names
     self.hook_intervention_types = hook_intervention_types
-    self.autoencoder = autoencoder
+    self.residual_stream_mapper = residual_stream_mapper
 
     assert len(hook_names) == len(hook_intervention_types), \
       "hook_names and hook_intervention_types should have the same length."
 
-    # Assert there are no interventions that require an autoencoder if it is not provided.
-    if autoencoder is None:
+    # Assert there are no interventions that require a residual stream mapper if it is not provided.
+    if residual_stream_mapper is None:
       for intervention_type in hook_intervention_types:
-        assert intervention_type not in [InterventionType.CORRUPTED_ENCODING,
-                                         InterventionType.CORRUPTED_DECODING,
-                                         InterventionType.CLEAN_ENCODING,
-                                         InterventionType.CLEAN_DECODING], \
-          "Autoencoder is not provided, so interventions that require it are not allowed."
+        assert intervention_type not in [InterventionType.CORRUPTED_COMPRESSION,
+                                         InterventionType.CORRUPTED_DECOMPRESSION,
+                                         InterventionType.CLEAN_COMPRESSION,
+                                         InterventionType.CLEAN_DECOMPRESSION], \
+          "ResidualStreamMapper is not provided, so interventions that require it are not allowed."
 
-    self.has_clean_interventions = any([intervention_type in [InterventionType.CLEAN_ENCODING,
-                                                              InterventionType.CLEAN_DECODING]
+    self.has_clean_interventions = any([intervention_type in [InterventionType.CLEAN_COMPRESSION,
+                                                              InterventionType.CLEAN_DECOMPRESSION]
                                         for intervention_type in hook_intervention_types])
 
   @contextmanager
@@ -94,29 +94,29 @@ class Intervention(object):
         hypothesis_model_hooks.append((hook_name, partial(regular_intervention_hook_fn,
                                                           corrupted_cache=hypothesis_model_corrupted_cache)))
 
-      elif intervention_type == InterventionType.CORRUPTED_ENCODING:
+      elif intervention_type == InterventionType.CORRUPTED_COMPRESSION:
         base_model_hooks.append((hook_name, partial(regular_intervention_hook_fn,
                                                     corrupted_cache=base_model_corrupted_cache)))
-        hypothesis_model_hooks.append((hook_name, partial(encoder_intervention_hook_fn,
+        hypothesis_model_hooks.append((hook_name, partial(compression_intervention_hook_fn,
                                                           corrupted_cache=base_model_corrupted_cache,
-                                                          autoencoder=self.autoencoder)))
+                                                          residual_stream_mapper=self.residual_stream_mapper)))
 
-      elif intervention_type == InterventionType.CORRUPTED_DECODING:
-        base_model_hooks.append((hook_name, partial(decoder_intervention_hook_fn,
+      elif intervention_type == InterventionType.CORRUPTED_DECOMPRESSION:
+        base_model_hooks.append((hook_name, partial(decompression_intervention_hook_fn,
                                                     corrupted_cache=hypothesis_model_corrupted_cache,
-                                                    autoencoder=self.autoencoder)))
+                                                    residual_stream_mapper=self.residual_stream_mapper)))
         hypothesis_model_hooks.append((hook_name, partial(regular_intervention_hook_fn,
                                                           corrupted_cache=hypothesis_model_corrupted_cache)))
 
-      elif intervention_type == InterventionType.CLEAN_ENCODING:
-        hypothesis_model_hooks.append((hook_name, partial(encoder_intervention_hook_fn,
+      elif intervention_type == InterventionType.CLEAN_COMPRESSION:
+        hypothesis_model_hooks.append((hook_name, partial(compression_intervention_hook_fn,
                                                           corrupted_cache=base_model_clean_cache,
-                                                          autoencoder=self.autoencoder)))
+                                                          residual_stream_mapper=self.residual_stream_mapper)))
 
-      elif intervention_type == InterventionType.CLEAN_DECODING:
-        base_model_hooks.append((hook_name, partial(decoder_intervention_hook_fn,
+      elif intervention_type == InterventionType.CLEAN_DECOMPRESSION:
+        base_model_hooks.append((hook_name, partial(decompression_intervention_hook_fn,
                                                     corrupted_cache=hypothesis_model_clean_cache,
-                                                    autoencoder=self.autoencoder)))
+                                                    residual_stream_mapper=self.residual_stream_mapper)))
 
       elif intervention_type == InterventionType.NO_INTERVENTION:
         # No hooks to add
