@@ -21,7 +21,7 @@ def get_resampling_ablation_loss(
     residual_stream_mapper: ResidualStreamMapper | None = None,
     hook_filters: List[str] | None = None,
     batch_size: int = 2048,
-    max_interventions: int = 100
+    max_interventions: int = 10
 ) -> Float[Tensor, ""]:
   if hook_filters is None:
     # by default, we use the following hooks for the intervention points.
@@ -78,7 +78,7 @@ def get_interventions(
     hypothesis_model: HookedTransformer,
     hook_filters: List[str],
     residual_stream_mapper: ResidualStreamMapper | None = None,
-    max_interventions: int = 100) -> Generator[Intervention, None, None]:
+    max_interventions: int = 10) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
   hook_names_for_patching = [name for name in hook_names

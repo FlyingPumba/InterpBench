@@ -33,5 +33,5 @@ class TrainingArgs():
   test_accuracy_atol: Optional[float] = 1e-2
 
   # resample ablation loss config
-  resample_ablation_max_interventions: Optional[int] = 100
-  resample_ablation_batch_size: Optional[int] = 2048
+  resample_ablation_max_interventions: Optional[int] = 10
+  resample_ablation_batch_size: Optional[int] = 20000
