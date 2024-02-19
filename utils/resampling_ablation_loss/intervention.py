@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import partial
 from typing import List
 
@@ -41,6 +42,15 @@ def decompression_intervention_hook_fn(
   return residual_stream_mapper.decompress(corrupted_cache[hook.name])
 
 
+@dataclass
+class InterventionData:
+  clean_inputs: HookedTracrTransformerBatchInput
+  base_model_corrupted_cache: ActivationCache
+  hypothesis_model_corrupted_cache: ActivationCache
+  base_model_clean_cache: ActivationCache | None
+  hypothesis_model_clean_cache: ActivationCache | None
+
+
 class Intervention(object):
   def __init__(self,
                hook_names: List[str],
@@ -70,19 +80,15 @@ class Intervention(object):
   def hooks(self,
             base_model: HookedTransformer,
             hypothesis_model: HookedTransformer,
-            clean_inputs_batch: HookedTracrTransformerBatchInput,
-            corrupted_inputs_batch: HookedTracrTransformerBatchInput):
+            intervention_data: InterventionData):
+    base_model_corrupted_cache = intervention_data.base_model_corrupted_cache
+    hypothesis_model_corrupted_cache = intervention_data.hypothesis_model_corrupted_cache
+    base_model_clean_cache = intervention_data.base_model_clean_cache
+    hypothesis_model_clean_cache = intervention_data.hypothesis_model_clean_cache
 
-    # Run the corrupted inputs on both models and save the activation caches.
-    _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_inputs_batch)
-    _, hypothesis_model_corrupted_cache = hypothesis_model.run_with_cache(corrupted_inputs_batch)
-
-    base_model_clean_cache = None
-    hypothesis_model_clean_cache = None
     if self.has_clean_interventions:
-      # Run the clean inputs on both models and save the activation caches.
-      _, base_model_clean_cache = base_model.run_with_cache(clean_inputs_batch)
-      _, hypothesis_model_clean_cache = hypothesis_model.run_with_cache(clean_inputs_batch)
+      assert base_model_clean_cache is not None and hypothesis_model_clean_cache is not None, \
+        "Clean caches are required for clean interventions."
 
     base_model_hooks = []
     hypothesis_model_hooks = []

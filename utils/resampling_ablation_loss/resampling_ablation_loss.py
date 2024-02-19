@@ -9,7 +9,7 @@ from transformer_lens import HookedTransformer
 
 from benchmark.case_dataset import CaseDataset
 from training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
-from utils.resampling_ablation_loss.intervention import Intervention
+from utils.resampling_ablation_loss.intervention import Intervention, InterventionData
 from utils.resampling_ablation_loss.intervention_type import InterventionType
 
 
@@ -41,6 +41,14 @@ def get_resampling_ablation_loss(
   assert clean_inputs != corrupted_inputs, "clean and corrupted inputs should have different data."
   assert max_interventions > 0, "max_interventions should be greater than 0."
 
+  # Build data for interventions before starting to avoid recomputing the same data for each intervention.
+  batched_intervention_data = get_batched_intervention_data(clean_inputs,
+                                                            corrupted_inputs,
+                                                            base_model,
+                                                            hypothesis_model,
+                                                            residual_stream_mapper,
+                                                            batch_size)
+
   # for each intervention, run both models, calculate MSE and add it to the losses.
   losses = []
   for intervention in get_interventions(base_model,
@@ -50,12 +58,10 @@ def get_resampling_ablation_loss(
                                         max_interventions):
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
     intervention_losses = []
-    for clean_inputs_batch, corrupted_inputs_batch in zip(clean_inputs.get_inputs_loader(batch_size),
-                                                          corrupted_inputs.get_inputs_loader(batch_size)):
-      clean_inputs_batch = clean_inputs_batch[CaseDataset.INPUT_FIELD]
-      corrupted_inputs_batch = corrupted_inputs_batch[CaseDataset.INPUT_FIELD]
+    for intervention_data in batched_intervention_data:
+      clean_inputs_batch = intervention_data.clean_inputs
 
-      with intervention.hooks(base_model, hypothesis_model, clean_inputs_batch, corrupted_inputs_batch):
+      with intervention.hooks(base_model, hypothesis_model, intervention_data):
         base_model_logits = base_model(clean_inputs_batch)
         hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
 
@@ -100,6 +106,42 @@ def get_interventions(
     intervention_types = [options[int(digit)] for digit in intervention_types]
     intervention = Intervention(hook_names_for_patching, intervention_types, residual_stream_mapper)
     yield intervention
+
+
+def get_batched_intervention_data(
+    clean_inputs: CaseDataset,
+    corrupted_inputs: CaseDataset,
+    base_model: HookedTransformer,
+    hypothesis_model: HookedTransformer,
+    residual_stream_mapper: ResidualStreamMapper | None = None,
+    batch_size: int = 2048,
+) -> List[InterventionData]:
+  data = []
+
+  for clean_inputs_batch, corrupted_inputs_batch in zip(clean_inputs.get_inputs_loader(batch_size),
+                                                        corrupted_inputs.get_inputs_loader(batch_size)):
+    clean_inputs_batch = clean_inputs_batch[CaseDataset.INPUT_FIELD]
+    corrupted_inputs_batch = corrupted_inputs_batch[CaseDataset.INPUT_FIELD]
+
+    # Run the corrupted inputs on both models and save the activation caches.
+    _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_inputs_batch)
+    _, hypothesis_model_corrupted_cache = hypothesis_model.run_with_cache(corrupted_inputs_batch)
+
+    base_model_clean_cache = None
+    hypothesis_model_clean_cache = None
+    if residual_stream_mapper is not None:
+      # Run the clean inputs on both models and save the activation caches.
+      _, base_model_clean_cache = base_model.run_with_cache(clean_inputs_batch)
+      _, hypothesis_model_clean_cache = hypothesis_model.run_with_cache(clean_inputs_batch)
+
+    intervention_data = InterventionData(clean_inputs_batch,
+                                         base_model_corrupted_cache,
+                                         hypothesis_model_corrupted_cache,
+                                         base_model_clean_cache,
+                                         hypothesis_model_clean_cache)
+    data.append(intervention_data)
+
+  return data
 
 
 def should_hook_name_be_skipped_due_to_filters(hook_name: str | None, hook_filters: List[str]) -> bool:
