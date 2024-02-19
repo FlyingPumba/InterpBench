@@ -81,12 +81,15 @@ class GenericTrainer():
     progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
     for epoch in range(self.epochs):
       if self.use_wandb:
-        wandb.log({"lr": self.optimizer.param_groups[0]["lr"]}, step=self.step)
+        wandb.log({
+          "lr": self.optimizer.param_groups[0]["lr"],
+          "epoch": epoch
+        }, step=self.step)
 
       for i, batch in enumerate(self.train_loader):
         self.train_loss = self.training_step(batch)
         progress_bar.update()
-        progress_bar.set_description(f"Epoch {epoch + 1}, train_loss: {self.train_loss:.3f}" +
+        progress_bar.set_description(f"Epoch {epoch}, train_loss: {self.train_loss:.3f}" +
                                      self.build_test_metrics_string())
 
       # compute test metrics and update learning rate using them
