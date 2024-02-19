@@ -19,7 +19,7 @@ def get_resampling_ablation_loss(
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     residual_stream_mapper: ResidualStreamMapper | None = None,
-    hook_filters : List[str] | None = None,
+    hook_filters: List[str] | None = None,
     batch_size: int = 2048,
     max_interventions: int = 100
 ) -> Float[Tensor, ""]:
@@ -56,11 +56,11 @@ def get_resampling_ablation_loss(
       corrupted_inputs_batch = corrupted_inputs_batch[CaseDataset.INPUT_FIELD]
 
       with intervention.hooks(base_model, hypothesis_model, clean_inputs_batch, corrupted_inputs_batch):
-          base_model_logits = base_model(clean_inputs_batch)
-          hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
+        base_model_logits = base_model(clean_inputs_batch)
+        hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
 
-          loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits).item()
-          intervention_losses.append(loss)
+        loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits).item()
+        intervention_losses.append(loss)
 
     losses.append(np.mean(intervention_losses))
 
@@ -70,7 +70,7 @@ def get_resampling_ablation_loss(
 def get_interventions(
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
-    hook_filters : List[str],
+    hook_filters: List[str],
     residual_stream_mapper: ResidualStreamMapper | None = None,
     max_interventions: int = 100) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
@@ -112,4 +112,3 @@ def should_hook_name_be_skipped_due_to_filters(hook_name: str | None, hook_filte
     return False
 
   return not any([filter in hook_name for filter in hook_filters])
-

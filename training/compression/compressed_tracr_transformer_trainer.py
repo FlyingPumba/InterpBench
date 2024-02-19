@@ -143,6 +143,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       "corrupted_inputs": self.corrupted_dataset,
       "base_model": self.get_original_model(),
       "hypothesis_model": self.get_compressed_model(),
+      "max_interventions": self.args.resample_ablation_max_interventions,
+      "batch_size": self.args.resample_ablation_batch_size,
     }
 
     residual_stream_mapper = self.get_residual_stream_mapper()
