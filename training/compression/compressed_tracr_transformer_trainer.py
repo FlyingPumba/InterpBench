@@ -137,23 +137,24 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if not self.is_categorical:
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
-    # Compute the resampling ablation loss
-    resample_ablation_loss_args = {
-      "clean_inputs": self.clean_dataset,
-      "corrupted_inputs": self.corrupted_dataset,
-      "base_model": self.get_original_model(),
-      "hypothesis_model": self.get_compressed_model(),
-      "max_interventions": self.args.resample_ablation_max_interventions,
-      "batch_size": self.args.resample_ablation_batch_size,
-    }
+    if self.args.resample_ablation_loss:
+      # Compute the resampling ablation loss
+      resample_ablation_loss_args = {
+        "clean_inputs": self.clean_dataset,
+        "corrupted_inputs": self.corrupted_dataset,
+        "base_model": self.get_original_model(),
+        "hypothesis_model": self.get_compressed_model(),
+        "max_interventions": self.args.resample_ablation_max_interventions,
+        "batch_size": self.args.resample_ablation_batch_size,
+      }
 
-    residual_stream_mapper = self.get_residual_stream_mapper()
-    if residual_stream_mapper is not None:
-      resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
+      residual_stream_mapper = self.get_residual_stream_mapper()
+      if residual_stream_mapper is not None:
+        resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
 
-    self.test_metrics["resample_ablation_loss"] = get_resampling_ablation_loss(
-      **resample_ablation_loss_args
-    ).item()
+      self.test_metrics["resample_ablation_loss"] = get_resampling_ablation_loss(
+        **resample_ablation_loss_args
+      ).item()
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
