@@ -19,6 +19,9 @@ def setup_args_parser(subparsers):
                       help="A list of comma separated sizes for the compressed residual stream.")
   parser.add_argument("--ae-layers", type=int, default=2,
                       help="The desired number of layers for the autoencoder.")
+  parser.add_argument("--ae-first-hidden-layer-shape", type=str, default="wide", choices=["wide", "narrow"],
+                      help="The desired shape for the first hidden layer of the autoencoder. Wide means larger than "
+                           "the input layer. Narrow means smaller than the input layer.")
 
 
 def train_autoencoder(case: BenchmarkCase, args: Namespace):
@@ -33,8 +36,10 @@ def train_autoencoder(case: BenchmarkCase, args: Namespace):
     training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
     original_residual_stream_size = tl_model.cfg.d_model
 
-    compression_layers = args.ae_layers
-    autoencoder = AutoEncoder(original_residual_stream_size, compression_size, compression_layers)
+    autoencoder = AutoEncoder(original_residual_stream_size,
+                              compression_size,
+                              args.ae_layers,
+                              args.ae_first_hidden_layer_shape)
 
     print(
       f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")

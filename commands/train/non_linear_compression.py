@@ -27,6 +27,9 @@ def setup_args_parser(subparsers):
                       help="Path to trained AutoEncoder model.")
   parser.add_argument("--ae-layers", type=int, default=2,
                       help="The desired number of layers for the autoencoder.")
+  parser.add_argument("--ae-first-hidden-layer-shape", type=str, default="wide", choices=["wide", "narrow"],
+                      help="The desired shape for the first hidden layer of the autoencoder. Wide means larger than "
+                           "the input layer. Narrow means smaller than the input layer.")
   parser.add_argument("--ae-epochs", type=int, default=70,
                       help="The number of epochs to use for autoencoder training.")
   parser.add_argument("--ae-batch-size", type=int, default=2**12,
@@ -50,7 +53,10 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
   )
 
-  autoencoder = AutoEncoder(original_residual_stream_size, compression_size, args.ae_layers)
+  autoencoder = AutoEncoder(original_residual_stream_size,
+                            compression_size,
+                            args.ae_layers,
+                            args.ae_first_hidden_layer_shape)
   if args.ae_path is not None:
     # Load AutoEncoder model weights
     autoencoder.load_weights_from_file(args.ae_path)

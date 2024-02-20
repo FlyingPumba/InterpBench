@@ -11,6 +11,7 @@ class AutoEncoder(nn.Module):
                encoder_input_size: int,
                encoder_output_size: int,
                n_layers: int,
+               first_hidden_layer_shape: str = "wide",
                device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")):
     """An autoencoder that compresses the input to `encoder_output_size` and then decompresses it back to
     `encoder_input_size`. The encoder and decoder are fully connected networks with `n_layers` layers each.
@@ -23,38 +24,55 @@ class AutoEncoder(nn.Module):
     self.input_size = encoder_input_size
     self.compression_size = encoder_output_size
 
-    self.setup_encoder(encoder_input_size, encoder_output_size, n_layers)
-    self.setup_decoder(encoder_input_size, encoder_output_size, n_layers)
+    self.setup_encoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)
+    self.setup_decoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)
 
-  def setup_encoder(self, encoder_input_size, encoder_output_size, n_layers):
+  def setup_encoder(self, encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape):
     """Set up the encoder layers. The encoder is a fully connected network with `n_layers` layers. The last layer has
     size `encoder_output_size`.
     """
+    assert n_layers > 0, "The number of layers must be greater than 0"
+    assert encoder_input_size > encoder_output_size, "The input size must be greater than the output size"
+
     input_size = encoder_input_size
-    size_decrease = (encoder_input_size - encoder_output_size) // n_layers
+    current_layer = 0
+
+    if first_hidden_layer_shape == "wide":
+      # The first hidden layer has size equal to the first power of 2 larger than double the input size
+      output_size = 2 ** (int(encoder_input_size.bit_length()) + 1)
+      self.encoder.add_module("encoder_0", nn.Linear(input_size, output_size, bias=False, device=self.device))
+      self.encoder.add_module("encoder_0_relu", nn.ReLU())
+      input_size = output_size
+      current_layer += 1
+
+    # The size decrease for each layer is the difference between the input and output size divided by the number of
+    # remaining layers
+    size_decrease = (input_size - encoder_output_size) // (n_layers - current_layer)
     output_size = input_size - size_decrease
-    for i in range(n_layers - 1):
+
+    for i in range(current_layer, n_layers - 1):
       self.encoder.add_module(f"encoder_{i}", nn.Linear(input_size, output_size, bias=False, device=self.device))
       self.encoder.add_module(f"encoder_{i}_relu", nn.ReLU())
       input_size = output_size
       output_size = input_size - size_decrease
+
     self.encoder.add_module(f"encoder_{n_layers - 1}", nn.Linear(input_size, encoder_output_size,
                                                                  bias=False, device=self.device))
 
-  def setup_decoder(self, encoder_input_size, encoder_output_size, n_layers):
+  def setup_decoder(self, encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape):
     """Set up the decoder layers. The decoder is a fully connected network with `n_layers` layers. The last layer has
     size `encoder_input_size`.
     """
-    input_size = encoder_output_size
-    size_increase = (encoder_input_size - encoder_output_size) // n_layers
-    output_size = input_size + size_increase
-    for i in range(n_layers - 1):
-      self.decoder.add_module(f"decoder_{i}", nn.Linear(input_size, output_size, bias=False, device=self.device))
-      self.decoder.add_module(f"decoder_{i}_relu", nn.ReLU())
-      input_size = output_size
-      output_size = input_size + size_increase
-    self.decoder.add_module(f"decoder_{n_layers - 1}", nn.Linear(input_size, encoder_input_size,
-                                                                 bias=False, device=self.device))
+    # Mimic exactly the same layers as the encoder but in reverse order
+    for i in range(n_layers - 1, -1, -1):
+      linear_layer_index_in_encoder = i * 2
+      encoder_linear_layer = self.encoder[linear_layer_index_in_encoder]
+      decoder_layer_input_size = encoder_linear_layer.out_features
+      decoder_layer_output_size = encoder_linear_layer.in_features
+      self.decoder.add_module(f"decoder_{i}", nn.Linear(decoder_layer_input_size, decoder_layer_output_size,
+                                                        bias=False, device=self.device))
+      if i > 0:
+        self.decoder.add_module(f"decoder_{i}_relu", nn.ReLU())
 
   def forward(self, x):
     encoded = self.encoder(x)
