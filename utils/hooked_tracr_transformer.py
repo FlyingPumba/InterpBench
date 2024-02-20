@@ -7,9 +7,9 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import torch as t
-from jaxtyping import Float
+from jaxtyping import Float, Int
 from torch import Tensor
-from transformer_lens import HookedTransformer, HookedTransformerConfig
+from transformer_lens import HookedTransformer, HookedTransformerConfig, HookedTransformerKeyValueCacheEntry
 from transformer_lens.hook_points import NamesFilter
 
 from tracr.compiler.assemble import AssembledTransformerModel
@@ -44,6 +44,7 @@ class HookedTracrTransformer(HookedTransformer):
       self.set_use_hook_mlp_in(True)
 
     self.weights_frozen = False
+    self.rewrite_forward_methods()
 
   @classmethod
   def from_tracr_model(
@@ -251,7 +252,8 @@ class HookedTracrTransformer(HookedTransformer):
       if ":" in label:
         # basis has name and value
         basis_name_and_value = label.split(":")
-        residual_space.append(BasisDirection(basis_name_and_value[0], self.str_to_correct_type(basis_name_and_value[1])))
+        residual_space.append(
+          BasisDirection(basis_name_and_value[0], self.str_to_correct_type(basis_name_and_value[1])))
       else:
         # basis has only name
         residual_space.append(BasisDirection(label, None))
@@ -386,3 +388,120 @@ class HookedTracrTransformer(HookedTransformer):
           bwd_hooks.append((name, save_hook_back))
 
     return cache, fwd_hooks, bwd_hooks
+
+  def rewrite_forward_methods(self):
+    """Rewrites the forward methods in all TransformerBlocks to avoid the unnecessary cloning of tensors."""
+
+    for block in self.blocks:
+      funcType = type(block.forward)
+      block.forward = funcType(transformer_block_forward_without_clones, block)
+
+
+def transformer_block_forward_without_clones(
+    self,
+    resid_pre: Float[t.Tensor, "batch pos d_model"],
+    shortformer_pos_embed: Optional[
+      Float[t.Tensor, "batch pos d_model"]
+    ] = None,
+    past_kv_cache_entry: Optional[HookedTransformerKeyValueCacheEntry] = None,
+    attention_mask: Optional[Int[t.Tensor, "batch offset_pos"]] = None,
+) -> Float[t.Tensor, "batch pos d_model"]:
+  """Same as the original TransformerBlock#forward method, but without the unnecessary cloning of tensors.
+
+  A single Transformer block.
+
+  Args:
+      resid_pre (torch.Tensor): The residual stream - shape [batch, pos, d_model]
+      cache (HookedTransformerKeyValueCache): A cache of previous keys and values, used only when generating text. Defaults to None.
+      shortformer_pos_embed (torch.Tensor, optional): Only used for positional_embeddings_type == "shortformer". The positional embeddings. See HookedTransformerConfig for details. Defaults to None.
+      attention_mask (torch.Tensor, optional): The attention mask for padded tokens. Defaults to None.
+
+  Returns:
+      _type_: _description_
+  """
+  resid_pre = self.hook_resid_pre(resid_pre)  # [batch, pos, d_model]
+
+  def add_head_dimension(
+      tensor: Float[t.Tensor, "batch pos d_model"],
+      clone_tensor=True,
+      # `einops.repeat` uses a view in torch, so we generally clone the tensor to avoid using shared storage for each head entry
+  ):
+    repeated_tensor = einops.repeat(
+      tensor,
+      "batch pos d_model -> batch pos n_heads d_model",
+      n_heads=self.cfg.n_heads,
+    )
+    if clone_tensor:
+      return repeated_tensor.clone()
+    else:
+      return repeated_tensor
+
+  if self.cfg.use_attn_in or self.cfg.use_split_qkv_input:
+    # We're adding a head dimension
+    attn_in = add_head_dimension(resid_pre, clone_tensor=False)
+    if shortformer_pos_embed is not None:
+      shortformer_pos_embed = add_head_dimension(shortformer_pos_embed)
+  else:
+    attn_in = resid_pre
+
+  if self.cfg.use_attn_in:
+    attn_in = self.hook_attn_in(attn_in)
+
+  if self.cfg.use_split_qkv_input:
+    query_input = self.hook_q_input(attn_in)
+    key_input = self.hook_k_input(attn_in)
+    value_input = self.hook_v_input(attn_in)
+  else:
+    query_input = attn_in
+    key_input = attn_in
+    value_input = attn_in
+
+  attn_out = self.hook_attn_out(
+    # hook the residual stream states that are used to calculate the
+    # queries, keys and values, independently.
+    # Then take the layer norm of these inputs, and pass these to the attention module.
+    self.attn(
+      query_input=self.ln1(query_input)
+                  + (0.0 if shortformer_pos_embed is None else shortformer_pos_embed),
+      key_input=self.ln1(key_input)
+                + (0.0 if shortformer_pos_embed is None else shortformer_pos_embed),
+      value_input=self.ln1(value_input),
+      past_kv_cache_entry=past_kv_cache_entry,
+      attention_mask=attention_mask,
+    )
+  )  # [batch, pos, d_model]
+  if not self.cfg.attn_only and not self.cfg.parallel_attn_mlp:
+    resid_mid = self.hook_resid_mid(
+      resid_pre + attn_out
+    )  # [batch, pos, d_model]
+    mlp_in = (
+      resid_mid
+      if not self.cfg.use_hook_mlp_in
+      else self.hook_mlp_in(resid_mid)
+    )
+    normalized_resid_mid = self.ln2(mlp_in)
+    mlp_out = self.hook_mlp_out(
+      self.mlp(normalized_resid_mid)
+    )  # [batch, pos, d_model]
+    resid_post = self.hook_resid_post(
+      resid_mid + mlp_out
+    )  # [batch, pos, d_model]
+  elif self.cfg.parallel_attn_mlp:
+    # Dumb thing done by GPT-J, both MLP and Attn read from resid_pre and write to resid_post, no resid_mid used.
+    # In GPT-J, LN1 and LN2 are tied, in GPT-NeoX they aren't.
+    normalized_resid_pre_2 = self.ln2(
+      resid_pre
+      if not self.cfg.use_hook_mlp_in
+      else self.hook_mlp_in(resid_pre)
+    )
+    mlp_out = self.hook_mlp_out(
+      self.mlp(normalized_resid_pre_2)
+    )  # [batch, pos, d_model]
+    resid_post = self.hook_resid_post(
+      resid_pre + attn_out + mlp_out
+    )  # [batch, pos, d_model]
+  else:
+    resid_post = self.hook_resid_post(
+      resid_pre + attn_out
+    )  # [batch, pos, d_model]
+  return resid_post
