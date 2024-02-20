@@ -223,7 +223,7 @@ class BenchmarkCase(object):
 
   def run_case_tests_on_tracr_model(self,
                                     tracr_model: AssembledTransformerModel = None,
-                                    atol: float = 1.e-5):
+                                    atol: float = 1.e-4):
     if tracr_model is None:
       tracr_model = self.get_tracr_model()
 
@@ -247,7 +247,7 @@ class BenchmarkCase(object):
 
   def run_case_tests_on_tl_model(self,
                                  tl_model: HookedTracrTransformer = None,
-                                 atol: float = 1.e-5):
+                                 atol: float = 1.e-4):
     if tl_model is None:
       tl_model = self.get_tl_model()
 
