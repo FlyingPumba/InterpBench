@@ -1,15 +1,19 @@
 import unittest
+from pathlib import Path
 
 import torch as t
 
 from benchmark.cases.case_3 import Case3
 from commands.build_main_parser import build_main_parser
 from utils.get_cases import get_cases
+from utils.project_paths import detect_project_root
 
 
 class CompileBenchmarkTest(unittest.TestCase):
   def test_all_cases_can_be_compiled_and_have_expected_outputs(self):
-    indices = [str(i) for i in range(1, 48)]
+    project_root = detect_project_root()
+    case_file_names = [str(f.name) for f in Path(project_root).glob("benchmark/cases/case_*.py") if f.is_file()]
+    indices = [f.split("_")[1].split(".")[0] for f in case_file_names]
 
     # remove cases that are known to fail and we have yet to fix
     failing_cases = ["8", "10", "11", "16", "18", "20", "23", "36"]
