@@ -77,6 +77,7 @@ class GenericTrainer():
     """
     if self.use_wandb:
       self.wandb_run = wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
+      self.define_wandb_metrics()
 
     progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
     for epoch in range(self.epochs):
@@ -142,6 +143,10 @@ class GenericTrainer():
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-generic-training"
+
+  def define_wandb_metrics(self):
+    wandb.define_metric("train_loss", summary="min")
+    wandb.define_metric("test_accuracy", summary="max")
 
   def save_artifacts(self):
     pass

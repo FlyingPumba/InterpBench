@@ -158,3 +158,11 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
+
+  def define_wandb_metrics(self):
+    super().define_wandb_metrics()
+    wandb.define_metric("output_loss", summary="min")
+    for layer in range(self.n_layers):
+      wandb.define_metric(f"layer_{str(layer)}_loss", summary="min")
+    if not self.is_categorical:
+      wandb.define_metric("test_mse", summary="min")
