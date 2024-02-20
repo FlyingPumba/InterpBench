@@ -13,7 +13,7 @@ from utils.resampling_ablation_loss.intervention import Intervention, Interventi
 from utils.resampling_ablation_loss.intervention_type import InterventionType
 
 
-def get_resampling_ablation_loss(
+def get_resample_ablation_loss(
     clean_inputs: CaseDataset,
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,

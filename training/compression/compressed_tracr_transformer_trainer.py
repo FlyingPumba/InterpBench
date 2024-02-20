@@ -15,7 +15,7 @@ from training.generic_trainer import GenericTrainer
 from training.training_args import TrainingArgs
 from utils.compare_tracr_output import compare_valid_positions, compare_positions_excluding_BOS
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-from utils.resampling_ablation_loss.resampling_ablation_loss import get_resampling_ablation_loss
+from utils.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss
 
 
 class CompressedTracrTransformerTrainer(GenericTrainer):
@@ -152,7 +152,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       if residual_stream_mapper is not None:
         resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
 
-      self.test_metrics["resample_ablation_loss"] = get_resampling_ablation_loss(
+      self.test_metrics["resample_ablation_loss"] = get_resample_ablation_loss(
         **resample_ablation_loss_args
       ).item()
 
