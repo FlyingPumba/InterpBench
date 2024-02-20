@@ -110,7 +110,7 @@ class BenchmarkCase(object):
     return dataset
 
   def get_max_seq_len(self) -> int:
-    """Returns the maximum sequence length for the benchmark case.
+    """Returns the maximum sequence length for the benchmark case (including BOS).
     Default implementation: 10."""
     return 10
 
@@ -183,13 +183,14 @@ class BenchmarkCase(object):
   def build_tracr_model(self) -> TracrOutput:
     """Compiles a single case to a tracr model."""
     program = self.get_program()
-    max_seq_len = self.get_max_seq_len()
+    max_seq_len_without_BOS = self.get_max_seq_len() - 1
     vocab = self.get_vocab()
 
+    # Tracr assumes that max_seq_len in the following call means the maximum sequence length without BOS
     tracr_output = compiling.compile_rasp_to_model(
       program,
       vocab=vocab,
-      max_seq_len=max_seq_len,
+      max_seq_len=max_seq_len_without_BOS,
       compiler_bos="BOS",
     )
 
