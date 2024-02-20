@@ -10,6 +10,9 @@ class Case39(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_trend_analysis(rasp.tokens)
 
+  def supports_causal_masking(self) -> bool:
+    return False
+
   def get_vocab(self) -> Set:
     return vocabs.get_int_digits_vocab(count=3)
 

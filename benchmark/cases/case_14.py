@@ -10,6 +10,9 @@ class Case14(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_count(rasp.tokens, "a")
 
+  def supports_causal_masking(self) -> bool:
+    return False
+
   def get_vocab(self) -> Set:
     return vocabs.get_ascii_letters_vocab(count=3)
 

@@ -10,6 +10,9 @@ class Case22(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_sorting_by_length(rasp.tokens)
 
+  def supports_causal_masking(self) -> bool:
+    return False
+
   def get_vocab(self) -> Set:
       return vocabs.get_words_vocab()
 

@@ -24,6 +24,7 @@ class BenchmarkCase(object):
   def __init__(self):
     self.case_file_absolute_path = os.path.join(detect_project_root(), self.get_relative_path_from_root())
     self.data_generation_seed = 42
+    self.data_size_for_tests = 10
 
   @staticmethod
   def get_instance_for_file_path(file_path_from_root: str):
@@ -47,6 +48,12 @@ class BenchmarkCase(object):
   def get_vocab(self) -> Set:
     """Returns the vocabulary to be used by Tracr."""
     raise NotImplementedError()
+
+  def supports_causal_masking(self) -> bool:
+    """Returns whether the case supports causal masking. True by default, since it is more restrictive.
+    If the case does not support causal masking, it should override this method and return False.
+    """
+    return True
 
   def get_clean_data(self, count: Optional[int] = 10) -> CaseDataset:
     """Returns the clean data for the benchmark case."""
@@ -192,6 +199,7 @@ class BenchmarkCase(object):
       vocab=vocab,
       max_seq_len=max_seq_len_without_BOS,
       compiler_bos="BOS",
+      causal=self.supports_causal_masking(),
     )
 
     # write tracr model and graph to disk
@@ -219,7 +227,7 @@ class BenchmarkCase(object):
     if tracr_model is None:
       tracr_model = self.get_tracr_model()
 
-    dataset = self.get_clean_data()
+    dataset = self.get_clean_data(count=self.data_size_for_tests)
     inputs = dataset.get_inputs()
     expected_outputs = dataset.get_correct_outputs()
 
@@ -243,7 +251,7 @@ class BenchmarkCase(object):
     if tl_model is None:
       tl_model = self.get_tl_model()
 
-    dataset = self.get_clean_data()
+    dataset = self.get_clean_data(count=self.data_size_for_tests)
     inputs = dataset.get_inputs()
     expected_outputs = dataset.get_correct_outputs()
     decoded_outputs = tl_model(inputs, return_type="decoded")

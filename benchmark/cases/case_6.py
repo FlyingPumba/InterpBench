@@ -19,6 +19,9 @@ class Case6(BenchmarkCase):
   def get_vocab(self) -> Set:
     return vocabs.get_int_digits_vocab()
 
+  def supports_causal_masking(self) -> bool:
+    return False
+
   def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
     if metric_name not in ["l2"]:
       raise ValueError(f"Metric {metric_name} is not available for case {self}")
