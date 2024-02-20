@@ -23,6 +23,7 @@ class AutoEncoder(nn.Module):
 
     self.input_size = encoder_input_size
     self.compression_size = encoder_output_size
+    self.use_bias = True
 
     self.setup_encoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)
     self.setup_decoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)
@@ -40,7 +41,9 @@ class AutoEncoder(nn.Module):
     if first_hidden_layer_shape == "wide":
       # The first hidden layer has size equal to the first power of 2 larger than double the input size
       output_size = 2 ** (int(encoder_input_size.bit_length()) + 1)
-      self.encoder.add_module("encoder_0", nn.Linear(input_size, output_size, bias=False, device=self.device))
+      self.encoder.add_module("encoder_0", nn.Linear(input_size, output_size,
+                                                     bias=self.use_bias,
+                                                     device=self.device))
       self.encoder.add_module("encoder_0_relu", nn.ReLU())
       input_size = output_size
       current_layer += 1
@@ -51,13 +54,15 @@ class AutoEncoder(nn.Module):
     output_size = input_size - size_decrease
 
     for i in range(current_layer, n_layers - 1):
-      self.encoder.add_module(f"encoder_{i}", nn.Linear(input_size, output_size, bias=False, device=self.device))
+      self.encoder.add_module(f"encoder_{i}", nn.Linear(input_size, output_size,
+                                                        bias=self.use_bias,
+                                                        device=self.device))
       self.encoder.add_module(f"encoder_{i}_relu", nn.ReLU())
       input_size = output_size
       output_size = input_size - size_decrease
 
     self.encoder.add_module(f"encoder_{n_layers - 1}", nn.Linear(input_size, encoder_output_size,
-                                                                 bias=False, device=self.device))
+                                                                 bias=self.use_bias, device=self.device))
 
   def setup_decoder(self, encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape):
     """Set up the decoder layers. The decoder is a fully connected network with `n_layers` layers. The last layer has
@@ -70,7 +75,7 @@ class AutoEncoder(nn.Module):
       decoder_layer_input_size = encoder_linear_layer.out_features
       decoder_layer_output_size = encoder_linear_layer.in_features
       self.decoder.add_module(f"decoder_{i}", nn.Linear(decoder_layer_input_size, decoder_layer_output_size,
-                                                        bias=False, device=self.device))
+                                                        bias=self.use_bias, device=self.device))
       if i > 0:
         self.decoder.add_module(f"decoder_{i}_relu", nn.ReLU())
 
