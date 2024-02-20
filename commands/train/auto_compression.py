@@ -61,7 +61,7 @@ def run_auto_compression_training(case: BenchmarkCase,
 
     # Do a binary search between the last size that was above the desired accuracy and the last size that was below the
     # desired accuracy.
-    if current_compression_size > 0:
+    if 0 < current_compression_size < best_compression_size:
       lower_bound = current_compression_size
       upper_bound = best_compression_size
 
