@@ -23,7 +23,6 @@ class BenchmarkCase(object):
 
   def __init__(self):
     self.case_file_absolute_path = os.path.join(detect_project_root(), self.get_relative_path_from_root())
-    self.data_generation_seed = 42
     self.data_size_for_tests = 10
 
   @staticmethod
@@ -55,14 +54,16 @@ class BenchmarkCase(object):
     """
     return True
 
-  def get_clean_data(self, count: Optional[int] = 10) -> CaseDataset:
+  def get_clean_data(self, count: Optional[int] = 10, seed: Optional[int] = 42) -> CaseDataset:
     """Returns the clean data for the benchmark case."""
     seq_len = self.get_max_seq_len()
     input_data: HookedTracrTransformerBatchInput = []
     output_data: HookedTracrTransformerBatchInput = []
 
     # set numpy seed and sort vocab to ensure reproducibility
-    np.random.seed(self.data_generation_seed)
+    if seed is not None:
+      np.random.seed(seed)
+
     vals = sorted(list(self.get_vocab()))
 
     # If count is None, we will produce all possible sequences for this vocab and sequence length
@@ -71,7 +72,10 @@ class BenchmarkCase(object):
       count = len(vals) ** (seq_len - 1)
       produce_all = True
 
-    for index in range(count):
+    indices = list(range(count))
+    np.random.shuffle(indices)
+
+    for index in indices:
       if produce_all:
         # we want to produce all possible sequences, so we convert the index to base len(vals) and then convert each
         # digit to the corresponding value in vals
@@ -108,12 +112,10 @@ class BenchmarkCase(object):
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
 
-  def get_corrupted_data(self, count: int = 10) -> CaseDataset:
+  def get_corrupted_data(self, count: Optional[int] = 10, seed: Optional[int] = 43) -> CaseDataset:
     """Returns the corrupted data for the benchmark case.
     Default implementation: re-generate clean data with a different seed."""
-    self.data_generation_seed = self.data_generation_seed + 1
-    dataset = self.get_clean_data(count=count)
-    self.data_generation_seed = 42
+    dataset = self.get_clean_data(count=count, seed=seed)
     return dataset
 
   def get_max_seq_len(self) -> int:
