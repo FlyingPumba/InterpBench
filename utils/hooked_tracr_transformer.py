@@ -70,7 +70,7 @@ class HookedTracrTransformer(HookedTransformer):
     """
     Initialize a HookedTracrTransformer from a HookedTracrTransformer.
     """
-    cfg_dict = tl_model.cfg.to_dict()
+    cfg_dict = tl_model.cfg.to_dict().copy()
     if overwrite_cfg_dict is not None:
       cfg_dict.update(overwrite_cfg_dict)
     cfg = HookedTransformerConfig.from_dict(cfg_dict)
