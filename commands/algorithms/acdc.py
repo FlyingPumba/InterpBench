@@ -10,7 +10,6 @@ from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from benchmark.benchmark_case import BenchmarkCase
 from commands.common_args import add_common_args
-from utils.project_paths import get_default_output_dir
 
 
 def setup_args_parser(subparsers):

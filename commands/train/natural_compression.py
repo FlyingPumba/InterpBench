@@ -1,6 +1,5 @@
 from argparse import Namespace
 
-from argparse_dataclass import ArgumentParser
 from torch.nn import init
 
 from benchmark.benchmark_case import BenchmarkCase
@@ -25,9 +24,8 @@ def setup_args_parser(subparsers):
 def run_single_natural_compression_training(case: BenchmarkCase,
                                             tl_model: HookedTracrTransformer,
                                             args: Namespace,
-                                           training_args: TrainingArgs,
+                                            training_args: TrainingArgs,
                                             compression_size: int):
-
   print(f" >>> Starting natural compression for {case} with residual stream compression size {compression_size}.")
   new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
     tl_model,
