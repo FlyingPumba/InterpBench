@@ -9,6 +9,10 @@ from torch.nn import init
 
 from benchmark.case_dataset import CaseDataset
 from benchmark.cases.case_3 import Case3
+from training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
+from training.compression.linear_compressed_tracr_transformer_trainer import LinearCompressedTracrTransformerTrainer
+from training.compression.natural_compressed_tracr_transformer_trainer import NaturalCompressedTracrTransformerTrainer
+from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformer
 from utils.project_paths import get_default_output_dir
 from utils.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss
@@ -400,3 +404,141 @@ class ResampleAblationLossTest(unittest.TestCase):
       )
       fig.write_image(
         f"{output_dir}/resample-ablation-loss-variance-re-init-no-op-matrix-random-data-and-interventions-{idx_plot + 1}.png")
+
+  def test_variance_for_natural_transformer(self):
+    self.skipTest("This test takes a long time to run, so it is skipped by default.")
+    output_dir = get_default_output_dir()
+    case = Case3()
+    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+
+    n_plots = 3
+
+    for idx_plot in range(n_plots):
+      # train natural transformer
+      compression_size = 9
+      compressed_model = HookedTracrTransformer.from_hooked_tracr_transformer(
+        original_tracr_model,
+        overwrite_cfg_dict={"d_model": compression_size},
+        init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
+      )
+
+      training_args = TrainingArgs()
+      training_args.epochs = 6000
+      training_args.early_stop_test_accuracy = 0.97
+
+      trainer = NaturalCompressedTracrTransformerTrainer(case, original_tracr_model, compressed_model, training_args,
+                                                         output_dir=output_dir)
+      final_metrics = trainer.train()
+      assert final_metrics["test_accuracy"] >= 0.97
+
+      # Build a 2D heatmap varying data_size from 1 to 256 and max_interventions from 1 to 64.
+      # At the end, plot using plotly.
+      max_data_size = 256
+      data_sizes_step = int(max_data_size * 0.1)
+      data_sizes = list(range(1, max_data_size + 1, data_sizes_step)) + [max_data_size]
+
+      max_interventions = 64
+      max_interventions_step = int(max_interventions * 0.1)
+      intervention_numbers = list(range(1, max_interventions + 1, max_interventions_step)) + [max_interventions]
+
+      heatmap_data = []
+
+      for data_size in data_sizes:
+        row = []
+        for n_interventions in intervention_numbers:
+          self.set_random_seed()
+          loss = get_resample_ablation_loss(
+            case.get_clean_data(count=data_size, seed=None),
+            case.get_corrupted_data(count=data_size, seed=None),
+            original_tracr_model,
+            compressed_model,
+            max_interventions=n_interventions
+          )
+          row.append(loss)
+
+        # add row to the beginning of the list
+        heatmap_data.insert(0, row)
+
+      # Plot heatmap using plotly
+      fig = px.imshow(heatmap_data,
+                      color_continuous_scale="RdBu_r",  # reverse RdBu (red is positive)
+                      x=[str(i) for i in intervention_numbers],
+                      y=[str(i) for i in reversed(data_sizes)],
+                      width=800,
+                      height=800)
+      fig.update_layout(
+        xaxis={"title": "Interventions"},
+        yaxis={"title": "Data Size"},
+      )
+      fig.write_image(
+        f"{output_dir}/resample-ablation-loss-variance-for-natural-compression-{idx_plot + 1}.png")
+
+  def test_variance_for_linear_transformer(self):
+    self.skipTest("This test takes a long time to run, so it is skipped by default.")
+    output_dir = get_default_output_dir()
+    case = Case3()
+    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+
+    n_plots = 3
+
+    for idx_plot in range(n_plots):
+      # train natural transformer
+      compression_size = 9
+
+      training_args = TrainingArgs()
+      training_args.epochs = 6000
+      training_args.early_stop_test_accuracy = 0.97
+      # training_args.lr_start = 1e-2
+
+      compressed_model = LinearCompressedTracrTransformer(
+        original_tracr_model,
+        int(compression_size),
+        "linear",
+        original_tracr_model.device)
+
+      trainer = LinearCompressedTracrTransformerTrainer(case, original_tracr_model, compressed_model, training_args,
+                                                        output_dir=output_dir)
+      final_metrics = trainer.train()
+      assert final_metrics["test_accuracy"] >= 0.97
+
+      # Build a 2D heatmap varying data_size from 1 to 256 and max_interventions from 1 to 64.
+      # At the end, plot using plotly.
+      max_data_size = 256
+      data_sizes_step = int(max_data_size * 0.1)
+      data_sizes = list(range(1, max_data_size + 1, data_sizes_step)) + [max_data_size]
+
+      max_interventions = 64
+      max_interventions_step = int(max_interventions * 0.1)
+      intervention_numbers = list(range(1, max_interventions + 1, max_interventions_step)) + [max_interventions]
+
+      heatmap_data = []
+
+      for data_size in data_sizes:
+        row = []
+        for n_interventions in intervention_numbers:
+          self.set_random_seed()
+          loss = get_resample_ablation_loss(
+            case.get_clean_data(count=data_size, seed=None),
+            case.get_corrupted_data(count=data_size, seed=None),
+            original_tracr_model,
+            compressed_model,
+            max_interventions=n_interventions
+          )
+          row.append(loss)
+
+        # add row to the beginning of the list
+        heatmap_data.insert(0, row)
+
+      # Plot heatmap using plotly
+      fig = px.imshow(heatmap_data,
+                      color_continuous_scale="RdBu_r",  # reverse RdBu (red is positive)
+                      x=[str(i) for i in intervention_numbers],
+                      y=[str(i) for i in reversed(data_sizes)],
+                      width=800,
+                      height=800)
+      fig.update_layout(
+        xaxis={"title": "Interventions"},
+        yaxis={"title": "Data Size"},
+      )
+      fig.write_image(
+        f"{output_dir}/resample-ablation-loss-variance-for-linear-compression-{idx_plot + 1}.png")
