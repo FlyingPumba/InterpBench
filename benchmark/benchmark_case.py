@@ -11,6 +11,7 @@ from benchmark.case_dataset import CaseDataset
 from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput
+from tracr.craft.transformers import SeriesWithResiduals
 from tracr.rasp import rasp
 from tracr.transformer.encoder import CategoricalEncoder
 from utils.cloudpickle import load_from_pickle, dump_to_pickle
@@ -136,6 +137,9 @@ class BenchmarkCase(object):
   def get_tracr_graph_pickle_path(self) -> str:
     return self.case_file_absolute_path.replace(".py", "_tracr_graph.pkl")
 
+  def get_craft_model_pickle_path(self) -> str:
+    return self.case_file_absolute_path.replace(".py", "_craft_model.pkl")
+
   def get_tl_model_pickle_path(self) -> str:
     return self.case_file_absolute_path.replace(".py", "_tl_model.pkl")
 
@@ -159,6 +163,16 @@ class BenchmarkCase(object):
     else:
       return tracr_graph
 
+  def get_craft_model(self) -> SeriesWithResiduals | None:
+    """Loads the craft model from disk, if it exists, otherwise build."""
+    craft_model: SeriesWithResiduals | None = load_from_pickle(self.get_craft_model_pickle_path())
+
+    if craft_model is None:
+      tracr_output = self.build_tracr_model()
+      return tracr_output.craft_model
+    else:
+      return craft_model
+
   def get_tl_model(self,
                    device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
                    ) -> HookedTracrTransformer | None:
@@ -181,6 +195,10 @@ class BenchmarkCase(object):
   def dump_tracr_graph(self, tracr_graph: DiGraph) -> None:
     """Dumps the tracr graph to disk."""
     dump_to_pickle(self.get_tracr_graph_pickle_path(), tracr_graph)
+
+  def dump_craft_model(self, craft_model: SeriesWithResiduals) -> None:
+    """Dumps the craft model to disk."""
+    dump_to_pickle(self.get_craft_model_pickle_path(), craft_model)
 
   def dump_tl_model(self, tl_model: HookedTracrTransformer) -> None:
     """Dumps the transformer_lens model to disk."""
@@ -207,6 +225,7 @@ class BenchmarkCase(object):
     # write tracr model and graph to disk
     self.dump_tracr_model(tracr_output.model)
     self.dump_tracr_graph(tracr_output.graph)
+    self.dump_craft_model(tracr_output.craft_model)
 
     return tracr_output
 
