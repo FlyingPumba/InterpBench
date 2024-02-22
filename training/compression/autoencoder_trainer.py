@@ -90,6 +90,11 @@ class AutoEncoderTrainer(GenericTrainer):
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-autoencoder-{self.autoencoder.compression_size}"
 
+  def get_wandb_tags(self):
+    tags = super().get_wandb_tags()
+    tags.append("autoencoder-trainer")
+    return tags
+
   def save_artifacts(self):
     prefix = f"case-{self.case.get_index()}-resid-{self.autoencoder.compression_size}"
     self.autoencoder.save(self.output_dir, prefix, self.wandb_run)

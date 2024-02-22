@@ -63,6 +63,11 @@ class LinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer)
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-linear-resid-{self.compressed_model.residual_stream_compression_size}"
 
+  def get_wandb_tags(self):
+    tags = super().get_wandb_tags()
+    tags.append("linear-compression-trainer")
+    return tags
+
   def save_artifacts(self):
     prefix = f"case-{self.case.get_index()}-resid-{self.compressed_model.residual_stream_compression_size}"
     self.compressed_model.save(self.output_dir, prefix, self.wandb_run)

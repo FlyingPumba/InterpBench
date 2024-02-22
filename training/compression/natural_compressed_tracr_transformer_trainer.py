@@ -54,6 +54,11 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-natural-resid-{self.compressed_model.cfg.d_model}"
 
+  def get_wandb_tags(self):
+    tags = super().get_wandb_tags()
+    tags.append("natural-compression-trainer")
+    return tags
+
   def get_log_probs(
       self,
       logits: Float[Tensor, "batch posn d_vocab"],

@@ -1,4 +1,5 @@
-from typing import List, Any, Dict
+import sys
+from typing import List, Dict
 
 import numpy as np
 import torch as t
@@ -6,7 +7,7 @@ import wandb
 from jaxtyping import Float
 from torch import Tensor
 from torch.nn import Parameter
-from torch.optim.lr_scheduler import LambdaLR, ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -15,7 +16,7 @@ from training.training_args import TrainingArgs
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
 
-class GenericTrainer():
+class GenericTrainer:
 
   def __init__(self,
                case: BenchmarkCase,
@@ -76,7 +77,11 @@ class GenericTrainer():
     Trains the model, for `self.args.epochs` epochs.
     """
     if self.use_wandb:
-      self.wandb_run = wandb.init(project=self.args.wandb_project, name=self.args.wandb_name, config=self.args)
+      self.wandb_run = wandb.init(project=self.args.wandb_project,
+                                  name=self.args.wandb_name,
+                                  config=self.args,
+                                  tags=self.get_wandb_tags(),
+                                  notes=self.get_wandb_notes())
       self.define_wandb_metrics()
 
     progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
@@ -147,6 +152,12 @@ class GenericTrainer():
   def define_wandb_metrics(self):
     wandb.define_metric("train_loss", summary="min")
     wandb.define_metric("test_accuracy", summary="max")
+
+  def get_wandb_tags(self):
+    return [f"case{self.case.get_index()}"]
+
+  def get_wandb_notes(self):
+    return f"Command: {' '.join(sys.argv)}"
 
   def save_artifacts(self):
     pass

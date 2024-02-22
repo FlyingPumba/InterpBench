@@ -111,6 +111,11 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-non-linear-resid-{self.autoencoder.compression_size}"
 
+  def get_wandb_tags(self):
+    tags = super().get_wandb_tags()
+    tags.append("non-linear-compression-trainer")
+    return tags
+
   def save_artifacts(self):
     if not os.path.exists(self.output_dir):
       os.makedirs(self.output_dir)
