@@ -1,6 +1,6 @@
 import importlib
 import os.path
-from typing import Set, Optional, Sequence
+from typing import Set, Optional, Sequence, List
 
 import numpy as np
 import torch as t
@@ -11,6 +11,7 @@ from benchmark.case_dataset import CaseDataset
 from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput
+from tracr.craft import transformers
 from tracr.craft.transformers import SeriesWithResiduals
 from tracr.rasp import rasp
 from tracr.transformer.encoder import CategoricalEncoder
@@ -228,6 +229,31 @@ class BenchmarkCase(object):
     self.dump_craft_model(tracr_output.craft_model)
 
     return tracr_output
+
+  def get_relevant_module_names(self) -> List[str]:
+    """Return the names of the MLP and Attention modules that are used by this case's circuit."""
+    craft_model = self.get_craft_model()
+    module_names: List[str] = []
+
+    candidate_module_names = []
+    for layer in range(len(craft_model.blocks)):
+      candidate_module_names.append(f"blocks.{layer}.attn")
+      candidate_module_names.append(f"blocks.{layer}.mlp")
+    candidate_module_names = iter(candidate_module_names)
+
+    for module in craft_model.blocks:
+      if isinstance(module, transformers.MLP):
+        layer_type = "mlp"
+      else:
+        layer_type = "attn"
+      # Find next layer with the necessary type. Modules in-between, that are not
+      # added to module_names will be disabled later by setting all weights to 0.
+      module_name = next(candidate_module_names)
+      while layer_type not in module_name:
+        module_name = next(candidate_module_names)
+      module_names.append(module_name)
+
+    return module_names
 
   def build_transformer_lens_model(self,
                                    tracr_model: AssembledTransformerModel = None,
