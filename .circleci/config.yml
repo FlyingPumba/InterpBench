@@ -5,6 +5,10 @@ orbs:
 
 jobs:
   test:
+    filters:
+      branches:
+        only:
+          - main
     docker:
       - image: cimg/python:3.10
     steps:
@@ -23,6 +27,10 @@ jobs:
       - store_test_results:
           path: junit.xml
   deploy:
+    filters:
+      branches:
+        only:
+          - main
     docker:
       - image: cimg/python:3.10
     steps:
