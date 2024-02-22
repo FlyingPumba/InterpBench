@@ -270,7 +270,8 @@ class BenchmarkCase(object):
 
   def run_case_tests_on_tracr_model(self,
                                     tracr_model: AssembledTransformerModel = None,
-                                    atol: float = 1.e-2):
+                                    atol: float = 1.e-2,
+                                    fail_on_error: bool = True) -> float:
     if tracr_model is None:
       tracr_model = self.get_tracr_model()
 
@@ -280,21 +281,27 @@ class BenchmarkCase(object):
 
     is_categorical = isinstance(tracr_model.output_encoder, CategoricalEncoder)
 
+    correct_count = 0
     for i in range(len(inputs)):
       input = inputs[i]
       expected_output = expected_outputs[i]
       decoded_output = tracr_model.apply(input).decoded
       correct = all(compare_valid_positions(expected_output, decoded_output, is_categorical, atol))
 
-      if not correct:
+      if not correct and fail_on_error:
         raise ValueError(f"Failed test for {self} on tracr model."
                          f"\n >>> Input: {input}"
                          f"\n >>> Expected: {expected_output}"
                          f"\n >>> Got: {decoded_output}")
+      elif correct:
+        correct_count += 1
+
+    return correct_count / len(inputs)
 
   def run_case_tests_on_tl_model(self,
                                  tl_model: HookedTracrTransformer = None,
-                                 atol: float = 1.e-2):
+                                 atol: float = 1.e-2,
+                                 fail_on_error: bool = True) -> float:
     if tl_model is None:
       tl_model = self.get_tl_model()
 
@@ -303,14 +310,19 @@ class BenchmarkCase(object):
     expected_outputs = dataset.get_correct_outputs()
     decoded_outputs = tl_model(inputs, return_type="decoded")
 
+    correct_count = 0
     for i in range(len(expected_outputs)):
       input = inputs[i]
       expected_output = expected_outputs[i]
       decoded_output = decoded_outputs[i]
       correct = all(compare_valid_positions(expected_output, decoded_output, tl_model.is_categorical(), atol))
 
-      if not correct:
+      if not correct and fail_on_error:
         raise ValueError(f"Failed test for {self} on tl model."
                          f"\n >>> Input: {input}"
                          f"\n >>> Expected: {expected_output}"
                          f"\n >>> Got: {decoded_output}")
+      elif correct:
+        correct_count += 1
+
+    return correct_count / len(expected_outputs)
