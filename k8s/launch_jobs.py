@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import subprocess
 import sys
+from itertools import product
 from pathlib import Path
 from typing import List
 
@@ -37,18 +38,41 @@ with JOB_TEMPLATE_PATH.open() as f:
 # join the commands using && and wrap them in bash -c "..."
 # command = ["bash", "-c", f"{' '.join(ae_command)} && {' '.join(command)}"]
 
-def build_commands_and_jobs_names():
-  # training_methods = ["linear-compression", "non-linear-compression", "natural-compression"]
-  training_methods = ["autoencoder"]
+def build_commands():
+  # training_methods = ["linear-compression", "non-linear-compression", "natural-compression", "autoencoder"]
+  training_methods = ["non-linear-compression"]
   cases = [48]
   compression_sizes = list(range(1, 90, 20))
-  seeds = [52,53,54]
+  seeds = [57]
   lr_starts = [0.001]
+  epochs = 10000
   train_data_sizes = [1000]
   test_data_ratios = [0.3]
   batch_sizes = [2048]
 
-  commands_and_job_names = []
+  linear_compression_args = {
+    "linear-compression-initialization": ["linear"],  # ["orthogonal", "linear"],
+  }
+
+  non_linear_compression_args = {
+    # initial ae training
+    "ae-layers": [2],
+    "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
+    "ae-epochs": [1000, 2000],
+    "freeze-ae-weights": [True, False],
+  }
+
+  non_linear_compression_continuous_ae_training_args = {
+    "ae-training-epochs-gap": [5, 50, 100],
+    "ae-desired-test-mse": [1e-3, 1e-4, 1e-5]
+  }
+
+  autoencoder_args = {
+    "ae-layers": [2],
+    "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
+  }
+
+  commands = []
 
   for method in training_methods:
     for case in cases:
@@ -59,20 +83,8 @@ def build_commands_and_jobs_names():
               for test_data_ratio in test_data_ratios:
                 for batch_size in batch_sizes:
 
-                  epochs = 10000
-
-                  method_name = method[:-len("-compression")] if method.endswith("-compression") else method
-
-                  wandb_project = f"autoencoder-wide-vs-narrow"
-                  wandb_name = f"narrow-seed-{seed}-size-{compression_size}"
-
-                  # wandb_project = f"compression-comparison"
-                  # wandb_name = f"{method_name}-narrow-frozen-ae"
-
-                  job_name = (f"{method_name}-compression-{compression_size}-"
-                              f"case-{case}-"
-                              f"seed-{seed}-"
-                              f"lr-{str(lr_start).replace('.', '-')}-narrow")
+                  wandb_project = f"non-linear-compression-frozen-vs-continuous-ae"
+                  wandb_name = f"size-{compression_size}"
 
                   command = [".venv/bin/python", "main.py",
                              "train", method,
@@ -85,23 +97,62 @@ def build_commands_and_jobs_names():
                              f"--epochs={epochs}",
                              f"--lr-start={lr_start}",
                              "--early-stop-test-accuracy=0.97",
-                             f"--wandb-name={wandb_name}",
                              f"--wandb-project={wandb_project}"]
 
                   if method == "linear-compression":
-                    command.append("--linear-compression-initialization=linear")
+                    # produce all combinations of args in linear_compression_args
+                    arg_names = list(linear_compression_args.keys())
+                    arg_values = list(linear_compression_args.values())
+                    for arg_values_combination in product(*arg_values):
+                      specific_cmd = command.copy()
+                      for i, arg_name in enumerate(arg_names):
+                        specific_cmd.append(f"--{arg_name}={arg_values_combination[i]}")
+
+                      specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                      commands.append(specific_cmd)
 
                   if method == "non-linear-compression":
-                    command.append("--freeze-ae-weights")
-                    command.append("--ae-first-hidden-layer-shape=narrow")
+                    # produce all combinations of args in non_linear_compression_args
+                    arg_names = list(non_linear_compression_args.keys())
+                    arg_values = list(non_linear_compression_args.values())
+                    frozen_ae_weights_arg_idx = arg_names.index("freeze-ae-weights")
+                    for arg_values_combination in product(*arg_values):
+                      specific_cmd = command.copy()
+                      for i, arg_name in enumerate(arg_names):
+                        specific_cmd.append(f"--{arg_name}={arg_values_combination[i]}")
+
+                      # If this is a non-frozen autoencoder training, add the autoencoder training command args
+                      if not arg_values_combination[frozen_ae_weights_arg_idx]:
+                        non_frozen_arg_names = list(non_linear_compression_continuous_ae_training_args.keys())
+                        non_frozen_arg_values = list(non_linear_compression_continuous_ae_training_args.values())
+                        for non_frozen_arg_values_combination in product(*non_frozen_arg_values):
+                          more_specific_cmd = specific_cmd.copy()
+                          for i, arg_name in enumerate(non_frozen_arg_names):
+                            more_specific_cmd.append(f"--{arg_name}={non_frozen_arg_values_combination[i]}")
+
+                          more_specific_cmd.append(f"--wandb-name={build_wandb_name(more_specific_cmd)}")
+                          commands.append(more_specific_cmd)
+                      else:
+                        specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                        commands.append(specific_cmd)
 
                   if method == "autoencoder":
-                    command.append("--ae-layers=2")
-                    command.append("--ae-first-hidden-layer-shape=narrow")
+                    # produce all combinations of args in autoencoder_args
+                    arg_names = list(autoencoder_args.keys())
+                    arg_values = list(autoencoder_args.values())
+                    for arg_values_combination in product(*arg_values):
+                      specific_cmd = command.copy()
+                      for i, arg_name in enumerate(arg_names):
+                        specific_cmd.append(f"--{arg_name}={arg_values_combination[i]}")
 
-                  commands_and_job_names.append((command, job_name))
+                      specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                      commands.append(specific_cmd)
 
-  return commands_and_job_names
+                  if method == "natural-compression":
+                    command.append(f"--wandb-name={build_wandb_name(command)}")
+                    commands.append(command)
+
+  return commands
 
 
 def create_jobs() -> List[str]:
@@ -112,9 +163,10 @@ def create_jobs() -> List[str]:
   memory = "16Gi"
   gpu = 0
 
-  commands_and_jobs_names = build_commands_and_jobs_names()
+  commands = build_commands()
 
-  for command, job_name in commands_and_jobs_names:
+  for command in commands:
+    job_name = build_wandb_name(command)
     job = JOB_TEMPLATE.format(
       NAME=job_name,
       COMMAND=command,
@@ -129,6 +181,43 @@ def create_jobs() -> List[str]:
   return jobs
 
 
+def build_wandb_name(command: List[str]):
+  # Use a set of important arguments for our experiment to build the wandb name.
+  # Each argument will be separated by a dash. We also define an alias for each argument so that the name is more readable.
+  important_args_aliases = {
+    "residual-stream-compression-size": "size",
+    "ae-epochs": "ae-epochs",
+    "freeze-ae-weights": "frozen",
+    "ae-training-epochs-gap": "ae-gap",
+    "ae-desired-test-mse": "ae-mse",
+  }
+  important_args = important_args_aliases.keys()
+  wandb_name = ""
+
+  for arg in important_args:
+    for part in command:
+      if arg in part:
+        arg_value = part.split("=")[1]
+
+        if arg_value == "True":
+          alias = important_args_aliases[arg]
+          wandb_name += f"{alias}-"
+        elif arg_value == "False":
+          pass
+        else:
+          alias = important_args_aliases[arg]
+          wandb_name += f"{alias}-{arg_value}-"
+
+        break
+
+  # remove last dash from wandb_name
+  wandb_name = wandb_name[:-1]
+
+  assert wandb_name != "", f"wandb_name is empty. command: {command}"
+
+  return wandb_name
+
+
 def launch_kubernetes_jobs():
   jobs = create_jobs()
   yamls_for_all_jobs = "\n\n---\n\n".join(jobs)
@@ -138,9 +227,11 @@ def launch_kubernetes_jobs():
     subprocess.run(["kubectl", "create", "-f", "-"], check=True, input=yamls_for_all_jobs.encode())
     print(f"Jobs launched.")
 
+
 def print_commands():
-  commands_and_jobs_names = build_commands_and_jobs_names()
-  for command, job_name in commands_and_jobs_names:
+  commands = build_commands()
+  for command in commands:
+    job_name = build_wandb_name(command)
     print(f"Job: {job_name}")
     print(f"Command: {' '.join(command)}")
     print()
