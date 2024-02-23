@@ -1,0 +1,37 @@
+# devbox.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: devbox
+  labels:
+    kueue.x-k8s.io/queue-name: farai
+spec:
+  suspend: true
+  ttlSecondsAfterFinished: 100
+  template:
+    metadata:
+      name: devbox
+    spec:
+      priorityClassName: interactive
+      containers:
+      - name: devbox-container
+        image: docker.io/iarcuschin/circuits-benchmark:latest
+        command: ["sleep"]
+        args: ["2d"]
+        resources:
+          # Request CPUs, Limit Memory and GPUs.
+          # these are about 1/8 of the resources of a node.
+          requests:
+            cpu: 14
+          limits:
+            memory: "60G"
+            nvidia.com/gpu: 1
+        env:
+          - name: WANDB_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: wandb
+                key: api-key
+          - name: WANDB_DISABLE_SERVICE
+            value: "true"
+      restartPolicy: Never
