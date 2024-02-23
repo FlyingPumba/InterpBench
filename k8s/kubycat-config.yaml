@@ -1,0 +1,22 @@
+kubycat:
+  namespace: u-iarcuschin
+  sync:
+    - name: circuits-benchmark
+      base: /home/ivan/src/circuits-benchmark
+      from:
+        - acdc
+        - benchmark
+        - commands
+        - compression
+        - tracr
+        - utils
+        - main.py
+      excluding:
+        - .+\.pkl$
+        - .+\.pyc$
+      to: /circuits-benchmark
+      pod: devbox-9fwkh
+      shell: /bin/bash
+      sync-on-start: true
+      build-cache-on-start: true
+      interval: 50
