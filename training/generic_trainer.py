@@ -43,8 +43,15 @@ class GenericTrainer:
 
     # calculate number of epochs and steps
     assert self.args.epochs is not None or self.args.steps is not None, "Must specify either epochs or steps."
-    self.epochs = self.args.epochs if self.args.epochs is not None else int(self.args.steps // len(self.train_loader)) + 1
-    self.steps = self.args.steps if self.args.steps is not None else self.epochs * len(self.train_loader)
+    assert self.args.epochs is None or self.args.steps is None, "Cannot specify both epochs and steps."
+
+    if self.args.epochs is not None:
+      self.epochs = self.args.epochs
+      self.steps = self.epochs * len(self.train_loader)
+
+    if self.args.steps is not None:
+      self.epochs = (self.steps // len(self.train_loader)) + 1
+      self.steps = self.args.steps
 
     # assert at least one parameter
     assert len(self.parameters) > 0, "No parameters to optimize."
@@ -71,6 +78,7 @@ class GenericTrainer:
       self.args.wandb_name = self.build_wandb_name()
 
     print(f"Training with args: {self.args}")
+    print(f"Will run for {self.epochs} epochs ({self.steps} steps).")
 
 
   def setup_dataset(self):

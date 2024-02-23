@@ -15,7 +15,7 @@ class TrainingArgs():
 
   # training time and early stopping
   epochs: Optional[int] = None
-  steps: Optional[int] = 3e5
+  steps: Optional[int] = None
   early_stop_test_accuracy: Optional[float] = None
 
   # AdamW optimizer config

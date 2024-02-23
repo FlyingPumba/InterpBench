@@ -40,6 +40,7 @@ class TrainTest(unittest.TestCase):
                                                     "linear-compression",
                                                     "-i=2",
                                                     "--residual-stream-compression-size=auto",
+                                                    "--epochs=2",
                                                     "--train-data-size=10",
                                                     "--auto-compression-accuracy=0.01",
                                                     "--early-stop-test-accuracy=0.01",
