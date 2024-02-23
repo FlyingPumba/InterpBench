@@ -95,9 +95,9 @@ def build_commands_and_jobs_names():
                     command.append("--freeze-ae-weights")
                     command.append("--ae-first-hidden-layer-shape=narrow")
 
-                    if method == "autoencoder":
-                      command.append("--ae-layers=2")
-                      command.append("--ae-first-hidden-layer-shape=narrow")
+                  if method == "autoencoder":
+                    command.append("--ae-layers=2")
+                    command.append("--ae-first-hidden-layer-shape=narrow")
 
                   commands_and_job_names.append((command, job_name))
 
