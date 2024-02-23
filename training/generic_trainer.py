@@ -68,6 +68,9 @@ class GenericTrainer:
     if self.use_wandb and self.args.wandb_name is None:
       self.args.wandb_name = self.build_wandb_name()
 
+    print(f"Training with args: {self.args}")
+
+
   def setup_dataset(self):
     """Prepare the dataset and split it into train and test sets."""
     raise NotImplementedError
