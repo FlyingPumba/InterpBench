@@ -28,6 +28,8 @@ class AutoEncoder(nn.Module):
     self.setup_encoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)
     self.setup_decoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)
 
+    self.print_architecture()
+
   def setup_encoder(self, encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape):
     """Set up the encoder layers. The encoder is a fully connected network with `n_layers` layers. The last layer has
     size `encoder_output_size`.
@@ -93,6 +95,10 @@ class AutoEncoder(nn.Module):
     """Unfreezes all weights in the autoencoder."""
     for param in self.parameters():
       param.requires_grad = True
+
+  def print_architecture(self):
+    print("AutoEncoder architecture:")
+    print(self)
 
   def load_weights_from_file(self, path: str):
     """Loads the autoencoder weights from file."""

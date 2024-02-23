@@ -25,19 +25,26 @@ def setup_args_parser(subparsers):
                       help="The desired test accuracy when using 'auto' compression size.")
   parser.add_argument("--ae-path", type=str, default=None,
                       help="Path to trained AutoEncoder model.")
+
   parser.add_argument("--ae-layers", type=int, default=2,
                       help="The desired number of layers for the autoencoder.")
   parser.add_argument("--ae-first-hidden-layer-shape", type=str, default="wide", choices=["wide", "narrow"],
                       help="The desired shape for the first hidden layer of the autoencoder. Wide means larger than "
                            "the input layer. Narrow means smaller than the input layer.")
+
   parser.add_argument("--ae-epochs", type=int, default=70,
-                      help="The number of epochs to use for autoencoder training.")
+                      help="The number of epochs to use for initial autoencoder training.")
   parser.add_argument("--ae-batch-size", type=int, default=2**12,
-                      help="The batch size to use for autoencoder training.")
+                      help="The batch size to use for initial autoencoder training.")
   parser.add_argument("--ae-lr-start", type=float, default=0.01,
-                      help="The number of epochs to use for autoencoder training.")
+                      help="The number of epochs to use for initial autoencoder training.")
+
   parser.add_argument("--freeze-ae-weights", action="store_true", default=False,
                       help="Freeze the weights of the autoencoder during the non-linear compression training.")
+  parser.add_argument("--ae-training-epochs-gap", type=int, default=10,
+                      help="The number of epochs to wait before training the autoencoder again.")
+  parser.add_argument("--ae-desired-test-mse", type=float, default=1e-3,
+                      help="The desired test mean squared error for the autoencoder.")
 
 
 def run_single_non_linear_compression_training(case: BenchmarkCase,
@@ -86,7 +93,9 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                        autoencoder,
                                                        training_args,
                                                        output_dir=args.output_dir,
-                                                       freeze_ae_weights=args.freeze_ae_weights)
+                                                       freeze_ae_weights=args.freeze_ae_weights,
+                                                       ae_training_epochs_gap=args.ae_training_epochs_gap,
+                                                       ae_desired_test_mse=args.ae_desired_test_mse)
   final_metrics = trainer.train()
   print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compression_size}: ")
   print(final_metrics)
