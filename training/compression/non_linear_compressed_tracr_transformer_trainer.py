@@ -25,57 +25,72 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
                autoencoder: AutoEncoder,
                args: TrainingArgs,
                output_dir: str | None = None,
-               freeze_ae_weights: bool = False):
+               freeze_ae_weights: bool = False,
+               ae_training_epochs_gap: int = 10,
+               ae_desired_test_mse: float = 1e-3,
+               ae_training_args: TrainingArgs = None):
     self.old_tl_model: HookedTracrTransformer = old_tl_model
     self.new_tl_model: HookedTracrTransformer = new_tl_model
     self.autoencoder: AutoEncoder = autoencoder
     self.device = old_tl_model.device
 
+    parameters = list(new_tl_model.parameters())
     self.freeze_ae_weights = freeze_ae_weights
     if self.freeze_ae_weights:
       self.autoencoder.freeze_all_weights()
       self.autoencoder_trainer = None
     else:
-      self.ae_epochs_per_training_step = 1
-      # make a copy of the training args
-      autoencoder_training_args = dataclasses.replace(args)
+      # We will train the autoencoder every fixed number of epochs for the transformer training.
+      parameters += list(self.autoencoder.parameters())
+      self.ae_training_epochs_gap = ae_training_epochs_gap
+      self.ae_desired_test_mse = ae_desired_test_mse
+      self.epochs_since_last_ae_training = 0
+
+      # make a copy of the training args for non-linear compression if AE specific training args were not provided
+      self.ae_training_args = ae_training_args
+      if self.ae_training_args is None:
+        self.ae_training_args = dataclasses.replace(args)
+
       self.autoencoder_trainer = AutoEncoderTrainer(case, self.autoencoder, self.old_tl_model,
-                                                    autoencoder_training_args, output_dir=None)
+                                                    self.ae_training_args, output_dir=output_dir)
 
     super().__init__(case,
-                     list(new_tl_model.parameters()),
+                     parameters,
                      args,
                      old_tl_model.is_categorical(),
                      new_tl_model.cfg.n_layers,
                      output_dir=output_dir)
 
-  def training_step(self, inputs) -> Float[Tensor, ""]:
-    # train the autoencoder for some epochs before actually training the transformer
-    avg_ae_train_loss = t.tensor(0.0, device=self.device)
+  def training_epoch(self):
+    if not self.freeze_ae_weights and self.epochs_since_last_ae_training >= self.ae_training_epochs_gap:
+      self.epochs_since_last_ae_training = 0
+      self.train_autoencoder()
+
+    super().training_epoch()
+
     if not self.freeze_ae_weights:
+      self.epochs_since_last_ae_training += 1
+
+  def train_autoencoder(self):
+    avg_ae_train_loss = None
+
+    self.autoencoder_trainer.compute_test_metrics()
+    while self.autoencoder_trainer.test_metrics["test_mse"] > self.ae_desired_test_mse:
       ae_train_losses = []
-      for epoch in range(self.ae_epochs_per_training_step):
-        for i, batch in enumerate(self.autoencoder_trainer.train_loader):
-          ae_train_loss = self.autoencoder_trainer.training_step(batch)
-          ae_train_losses.append(ae_train_loss)
+      for i, batch in enumerate(self.autoencoder_trainer.train_loader):
+        ae_train_loss = self.autoencoder_trainer.training_step(batch)
+        ae_train_losses.append(ae_train_loss)
 
       avg_ae_train_loss = t.mean(t.stack(ae_train_losses))
 
-      if self.use_wandb:
-        # log average train loss and test mse
-        test_inputs = next(iter(self.autoencoder_trainer.test_loader))
-        outputs = self.autoencoder(test_inputs)
+      self.autoencoder_trainer.compute_test_metrics()
 
-        ae_test_mse = t.nn.functional.mse_loss(test_inputs, outputs).item()
-        wandb.log({
-          "ae_test_mse": ae_test_mse,
-          "ae_train_loss": avg_ae_train_loss
-        }, step=self.step)
-
-    train_loss = super().training_step(inputs)
-    loss = train_loss + avg_ae_train_loss
-
-    return loss
+    if self.use_wandb and avg_ae_train_loss is not None:
+      # We performed training for the AutoEncoder. Log average train loss and test mse
+      wandb.log({
+        "ae_test_mse": self.autoencoder_trainer.test_metrics["test_mse"],
+        "ae_train_loss": avg_ae_train_loss
+      }, step=self.step)
 
   def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
     return self.new_tl_model(inputs, return_type="decoded")

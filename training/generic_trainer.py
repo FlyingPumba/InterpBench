@@ -32,8 +32,10 @@ class GenericTrainer:
     self.use_wandb = self.args.wandb_project is not None
 
     self.step = 0
+    self.epoch = 0
     self.train_loss = np.nan
     self.test_metrics = {}
+    self.training_progress_bar = None
 
     self.train_loader: DataLoader = None
     self.test_loader: DataLoader = None
@@ -87,19 +89,17 @@ class GenericTrainer:
                                   notes=self.get_wandb_notes())
       self.define_wandb_metrics()
 
-    progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
-    for epoch in range(self.epochs):
+    self.training_progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
+    for i in range(self.epochs):
+      self.epoch = i
+
       if self.use_wandb:
         wandb.log({
           "lr": self.optimizer.param_groups[0]["lr"],
-          "epoch": epoch
+          "epoch": self.epoch
         }, step=self.step)
 
-      for i, batch in enumerate(self.train_loader):
-        self.train_loss = self.training_step(batch)
-        progress_bar.update()
-        progress_bar.set_description(f"Epoch {epoch}, train_loss: {self.train_loss:.3f}" +
-                                     self.build_test_metrics_string())
+      self.training_epoch()
 
       # compute test metrics and update learning rate using them
       with t.no_grad():
@@ -119,6 +119,13 @@ class GenericTrainer:
       wandb.finish()
 
     return {**self.test_metrics, "train_loss": self.train_loss.item()}
+
+  def training_epoch(self):
+    for i, batch in enumerate(self.train_loader):
+      self.train_loss = self.training_step(batch)
+      self.training_progress_bar.update()
+      self.training_progress_bar.set_description(f"Epoch {self.epoch}, train_loss: {self.train_loss:.3f}" +
+                                                 self.build_test_metrics_string())
 
   def training_step(self, inputs) -> Float[Tensor, ""]:
     """Calculates the loss on batched inputs, performs a gradient update step, and logs the loss."""
