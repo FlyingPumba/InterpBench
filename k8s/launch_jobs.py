@@ -39,10 +39,10 @@ with JOB_TEMPLATE_PATH.open() as f:
 
 def build_commands_and_jobs_names():
   # training_methods = ["linear-compression", "non-linear-compression", "natural-compression"]
-  training_methods = ["non-linear-compression"]
+  training_methods = ["autoencoder"]
   cases = [48]
-  compression_sizes = ["auto"]  # list(range(1, 15))
-  seeds = [52]
+  compression_sizes = list(range(1, 90, 20))
+  seeds = [52,53,54]
   lr_starts = [0.001]
   train_data_sizes = [1000]
   test_data_ratios = [0.3]
@@ -59,24 +59,20 @@ def build_commands_and_jobs_names():
               for test_data_ratio in test_data_ratios:
                 for batch_size in batch_sizes:
 
-                  epochs = None
-                  if method == "linear-compression" or method == "natural-compression":
-                    epochs = 10000
-                  elif method == "non-linear-compression":
-                    epochs = 10000
+                  epochs = 10000
 
-                  method_name = method[:-len("-compression")]
+                  method_name = method[:-len("-compression")] if method.endswith("-compression") else method
 
-                  # wandb_project = f"{method_name}-compression-{compression_size}-case-{case}"
-                  # wandb_name = f"seed-{seed}"
+                  wandb_project = f"autoencoder-wide-vs-narrow"
+                  wandb_name = f"narrow-seed-{seed}-size-{compression_size}"
 
-                  wandb_project = f"compression-comparison"
-                  wandb_name = f"{method_name}-narrow-frozen-ae"
+                  # wandb_project = f"compression-comparison"
+                  # wandb_name = f"{method_name}-narrow-frozen-ae"
 
                   job_name = (f"{method_name}-compression-{compression_size}-"
                               f"case-{case}-"
                               f"seed-{seed}-"
-                              f"lr-{str(lr_start).replace('.', '-')}")
+                              f"lr-{str(lr_start).replace('.', '-')}-narrow")
 
                   command = [".venv/bin/python", "main.py",
                              "train", method,
@@ -98,6 +94,10 @@ def build_commands_and_jobs_names():
                   if method == "non-linear-compression":
                     command.append("--freeze-ae-weights")
                     command.append("--ae-first-hidden-layer-shape=narrow")
+
+                    if method == "autoencoder":
+                      command.append("--ae-layers=2")
+                      command.append("--ae-first-hidden-layer-shape=narrow")
 
                   commands_and_job_names.append((command, job_name))
 
