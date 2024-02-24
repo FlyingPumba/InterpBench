@@ -9,32 +9,6 @@ JOB_TEMPLATE_PATH = Path(__file__).parent / "runner.yaml"
 with JOB_TEMPLATE_PATH.open() as f:
   JOB_TEMPLATE = f.read()
 
-
-# ae_command = [".venv/bin/python", "main.py",
-#               "train", "autoencoder",
-#               "-i=3",
-#               f"--residual-stream-compression-size={compression_size}",
-#               "--epochs=9000",
-#               f"--seed={seed}",
-#               f"--lr-start=0.01",
-#               f"--wandb-name=ae-seed-{seed}-size-{compression_size}",
-#               "--wandb-project=aes-for-non-linear-compression-with-frozen-autoencoder-variance-to-sizes-and-seed"]
-
-# command = [".venv/bin/python", "main.py",
-#            "train", "non-linear-compression",
-#            "-i=3",
-#            f"--residual-stream-compression-size={compression_size}",
-#            f"--seed={seed}",
-#            # "--train-data-size=256",
-#            # "--test-data-ratio=0.3",
-#            # "--batch-size=2048",
-#            "--epochs=25000",
-#            "--freeze-ae-weights",
-#            f"--lr-start={lr_start}",
-#            f"--ae-path=results/case-3-resid-{compression_size}-autoencoder-weights.pt",
-#            f"--wandb-name=seed-{seed}-size-{compression_size}",
-#            "--wandb-project=non-linear-compression-with-frozen-autoencoder-variance-to-sizes-and-seed"]
-
 # join the commands using && and wrap them in bash -c "..."
 # command = ["bash", "-c", f"{' '.join(ae_command)} && {' '.join(command)}"]
 
@@ -55,7 +29,6 @@ def build_commands():
   }
 
   non_linear_compression_args = {
-    # initial ae training
     "ae-layers": [2],
     "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
     "ae-epochs": [1000, 2000],
@@ -84,7 +57,6 @@ def build_commands():
                 for batch_size in batch_sizes:
 
                   wandb_project = f"non-linear-compression-frozen-vs-continuous-ae"
-                  wandb_name = f"size-{compression_size}"
 
                   command = [".venv/bin/python", "main.py",
                              "train", method,
@@ -106,7 +78,13 @@ def build_commands():
                     for arg_values_combination in product(*arg_values):
                       specific_cmd = command.copy()
                       for i, arg_name in enumerate(arg_names):
-                        specific_cmd.append(f"--{arg_name}={arg_values_combination[i]}")
+                        arg_value = arg_values_combination[i]
+                        if arg_value == True:
+                          specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
+                        elif arg_value == False:
+                          continue  # skip the argument so that we don't trigger the store_true action
+                        else:
+                          specific_cmd.append(f"--{arg_name}={arg_value}")
 
                       specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
                       commands.append(specific_cmd)
@@ -119,7 +97,13 @@ def build_commands():
                     for arg_values_combination in product(*arg_values):
                       specific_cmd = command.copy()
                       for i, arg_name in enumerate(arg_names):
-                        specific_cmd.append(f"--{arg_name}={arg_values_combination[i]}")
+                        arg_value = arg_values_combination[i]
+                        if arg_value == True:
+                          specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
+                        elif arg_value == False:
+                          continue  # skip the argument so that we don't trigger the store_true action
+                        else:
+                          specific_cmd.append(f"--{arg_name}={arg_value}")
 
                       # If this is a non-frozen autoencoder training, add the autoencoder training command args
                       if not arg_values_combination[frozen_ae_weights_arg_idx]:
@@ -143,7 +127,13 @@ def build_commands():
                     for arg_values_combination in product(*arg_values):
                       specific_cmd = command.copy()
                       for i, arg_name in enumerate(arg_names):
-                        specific_cmd.append(f"--{arg_name}={arg_values_combination[i]}")
+                        arg_value = arg_values_combination[i]
+                        if arg_value == True:
+                          specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
+                        elif arg_value == False:
+                          continue  # skip the argument so that we don't trigger the store_true action
+                        else:
+                          specific_cmd.append(f"--{arg_name}={arg_value}")
 
                       specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
                       commands.append(specific_cmd)
@@ -197,16 +187,12 @@ def build_wandb_name(command: List[str]):
   for arg in important_args:
     for part in command:
       if arg in part:
-        arg_value = part.split("=")[1]
-
-        if arg_value == "True":
-          alias = important_args_aliases[arg]
-          wandb_name += f"{alias}-"
-        elif arg_value == "False":
-          pass
-        else:
-          alias = important_args_aliases[arg]
+        alias = important_args_aliases[arg]
+        if "=" in part:
+          arg_value = part.split("=")[1]
           wandb_name += f"{alias}-{arg_value}-"
+        else:
+          wandb_name += f"{alias}-"
 
         break
 
