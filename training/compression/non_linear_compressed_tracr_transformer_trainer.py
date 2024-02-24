@@ -49,7 +49,7 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
       # make a copy of the training args for non-linear compression if AE specific training args were not provided
       self.ae_training_args = ae_training_args
       if self.ae_training_args is None:
-        self.ae_training_args = dataclasses.replace(args)
+        self.ae_training_args = dataclasses.replace(args, wandb_project=None, wandb_name=None)
 
       self.autoencoder_trainer = AutoEncoderTrainer(case, self.autoencoder, self.old_tl_model,
                                                     self.ae_training_args, output_dir=output_dir)
