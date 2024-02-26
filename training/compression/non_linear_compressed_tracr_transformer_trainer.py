@@ -136,6 +136,23 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
     tags.append("non-linear-compression-trainer")
     return tags
 
+  def get_wandb_config(self):
+    cfg = super().get_wandb_config()
+    cfg.update({
+      "freeze_ae_weights": self.freeze_ae_weights,
+      "ae_layers": self.autoencoder.n_layers,
+      "ae_first_hidden_layer_shape": self.autoencoder.first_hidden_layer_shape,
+      "ae_use_bias": self.autoencoder.use_bias,
+    })
+
+    if not self.freeze_ae_weights:
+      cfg.update({
+        "ae_training_epochs_gap": self.ae_training_epochs_gap,
+        "ae_max_training_epochs": self.ae_max_training_epochs,
+        "ae_desired_test_mse": self.ae_desired_test_mse,
+      })
+      cfg.update({f"ae_training_args_{k}": v for k, v in dataclasses.asdict(self.ae_training_args).items()})
+
   def save_artifacts(self):
     if not os.path.exists(self.output_dir):
       os.makedirs(self.output_dir)

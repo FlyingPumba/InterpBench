@@ -166,3 +166,12 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       wandb.define_metric(f"layer_{str(layer)}_loss", summary="min")
     if not self.is_categorical:
       wandb.define_metric("test_mse", summary="min")
+
+  def get_wandb_config(self):
+    cfg = super().get_wandb_config()
+    return cfg.update({
+      "is_categorical": self.is_categorical,
+      "n_layers": self.n_layers,
+      "original_resid_size": self.get_original_model().cfg.d_model,
+      "compressed_resid_size": self.get_compressed_model().cfg.d_model,
+    })

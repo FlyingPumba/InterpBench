@@ -1,3 +1,4 @@
+import dataclasses
 import sys
 from typing import List, Dict
 
@@ -92,7 +93,7 @@ class GenericTrainer:
     if self.use_wandb:
       self.wandb_run = wandb.init(project=self.args.wandb_project,
                                   name=self.args.wandb_name,
-                                  config=self.args,
+                                  config=self.get_wandb_config(),
                                   tags=self.get_wandb_tags(),
                                   notes=self.get_wandb_notes())
       self.define_wandb_metrics()
@@ -176,6 +177,13 @@ class GenericTrainer:
 
   def get_wandb_notes(self):
     return f"Command: {' '.join(sys.argv)}"
+
+  def get_wandb_config(self):
+    return dataclasses.asdict(self.args).update({
+      "resolved_epochs": self.epochs,
+      "resolved_steps": self.steps,
+      "case": self.case.get_index()
+    })
 
   def save_artifacts(self):
     pass
