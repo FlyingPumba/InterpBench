@@ -1,3 +1,4 @@
+import dataclasses
 import sys
 from typing import List, Dict
 
@@ -43,8 +44,15 @@ class GenericTrainer:
 
     # calculate number of epochs and steps
     assert self.args.epochs is not None or self.args.steps is not None, "Must specify either epochs or steps."
-    self.epochs = self.args.epochs if self.args.epochs is not None else int(self.args.steps // len(self.train_loader)) + 1
-    self.steps = self.args.steps if self.args.steps is not None else self.epochs * len(self.train_loader)
+    assert self.args.epochs is None or self.args.steps is None, "Cannot specify both epochs and steps."
+
+    if self.args.epochs is not None:
+      self.epochs = self.args.epochs
+      self.steps = self.epochs * len(self.train_loader)
+
+    if self.args.steps is not None:
+      self.epochs = (self.steps // len(self.train_loader)) + 1
+      self.steps = self.args.steps
 
     # assert at least one parameter
     assert len(self.parameters) > 0, "No parameters to optimize."
@@ -71,6 +79,7 @@ class GenericTrainer:
       self.args.wandb_name = self.build_wandb_name()
 
     print(f"Training with args: {self.args}")
+    print(f"Will run for {self.epochs} epochs ({self.steps} steps).")
 
 
   def setup_dataset(self):
@@ -84,7 +93,7 @@ class GenericTrainer:
     if self.use_wandb:
       self.wandb_run = wandb.init(project=self.args.wandb_project,
                                   name=self.args.wandb_name,
-                                  config=self.args,
+                                  config=self.get_wandb_config(),
                                   tags=self.get_wandb_tags(),
                                   notes=self.get_wandb_notes())
       self.define_wandb_metrics()
@@ -168,6 +177,13 @@ class GenericTrainer:
 
   def get_wandb_notes(self):
     return f"Command: {' '.join(sys.argv)}"
+
+  def get_wandb_config(self):
+    return dataclasses.asdict(self.args).update({
+      "resolved_epochs": self.epochs,
+      "resolved_steps": self.steps,
+      "case": self.case.get_index()
+    })
 
   def save_artifacts(self):
     pass

@@ -20,7 +20,7 @@ def run_auto_compression_training(case: BenchmarkCase,
 
   if compression_size != "auto":
     for compression_size in compression_size:
-      if original_wandb_name is not None:
+      if original_wandb_name is not None and f"size-{compression_size}" not in original_wandb_name:
         # add a suffix to the wandb name to indicate the current compression size
         training_args.wandb_name = f"{original_wandb_name}-size-{compression_size}"
       run_single_compression_training_fn(case, tl_model,

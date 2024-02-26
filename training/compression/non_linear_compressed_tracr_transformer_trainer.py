@@ -28,6 +28,7 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
                freeze_ae_weights: bool = False,
                ae_training_epochs_gap: int = 10,
                ae_desired_test_mse: float = 1e-3,
+               ae_max_training_epochs: int = 15,
                ae_training_args: TrainingArgs = None):
     self.old_tl_model: HookedTracrTransformer = old_tl_model
     self.new_tl_model: HookedTracrTransformer = new_tl_model
@@ -43,13 +44,14 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
       # We will train the autoencoder every fixed number of epochs for the transformer training.
       parameters += list(self.autoencoder.parameters())
       self.ae_training_epochs_gap = ae_training_epochs_gap
+      self.ae_max_training_epochs = ae_max_training_epochs
       self.ae_desired_test_mse = ae_desired_test_mse
       self.epochs_since_last_ae_training = 0
 
       # make a copy of the training args for non-linear compression if AE specific training args were not provided
       self.ae_training_args = ae_training_args
       if self.ae_training_args is None:
-        self.ae_training_args = dataclasses.replace(args)
+        self.ae_training_args = dataclasses.replace(args, wandb_project=None, wandb_name=None)
 
       self.autoencoder_trainer = AutoEncoderTrainer(case, self.autoencoder, self.old_tl_model,
                                                     self.ae_training_args, output_dir=output_dir)
@@ -75,7 +77,9 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
     avg_ae_train_loss = None
 
     self.autoencoder_trainer.compute_test_metrics()
-    while self.autoencoder_trainer.test_metrics["test_mse"] > self.ae_desired_test_mse:
+    ae_training_epoch = 0
+    while (self.autoencoder_trainer.test_metrics["test_mse"] > self.ae_desired_test_mse and
+           ae_training_epoch < self.ae_max_training_epochs):
       ae_train_losses = []
       for i, batch in enumerate(self.autoencoder_trainer.train_loader):
         ae_train_loss = self.autoencoder_trainer.training_step(batch)
@@ -84,6 +88,7 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
       avg_ae_train_loss = t.mean(t.stack(ae_train_losses))
 
       self.autoencoder_trainer.compute_test_metrics()
+      ae_training_epoch += 1
 
     if self.use_wandb and avg_ae_train_loss is not None:
       # We performed training for the AutoEncoder. Log average train loss and test mse
@@ -130,6 +135,23 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
     tags = super().get_wandb_tags()
     tags.append("non-linear-compression-trainer")
     return tags
+
+  def get_wandb_config(self):
+    cfg = super().get_wandb_config()
+    cfg.update({
+      "freeze_ae_weights": self.freeze_ae_weights,
+      "ae_layers": self.autoencoder.n_layers,
+      "ae_first_hidden_layer_shape": self.autoencoder.first_hidden_layer_shape,
+      "ae_use_bias": self.autoencoder.use_bias,
+    })
+
+    if not self.freeze_ae_weights:
+      cfg.update({
+        "ae_training_epochs_gap": self.ae_training_epochs_gap,
+        "ae_max_training_epochs": self.ae_max_training_epochs,
+        "ae_desired_test_mse": self.ae_desired_test_mse,
+      })
+      cfg.update({f"ae_training_args_{k}": v for k, v in dataclasses.asdict(self.ae_training_args).items()})
 
   def save_artifacts(self):
     if not os.path.exists(self.output_dir):
