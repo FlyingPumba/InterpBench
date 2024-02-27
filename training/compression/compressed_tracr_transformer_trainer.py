@@ -16,6 +16,7 @@ from training.training_args import TrainingArgs
 from utils.compare_tracr_output import compare_valid_positions, compare_positions_excluding_BOS
 from utils.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from utils.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss
+from utils.sparsity import get_zero_weights_pct
 
 
 class CompressedTracrTransformerTrainer(GenericTrainer):
@@ -155,6 +156,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.test_metrics["resample_ablation_loss"] = get_resample_ablation_loss(
         **resample_ablation_loss_args
       ).item()
+
+    # calculate sparsity metrics
+    self.test_metrics["zero_weights_pct"] = get_zero_weights_pct(self.get_compressed_model())
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
