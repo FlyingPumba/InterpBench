@@ -548,7 +548,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         f"{output_dir}/resample-ablation-loss-variance-for-linear-compression-{idx_plot + 1}.png")
 
   def test_variance_for_non_linear_transformer(self):
-    # self.skipTest("This test takes a long time to run, so it is skipped by default.")
+    self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
     original_tracr_model: HookedTracrTransformer = case.get_tl_model()
