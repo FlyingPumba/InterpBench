@@ -140,8 +140,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if self.args.resample_ablation_loss:
       # Compute the resampling ablation loss
       resample_ablation_loss_args = {
-        "clean_inputs": self.clean_dataset,
-        "corrupted_inputs": self.corrupted_dataset,
+        "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size),
+        "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size),
         "base_model": self.get_original_model(),
         "hypothesis_model": self.get_compressed_model(),
         "max_interventions": self.args.resample_ablation_max_interventions,
