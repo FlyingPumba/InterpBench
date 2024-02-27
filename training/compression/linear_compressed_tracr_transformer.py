@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import os
 import typing
-from typing import List, Tuple, Callable, Literal
+from typing import List, Tuple, Callable, Literal, Iterator
 
 import numpy as np
 import torch as t
 import wandb
+from einops import einsum
 from jaxtyping import Float
 from torch import nn, Tensor
-from torch.nn import Linear
+from torch.nn import Linear, Parameter
 from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookPoint
 from wandb.sdk.wandb_run import Run
@@ -115,6 +116,96 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
     hooks.append((f"blocks.{self.cfg.n_layers - 1}.hook_resid_post", decompress_resid_hook_fn))
 
     return hooks
+
+  def named_parameters(
+            self,
+            prefix: str = '',
+            recurse: bool = True,
+            remove_duplicate: bool = True
+    ) -> Iterator[Tuple[str, Parameter]]:
+    """Returns an iterator over module parameters, yielding both the name of the parameter as well as the parameter.
+    This is a modified version of the original named_parameters method, which folds the compression matrix into the
+    named parameters."""
+    named_params = list(super().named_parameters(prefix, recurse, remove_duplicate))
+
+    # if we don't have self.W_compress yet (e.g. when we are in the constructor), we return the original named params
+    if not hasattr(self, "W_compress"):
+      for name, param in named_params:
+        yield name, param
+      return
+
+    compression_matrix = self.W_compress.weight
+
+    for name, param in named_params:
+      if name == "embed.W_E" or name == "pos_embed.W_pos": # shape: [vocab_size, d_model] and [max_seq_len, d_model]
+        param = Parameter(param.clone())
+        param.data = param.data @ compression_matrix
+        yield name, param
+
+      elif "W_Q" in name or "W_K" in name or "W_V" in name: # shape: [n_heads, d_model, d_head]
+        param = Parameter(param.clone())
+        param.data = einsum(param.data, compression_matrix,
+                            "n_heads d_model d_head, d_model d_compressed_model -> n_heads d_compressed_model d_head")
+        yield name, param
+
+      elif "W_O" in name: # shape: [n_heads, d_head, d_model]
+        param = Parameter(param.clone())
+        param.data = einsum(param.data, compression_matrix,
+                            "n_heads d_head d_model, d_model d_compressed_model -> n_heads d_head d_compressed_model")
+        yield name, param
+
+      elif "b_Q" in name or "b_K" in name or "b_V" in name: # shape: [n_heads, d_head]
+        # no changes
+        yield name, param
+
+      elif "b_O" in name: # shape: [n_heads, d_model]
+        param = Parameter(param.clone())
+        param.data = einsum(param.data.unsqueeze(dim=0), compression_matrix,
+                            "n_heads d_model, d_model d_compressed_model -> n_heads d_compressed_model").squeeze(dim=0)
+        yield name, param
+
+      elif "W_in" in name: # shape: [d_model, d_mlp]
+        param = Parameter(param.clone())
+        param.data = einsum(param.data, compression_matrix,
+                            "d_model d_mlp, d_model d_compressed_model -> d_compressed_model d_mlp")
+        yield name, param
+
+      elif "W_out" in name: # shape: [d_mlp, d_model]
+        param = Parameter(param.clone())
+        param.data = einsum(param.data, compression_matrix,
+                            "d_mlp d_model, d_model d_compressed_model -> d_mlp d_compressed_model")
+        yield name, param
+
+      elif "b_in" in name: # shape: [d_mlp]
+        # no changes
+        yield name, param
+
+      elif "b_out" in name: # shape: [d_model]
+        param = Parameter(param.clone())
+        param.data = einsum(param.data.unsqueeze(dim=0), compression_matrix,
+                            "_ d_model, d_model d_compressed_model -> _ d_compressed_model").squeeze(dim=0)
+        yield name, param
+
+      elif "unembed.W_U" in name: # shape: [d_model, d_out]
+        param = Parameter(param.clone())
+        param.data = einsum(param.data, compression_matrix,
+                            "d_model d_out, d_model d_compressed_model -> d_compressed_model d_out")
+        yield name, param
+
+      elif "b_U" in name: # shape: [d_out]
+        # no changes
+        yield name, param
+
+      elif "W_compress" in name:
+        # ignore the compression matrix
+        continue
+
+      else:
+        raise ValueError(f"Unknown parameter name: {name}")
+
+  def parameters(self, recurse: bool = True) -> Iterator[Parameter]:
+    for name, param in self.named_parameters(recurse=recurse):
+      yield param
 
   def save(self, output_dir: str, prefix: str, wandb_run: Run | None = None):
     if not os.path.exists(output_dir):
