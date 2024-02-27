@@ -14,10 +14,10 @@ with JOB_TEMPLATE_PATH.open() as f:
 
 def build_commands():
   # training_methods = ["linear-compression", "non-linear-compression", "natural-compression", "autoencoder"]
-  training_methods = ["non-linear-compression"]
+  training_methods = ["linear-compression", "non-linear-compression", "natural-compression"]
   cases = [48]
-  compression_sizes = list(range(1, 90, 20))
-  seeds = [57]
+  compression_sizes = [5, 10, 15, 20, 35]
+  seeds = [60,62,64]
   lr_starts = [0.001]
   epochs = 10000
   train_data_sizes = [1000]
@@ -31,13 +31,13 @@ def build_commands():
   non_linear_compression_args = {
     "ae-layers": [2],
     "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
-    "ae-epochs": [1000, 2000],
-    "freeze-ae-weights": [True, False],
+    "ae-epochs": [1000],
+    "freeze-ae-weights": [False],
   }
 
   non_linear_compression_continuous_ae_training_args = {
-    "ae-training-epochs-gap": [5, 50, 100],
-    "ae-desired-test-mse": [1e-3, 1e-4, 1e-5]
+    "ae-training-epochs-gap": [100],
+    "ae-desired-test-mse": [1e-5]
   }
 
   autoencoder_args = {
@@ -56,7 +56,7 @@ def build_commands():
               for test_data_ratio in test_data_ratios:
                 for batch_size in batch_sizes:
 
-                  wandb_project = f"non-linear-compression-frozen-vs-continuous-ae"
+                  wandb_project = f"comparing-compressing-methods"
 
                   command = [".venv/bin/python", "main.py",
                              "train", method,
@@ -69,6 +69,8 @@ def build_commands():
                              f"--epochs={epochs}",
                              f"--lr-start={lr_start}",
                              "--early-stop-test-accuracy=0.97",
+                             "--resample-ablation-loss=True",
+                             "--resample-ablation-max-interventions=50",
                              f"--wandb-project={wandb_project}"]
 
                   if method == "linear-compression":
@@ -176,13 +178,16 @@ def build_wandb_name(command: List[str]):
   # Each argument will be separated by a dash. We also define an alias for each argument so that the name is more readable.
   important_args_aliases = {
     "residual-stream-compression-size": "size",
-    "ae-epochs": "ae-epochs",
-    "freeze-ae-weights": "frozen",
-    "ae-training-epochs-gap": "ae-gap",
-    "ae-desired-test-mse": "ae-mse",
+    "seed": "seed",
+    # "ae-epochs": "ae-epochs",
+    # "freeze-ae-weights": "frozen",
+    # "ae-training-epochs-gap": "ae-gap",
+    # "ae-desired-test-mse": "ae-mse",
   }
   important_args = important_args_aliases.keys()
   wandb_name = ""
+
+  wandb_name += command[3] + "-"  # training method
 
   for arg in important_args:
     for part in command:
