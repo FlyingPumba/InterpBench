@@ -9,7 +9,8 @@ class CircuitTest(unittest.TestCase):
     circuit = case.get_tracr_circuit()
 
     expected_nodes = ["embed.W_E", "pos_embed.W_pos", "blocks.0.mlp", "blocks.1.attn"]
-    expected_edges = [("embed.W_E", "blocks.0.mlp"), ("pos_embed.W_pos", "blocks.0.mlp"),
+    expected_edges = [("embed.W_E", "blocks.0.mlp"),
+                      ("pos_embed.W_pos", "blocks.1.attn"),
                       ("blocks.0.mlp", "blocks.1.attn")]
     self.assertEqual(sorted(circuit.nodes), sorted(expected_nodes))
     self.assertEqual(sorted(circuit.edges), sorted(expected_edges))
