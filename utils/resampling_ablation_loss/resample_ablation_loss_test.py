@@ -312,7 +312,7 @@ class ResampleAblationLossTest(unittest.TestCase):
 
     for idx_plot in range(n_plots):
       random_model = self.get_new_transformer_with_used_matrix_re_initialized(original_tracr_model,
-                                                                              case.get_relevant_module_names())
+                                                                              case.get_tracr_circuit().nodes)
 
       # Build a 2D heatmap varying data_size from 1 to 256 and max_interventions from 1 to 64.
       # At the end, plot using plotly.
@@ -365,7 +365,7 @@ class ResampleAblationLossTest(unittest.TestCase):
 
     for idx_plot in range(n_plots):
       random_model = self.get_new_transformer_with_no_op_matrix_re_initialized(original_tracr_model,
-                                                                              case.get_relevant_module_names())
+                                                                               case.get_tracr_circuit().nodes)
 
       # Build a 2D heatmap varying data_size from 1 to 256 and max_interventions from 1 to 64.
       # At the end, plot using plotly.
