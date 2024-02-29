@@ -33,3 +33,47 @@ class CircuitTest(unittest.TestCase):
                       ("blocks.1.attn.W_V", "blocks.1.attn.W_O")]
     self.assertEqual(sorted(ll_circuit.nodes), sorted(expected_nodes))
     self.assertEqual(sorted(ll_circuit.edges), sorted(expected_edges))
+
+  def test_build_circuit_for_case_3_with_acdc_hooks_granularity(self):
+    case = Case3()
+    hl_circuit, ll_circuit, alignment = case.get_tracr_circuit(granularity="acdc_hooks")
+
+    expected_nodes = ["hook_embed", "hook_pos_embed",
+                      "blocks.0.hook_mlp_in", "blocks.0.hook_mlp_out",
+                      "blocks.1.hook_q_input", "blocks.1.hook_k_input", "blocks.1.hook_v_input",
+                      "blocks.1.attn.hook_q", "blocks.1.attn.hook_k", "blocks.1.attn.hook_v",
+                      "blocks.1.attn.hook_result", "blocks.1.hook_resid_post"]
+    expected_edges = [("hook_embed", "blocks.0.hook_mlp_in"),
+                      ("hook_pos_embed", "blocks.1.hook_q_input"),
+                      ("hook_pos_embed", "blocks.1.hook_k_input"),
+                      ("blocks.0.hook_mlp_in", "blocks.0.hook_mlp_out"),
+                      ("blocks.0.hook_mlp_out", "blocks.1.hook_v_input"),
+                      ("blocks.1.hook_q_input", "blocks.1.attn.hook_q"),
+                      ("blocks.1.hook_k_input", "blocks.1.attn.hook_k"),
+                      ("blocks.1.hook_v_input", "blocks.1.attn.hook_v"),
+                      ("blocks.1.attn.hook_q", "blocks.1.attn.hook_result"),
+                      ("blocks.1.attn.hook_k", "blocks.1.attn.hook_result"),
+                      ("blocks.1.attn.hook_v", "blocks.1.attn.hook_result"),
+                      ("blocks.1.attn.hook_result", "blocks.1.hook_resid_post")]
+    self.assertEqual(sorted(ll_circuit.nodes), sorted(expected_nodes))
+    self.assertEqual(sorted(ll_circuit.edges), sorted(expected_edges))
+
+  def test_build_circuit_for_case_3_with_sp_hooks_granularity(self):
+    case = Case3()
+    hl_circuit, ll_circuit, alignment = case.get_tracr_circuit(granularity="sp_hooks")
+
+    expected_nodes = ["hook_embed", "hook_pos_embed",
+                      "blocks.0.hook_mlp_in", "blocks.0.hook_mlp_out",
+                      "blocks.1.hook_q_input", "blocks.1.hook_k_input", "blocks.1.hook_v_input",
+                      "blocks.1.attn.hook_result", "blocks.1.hook_resid_post"]
+    expected_edges = [("hook_embed", "blocks.0.hook_mlp_in"),
+                      ("hook_pos_embed", "blocks.1.hook_q_input"),
+                      ("hook_pos_embed", "blocks.1.hook_k_input"),
+                      ("blocks.0.hook_mlp_in", "blocks.0.hook_mlp_out"),
+                      ("blocks.0.hook_mlp_out", "blocks.1.hook_v_input"),
+                      ("blocks.1.hook_q_input", "blocks.1.attn.hook_result"),
+                      ("blocks.1.hook_k_input", "blocks.1.attn.hook_result"),
+                      ("blocks.1.hook_v_input", "blocks.1.attn.hook_result"),
+                      ("blocks.1.attn.hook_result", "blocks.1.hook_resid_post")]
+    self.assertEqual(sorted(ll_circuit.nodes), sorted(expected_nodes))
+    self.assertEqual(sorted(ll_circuit.edges), sorted(expected_edges))

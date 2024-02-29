@@ -20,3 +20,9 @@ class Circuit(DiGraph):
   @staticmethod
   def load(file_path) -> Circuit | None:
     return load_from_pickle(file_path)
+
+  def get_result_node(self):
+    """Returns the node in the circuit that doesn't have successors (there should be only one)."""
+    result_nodes = [node for node in self.nodes if not list(self.successors(node))]
+    assert len(result_nodes) == 1, f"Expected 1 result node, got {len(result_nodes)}"
+    return result_nodes[0]

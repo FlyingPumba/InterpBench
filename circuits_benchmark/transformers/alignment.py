@@ -23,26 +23,34 @@ class Alignment(object):
       hl_nodes = set(hl_node)
 
     ll_nodes = set()
-    for node in hl_nodes:
-      ll_nodes = ll_nodes.union(self.hl_to_ll_mapping[node])
+    for hl_node in hl_nodes:
+      ll_nodes = ll_nodes.union(self.hl_to_ll_mapping[hl_node])
 
     if remove_predecessors_by_ll_circuit is not None:
-      # remove all nodes in ll_nodes that are predecessors of other nodes in ll_nodes
+      # remove all nodes in ll_nodes that are predecessors of other nodes in ll_nodes (even if it is a predecessor of a
+      # predecessor, and so on)
       nodes_to_remove = set()
-      for node in ll_nodes:
+      nodes_to_check = ll_nodes.copy()
+      while len(nodes_to_check) > 0:
+        node = nodes_to_check.pop()
         for pred_node in remove_predecessors_by_ll_circuit.predecessors(node):
           if pred_node in ll_nodes:
             nodes_to_remove.add(pred_node)
+            nodes_to_check.add(pred_node)
 
       ll_nodes = ll_nodes.difference(nodes_to_remove)
 
     if remove_successors_by_ll_circuit is not None:
-      # remove all nodes in ll_nodes that are successors of other nodes in ll_nodes
+      # remove all nodes in ll_nodes that are successors of other nodes in ll_nodes (even if it is a successor of a
+      # successor, and so on)
       nodes_to_remove = set()
-      for node in ll_nodes:
+      nodes_to_check = ll_nodes.copy()
+      while len(nodes_to_check) > 0:
+        node = nodes_to_check.pop()
         for succ_node in remove_successors_by_ll_circuit.successors(node):
           if succ_node in ll_nodes:
             nodes_to_remove.add(succ_node)
+            nodes_to_check.add(succ_node)
 
       ll_nodes = ll_nodes.difference(nodes_to_remove)
 
