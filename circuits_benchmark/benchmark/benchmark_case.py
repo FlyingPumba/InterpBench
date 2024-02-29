@@ -8,17 +8,20 @@ from networkx import DiGraph
 from torch import Tensor
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.transformers.circuit import Circuit
+from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
+  HookedTracrTransformerBatchInput
+from circuits_benchmark.transformers.tracr_circuits_builder import build_tracr_circuits
+from circuits_benchmark.utils.cloudpickle import load_from_pickle, dump_to_pickle
+from circuits_benchmark.utils.compare_tracr_output import compare_valid_positions
+from circuits_benchmark.utils.project_paths import detect_project_root
 from tracr.compiler import compiling
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.compiler.compiling import TracrOutput
 from tracr.craft.transformers import SeriesWithResiduals
 from tracr.rasp import rasp
 from tracr.transformer.encoder import CategoricalEncoder
-from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.utils.cloudpickle import load_from_pickle, dump_to_pickle
-from circuits_benchmark.utils.compare_tracr_output import compare_valid_positions
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
-from circuits_benchmark.utils.project_paths import detect_project_root
 
 
 class BenchmarkCase(object):
@@ -230,11 +233,11 @@ class BenchmarkCase(object):
 
     return tracr_output
 
-  def get_tracr_circuit(self) -> Circuit:
+  def get_tracr_circuit(self, granularity: CircuitGranularity = "component") -> Circuit:
     """Returns the tracr circuit for the benchmark case."""
     tracr_graph = self.get_tracr_graph()
     craft_model = self.get_craft_model()
-    return Circuit.from_tracr(tracr_graph, craft_model)
+    return build_tracr_circuits(tracr_graph, craft_model, granularity)
 
   def build_transformer_lens_model(self,
                                    tracr_model: AssembledTransformerModel = None,
