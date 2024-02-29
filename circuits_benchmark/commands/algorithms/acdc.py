@@ -10,6 +10,7 @@ from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 
 
 def setup_args_parser(subparsers):
@@ -191,3 +192,8 @@ def run_acdc(case: BenchmarkCase, args):
     fpath=f"{output_dir}/subgraph.pth",
     return_it=True,
   )
+
+  acdc_circuit = build_acdc_circuit(exp.corr)
+  acdc_circuit.save(f"{output_dir}/final_circuit.pkl")
+
+
