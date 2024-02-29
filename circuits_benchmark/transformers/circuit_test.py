@@ -28,8 +28,8 @@ class CircuitTest(unittest.TestCase):
                       ("pos_embed.W_pos", "blocks.1.attn.W_Q"),
                       ("blocks.0.mlp.W_in", "blocks.0.mlp.W_out"),
                       ("blocks.0.mlp.W_out", "blocks.1.attn.W_V"),
-                      ("blocks.1.attn.W_K", "blocks.1.attn.W_V"),
-                      ("blocks.1.attn.W_Q", "blocks.1.attn.W_V"),
-                      ("blocks.1.attn.W_V", "blocks.1.attn.W_O"),]
+                      ("blocks.1.attn.W_K", "blocks.1.attn.W_O"),
+                      ("blocks.1.attn.W_Q", "blocks.1.attn.W_O"),
+                      ("blocks.1.attn.W_V", "blocks.1.attn.W_O")]
     self.assertEqual(sorted(ll_circuit.nodes), sorted(expected_nodes))
     self.assertEqual(sorted(ll_circuit.edges), sorted(expected_edges))
