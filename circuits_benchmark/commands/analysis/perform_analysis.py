@@ -1,4 +1,4 @@
-from circuits_benchmark.commands.analysis import compression_matrix
+from circuits_benchmark.commands.analysis import compression_matrix, acdc_circuit
 
 
 def setup_args_parser(subparsers):
@@ -8,6 +8,7 @@ def setup_args_parser(subparsers):
 
   # Setup arguments for each analysis
   compression_matrix.setup_args_parser(analysis_subparsers)
+  acdc_circuit.setup_args_parser(analysis_subparsers)
 
 
 def run(args):
@@ -15,3 +16,5 @@ def run(args):
 
   if args.type == "compression-matrix":
     compression_matrix.run(args)
+  elif args.type == "acdc-circuit":
+    acdc_circuit.run(args)

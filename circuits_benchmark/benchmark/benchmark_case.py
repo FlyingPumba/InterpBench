@@ -8,6 +8,7 @@ from networkx import DiGraph
 from torch import Tensor
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.transformers.alignment import Alignment
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
@@ -233,7 +234,7 @@ class BenchmarkCase(object):
 
     return tracr_output
 
-  def get_tracr_circuit(self, granularity: CircuitGranularity = "component") -> Circuit:
+  def get_tracr_circuit(self, granularity: CircuitGranularity = "component") -> (Circuit, Circuit, Alignment):
     """Returns the tracr circuit for the benchmark case."""
     tracr_graph = self.get_tracr_graph()
     craft_model = self.get_craft_model()
