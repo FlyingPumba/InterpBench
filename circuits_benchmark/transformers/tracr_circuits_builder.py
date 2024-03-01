@@ -2,6 +2,7 @@ from typing import Set
 
 from networkx import DiGraph
 
+from circuits_benchmark.benchmark.vocabs import TRACR_BOS
 from circuits_benchmark.transformers.alignment import Alignment
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
@@ -264,7 +265,7 @@ def get_labels_from_vector_space(space: VectorSpaceWithBasis):
   for base in space.basis:
     if base.name == "one" and base.value is None:
       continue
-    if base.name == "tokens" and base.value == "BOS":
+    if base.name == "tokens" and base.value == TRACR_BOS:
       continue
 
     labels.add(base.name)

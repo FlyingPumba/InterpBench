@@ -1,5 +1,6 @@
 import importlib
 import os.path
+from random import randint
 from typing import Set, Optional, Sequence
 
 import numpy as np
@@ -8,6 +9,7 @@ from networkx import DiGraph
 from torch import Tensor
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.transformers.alignment import Alignment
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
@@ -29,7 +31,7 @@ class BenchmarkCase(object):
 
   def __init__(self):
     self.case_file_absolute_path = os.path.join(detect_project_root(), self.get_relative_path_from_root())
-    self.data_size_for_tests = 10
+    self.data_size_for_tests = 100
 
   @staticmethod
   def get_instance_for_file_path(file_path_from_root: str):
@@ -62,7 +64,12 @@ class BenchmarkCase(object):
 
   def get_clean_data(self, count: Optional[int] = 10, seed: Optional[int] = 42) -> CaseDataset:
     """Returns the clean data for the benchmark case."""
-    seq_len = self.get_max_seq_len()
+    min_seq_len = self.get_min_seq_len()
+    max_seq_len = self.get_max_seq_len()
+
+    # assert min_seq_len is at least 2 elementsto account for BOS
+    assert min_seq_len >= 2, "min_seq_len must be at least 2 to account for BOS"
+
     input_data: HookedTracrTransformerBatchInput = []
     output_data: HookedTracrTransformerBatchInput = []
 
@@ -72,39 +79,53 @@ class BenchmarkCase(object):
 
     vals = sorted(list(self.get_vocab()))
 
-    # If count is None, we will produce all possible sequences for this vocab and sequence length
-    produce_all = False
     if count is None:
-      count = len(vals) ** (seq_len - 1)
-      produce_all = True
+      # produce all possible sequences for this vocab
+      for seq_len in range(min_seq_len, max_seq_len + 1):
+        pad_len = max_seq_len - seq_len
+        pad = [TRACR_PAD] * pad_len
 
-    indices = list(range(count))
-    np.random.shuffle(indices)
+        count = len(vals) ** (seq_len - 1)
+        for index in range(count):
+          # we want to produce all possible sequences for this lengths, so we convert the index to base len(vals) and
+          # then convert each digit to the corresponding value in vals
+          sample = []
+          base = len(vals)
+          num = index
+          while num:
+            sample.append(vals[num % base])
+            num //= base
 
-    for index in indices:
-      if produce_all:
-        # we want to produce all possible sequences, so we convert the index to base len(vals) and then convert each
-        # digit to the corresponding value in vals
-        sample = []
-        base = len(vals)
-        num = index
-        while num:
-          sample.append(vals[num % base])
-          num //= base
+          if len(sample) < seq_len - 1:
+            # extend with the first value in vocab to fill the sequence
+            sample.extend([vals[0]] * (seq_len - 1 - len(sample)))
 
-        if len(sample) < seq_len - 1:
-          # extend with the first value in vocab to fill the sequence
-          sample.extend([vals[0]] * (seq_len - 1 - len(sample)))
+          # reverse the list to produce the sequence in the correct order
+          sample = sample[::-1]
 
-        # reverse the list to produce the sequence in the correct order
-        sample = sample[::-1]
-      else:
+          output = self.get_correct_output_for_input(sample)
+
+          input_data.append([TRACR_BOS] + sample + pad)
+          output_data.append([TRACR_BOS] + output + pad)
+
+    else:
+      for _ in range(count):
+        seq_len = randint(min_seq_len, max_seq_len)
+        pad_len = max_seq_len - seq_len
+        pad = [TRACR_PAD] * pad_len
+
         sample = np.random.choice(vals, size=seq_len - 1).tolist()  # sample with replacement
 
-      output = self.get_correct_output_for_input(sample)
+        output = self.get_correct_output_for_input(sample)
 
-      input_data.append(["BOS"] + sample)
-      output_data.append(["BOS"] + output)
+        input_data.append([TRACR_BOS] + sample + pad)
+        output_data.append([TRACR_BOS] + output + pad)
+
+    # shuffle input_data and output_data maintaining the correspondence between input and output
+    indices = np.arange(len(input_data))
+    np.random.shuffle(indices)
+    input_data = [input_data[i] for i in indices]
+    output_data = [output_data[i] for i in indices]
 
     return CaseDataset(input_data, output_data)
 
@@ -128,6 +149,11 @@ class BenchmarkCase(object):
     """Returns the maximum sequence length for the benchmark case (including BOS).
     Default implementation: 10."""
     return 10
+
+  def get_min_seq_len(self) -> int:
+    """Returns the minimum sequence length for the benchmark case (including BOS).
+    Default implementation: 4."""
+    return 4
 
   def get_index(self) -> str:
     class_name = self.__class__.__name__  # Looks like "CaseN"
@@ -223,7 +249,8 @@ class BenchmarkCase(object):
       program,
       vocab=vocab,
       max_seq_len=max_seq_len_without_BOS,
-      compiler_bos="BOS",
+      compiler_bos=TRACR_BOS,
+      compiler_pad=TRACR_PAD,
       causal=self.supports_causal_masking(),
     )
 

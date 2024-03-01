@@ -4,9 +4,10 @@ import unittest
 import jax
 
 from circuits_benchmark.benchmark.common_programs import make_reverse
+from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from tracr.compiler import compiling
 from tracr.rasp import rasp
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 # The default of float16 can lead to discrepancies between outputs of
 # the compiled model and the RASP program.
@@ -19,16 +20,16 @@ class HookedTracrTransformerTest(unittest.TestCase):
     program = make_reverse(rasp.tokens)
 
     # Compile it to a transformer model
-    bos = "BOS"
     tracr_output = compiling.compile_rasp_to_model(
         program,
         vocab={1, 2, 3},
         max_seq_len=5,
-        compiler_bos=bos,
+        compiler_bos=TRACR_BOS,
+        compiler_pad=TRACR_PAD,
     )
     tracr_model = tracr_output.model
 
-    input = [bos, 1, 2, 3]
+    input = [TRACR_BOS, 1, 2, 3, TRACR_PAD]
     print("Input:", input)
 
     tracr_output_decoded = tracr_model.apply(input).decoded

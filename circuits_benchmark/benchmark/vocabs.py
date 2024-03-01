@@ -2,6 +2,8 @@ import random
 import string
 from typing import Set
 
+TRACR_BOS = "BOS"
+TRACR_PAD = "PAD"
 
 def get_ascii_letters_vocab(count=len(string.ascii_lowercase)) -> Set:
   return set(string.ascii_lowercase[:count])

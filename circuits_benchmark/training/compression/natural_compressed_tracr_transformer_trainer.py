@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+from typing import Dict, List, Any
 
 import torch as t
 import wandb
@@ -9,9 +9,14 @@ from transformer_lens import ActivationCache, HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
-from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import CompressedTracrTransformerTrainer
+from circuits_benchmark.benchmark.vocabs import TRACR_PAD, TRACR_BOS
+from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
+  CompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput, HookedTracrTransformer
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput, \
+  HookedTracrTransformer
+from circuits_benchmark.utils.compare_tracr_output import replace_invalid_positions_in_expected_outputs
+from tracr.transformer.encoder import CategoricalEncoder
 
 
 class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer):
@@ -78,31 +83,24 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
     expected_outputs = batch[CaseDataset.CORRECT_OUTPUT_FIELD]
     predicted_outputs: Float[Tensor, ""] = self.get_compressed_model()(inputs)
 
-    # Map expected outputs to tensor and drop BOS token from predictions
-    if self.is_categorical:
-      # remove BOS token from expected outputs
-      expected_outputs = [e[1:] for e in expected_outputs]
+    def encode_output(output: List[Any]):
+      encoder = self.get_original_model().tracr_output_encoder
+      if isinstance(encoder, CategoricalEncoder):
+        encoding = encoder.encoding_map
+        return [encoding[x] if x not in [TRACR_BOS, TRACR_PAD, None] else x for x in output]
+      else:
+        return output
 
-      # use tracr original encoding to map expected_outputs. Also, convert all None values to NAN
-      self.get_original_model().tracr_output_encoder.encoding_map[None] = t.nan
-      encoded_expected_outputs = [self.get_original_model().tracr_output_encoder.encode(o) if o is not None else None
-                                  for o in expected_outputs]
-      expected_outputs = t.tensor(encoded_expected_outputs, device=self.device)
+    # use tracr original encoding to map expected_outputs.
+    expected_outputs = [encode_output(output) for output in expected_outputs]
 
-      # drop BOS token from predictions
-      predicted_outputs = predicted_outputs[:, 1:]
-    else:
-      # Just drop the BOS token from the expected outputs
-      expected_outputs = t.tensor([e[1:] for e in expected_outputs], device=self.device)
+    # Replace BOS, PAD, and None positions with 0
+    expected_outputs, mask = replace_invalid_positions_in_expected_outputs(expected_outputs, predicted_outputs, -1)
+    expected_outputs = t.tensor(expected_outputs, device=self.device)
 
-      # We drop the BOS token and squeeze because the predicted output has only one numerical element as output
-      predicted_outputs = predicted_outputs[:, 1:].squeeze()
-
-    # Set the same value to all positions in expected outputs that are NAN, and to the predicted outputs tensor
-    # This will ensure that we are not comparing the loss of invalid positions (None values)
-    mask_nan_values = t.isnan(expected_outputs)
-    expected_outputs[mask_nan_values] = 0
-    predicted_outputs[mask_nan_values] = 0
+    # retain only the elements in predicted_outputs and expected_outputs that have true in the mask
+    predicted_outputs = predicted_outputs[~mask]
+    expected_outputs = expected_outputs[~mask]
 
     # Calculate LOSS
     if self.is_categorical:
@@ -112,7 +110,8 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
       # Cross entropy loss
       loss = -self.get_log_probs(predicted_outputs, expected_outputs).mean()
     else:
-      # MSE loss
+      # This benchmark uses numerical output. We squeeze to compare using MSE
+      predicted_outputs = predicted_outputs.squeeze()
       loss = t.nn.functional.mse_loss(predicted_outputs, expected_outputs)
 
     if self.use_wandb:

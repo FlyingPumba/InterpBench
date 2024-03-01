@@ -15,8 +15,8 @@ from circuits_benchmark.metrics.sparsity import get_zero_weights_pct
 from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.utils.compare_tracr_output import compare_positions_excluding_BOS
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
+from circuits_benchmark.utils.compare_tracr_output import replace_invalid_positions, compare_positions
 
 
 class CompressedTracrTransformerTrainer(GenericTrainer):
@@ -105,30 +105,23 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     expected_outputs_flattened = []
     predicted_outputs_flattened = []
 
-    # The [1:] is for discarding the BOS token from comparison
     for predicted_output, expected_output in zip(predicted_outputs, expected_outputs):
-      predictions = predicted_output[1:]
-      expectations = expected_output[1:]
+      # Replace all predictions and expectations values where expectations have None, BOS, or PAD with 0.
+      # We do this so that we don't compare the loss of invalid positions.
+      expected, predicted = replace_invalid_positions(expected_output, predicted_output, 0.0)
 
-      if any(isinstance(p, str) for p in predictions):
+      if any(isinstance(p, str) for p in predicted):
         # We have chars, convert them to numbers using ord to avoid the torch issue: "too many dimensions 'str'".
-        predictions = [ord(p) if p is not None else None for p in predictions]
-        expectations = [ord(e) if e is not None else None for e in expectations]
+        predicted = [ord(p) if isinstance(p, str) else p for p in predicted]
+        expected = [ord(e) if isinstance(e, str) else e for e in expected]
 
-      # Replace all predictions and expectations values where expectations have None with 0.
-      # We do this so that we don't compare the loss of invalid positions (None values)
-      indices = [i for i, e in enumerate(expectations) if e is None]
-      for i in indices:
-        predictions[i] = 0
-        expectations[i] = 0
+      predicted_outputs_flattened.extend(predicted)
+      expected_outputs_flattened.extend(expected)
 
-      predicted_outputs_flattened.extend(predictions)
-      expected_outputs_flattened.extend(expectations)
-
-      correct_predictions.extend(compare_positions_excluding_BOS(expectations,
-                                                                 predictions,
-                                                                 self.is_categorical,
-                                                                 self.args.test_accuracy_atol))
+      correct_predictions.extend(compare_positions(expected,
+                                                   predicted,
+                                                   self.is_categorical,
+                                                   self.args.test_accuracy_atol))
 
     self.test_metrics["test_accuracy"] = np.mean(correct_predictions)
 
