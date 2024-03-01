@@ -4,7 +4,7 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case40(BenchmarkCase):
+class Case36(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_emoji_sentiment_classifier(rasp.tokens)
 

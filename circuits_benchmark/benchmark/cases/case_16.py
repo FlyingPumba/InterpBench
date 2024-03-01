@@ -6,7 +6,7 @@ from circuits_benchmark.benchmark.common_programs import make_unique_token_extra
 from tracr.rasp import rasp
 
 
-class Case44(BenchmarkCase):
+class Case16(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_lexical_density_calculator(rasp.tokens)
 

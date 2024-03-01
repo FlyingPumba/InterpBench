@@ -5,7 +5,7 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case42(BenchmarkCase):
+class Case20(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_spam_message_detector(rasp.tokens)
 

@@ -5,7 +5,7 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case41(BenchmarkCase):
+class Case23(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_palindrome_word_spotter(rasp.tokens)
 

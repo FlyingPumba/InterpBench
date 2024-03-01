@@ -6,7 +6,7 @@ from circuits_benchmark.benchmark.common_programs import shift_by
 from tracr.rasp import rasp
 
 
-class Case46(BenchmarkCase):
+class Case10(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_symmetry_checker(rasp.tokens)
 

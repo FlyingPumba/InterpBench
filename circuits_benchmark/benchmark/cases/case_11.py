@@ -5,7 +5,7 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case45(BenchmarkCase):
+class Case11(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_word_count_by_length(rasp.tokens)
 

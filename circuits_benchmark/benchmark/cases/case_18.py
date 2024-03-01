@@ -6,7 +6,7 @@ from circuits_benchmark.benchmark.common_programs import make_hist, make_length
 from tracr.rasp import rasp
 
 
-class Case43(BenchmarkCase):
+class Case18(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_frequency_classifier(rasp.tokens)
 

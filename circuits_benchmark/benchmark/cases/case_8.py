@@ -6,7 +6,7 @@ from circuits_benchmark.benchmark.common_programs import shift_by
 from tracr.rasp import rasp
 
 
-class Case47(BenchmarkCase):
+class Case8(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_sequential_gap_filler(rasp.tokens, "-")
 
