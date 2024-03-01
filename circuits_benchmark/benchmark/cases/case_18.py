@@ -2,39 +2,33 @@ from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.common_programs import detect_pattern
+from circuits_benchmark.benchmark.common_programs import make_hist, make_length
 from tracr.rasp import rasp
 
 
-class Case18(BenchmarkCase):
+class Case43(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
-    return make_nested_pattern_extraction(rasp.tokens, "(", ")")
+    return make_token_frequency_classifier(rasp.tokens)
+
+  def supports_causal_masking(self) -> bool:
+    return False
 
   def get_vocab(self) -> Set:
-    some_letters = vocabs.get_ascii_letters_vocab(count=3)
-    return some_letters.union({"(", ")"})
+    return vocabs.get_ascii_letters_vocab(count=5)
 
 
-def make_nested_pattern_extraction(sop: rasp.SOp, open_token: str, close_token: str) -> rasp.SOp:
+def make_token_frequency_classifier(sop: rasp.SOp) -> rasp.SOp:
     """
-    Extracts nested patterns like parentheses or HTML tags from a sequence.
+    Classifies each token based on its frequency as 'rare', 'common', or 'frequent'.
 
     Example usage:
-      nested_pattern = make_nested_pattern_extraction(rasp.tokens, "(", ")")
-      nested_pattern("(a(b)c)(d)")
-      >> [((True, False), (False, False)), ...]
-
-    Args:
-      sop: SOp representing the sequence to analyze.
-      open_token: The token representing the start of a nested pattern.
-      close_token: The token representing the end of a nested pattern.
-
-    Returns:
-      A SOp that maps an input sequence to a sequence of tuples, each indicating 
-      the start and end of a nested pattern.
+      frequency_classifier = make_token_frequency_classifier(rasp.tokens)
+      frequency_classifier(["a", "b", "a", "c", "a", "b"])
+      >> ["frequent", "common", "frequent", "rare", "frequent", "common"]
     """
-    open_detector = detect_pattern(sop, [open_token])
-    close_detector = detect_pattern(sop, [close_token])
-    nested_pattern_sop = rasp.SequenceMap(
-        lambda x, y: (x, y), open_detector, close_detector).named("nested_pattern_extraction")
-    return nested_pattern_sop
+    frequency = make_hist()
+    total_tokens = make_length()
+    frequency_classification = rasp.SequenceMap(
+        lambda freq, total: "frequent" if freq > total / 2 else ("common" if freq > total / 4 else "rare"),
+        frequency, total_tokens)
+    return frequency_classification

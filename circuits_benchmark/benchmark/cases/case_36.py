@@ -1,29 +1,27 @@
 from typing import Set
 
-from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case36(BenchmarkCase):
+class Case40(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
-    return make_numeric_token_range_filter(rasp.tokens, 10, 50)
+    return make_emoji_sentiment_classifier(rasp.tokens)
 
   def get_vocab(self) -> Set:
-    return vocabs.get_str_numbers_vocab(0, 100)
+    return {"😊", "😢", "📘"}
 
 
-def make_numeric_token_range_filter(sop: rasp.SOp, min_val: int, max_val: int) -> rasp.SOp:
+def make_emoji_sentiment_classifier(sop: rasp.SOp) -> rasp.SOp:
     """
-    Filters numeric tokens in a sequence based on a specified range.
+    Classifies each token as 'positive', 'negative', or 'neutral' based on emojis.
 
     Example usage:
-      range_filter = make_numeric_token_range_filter(rasp.tokens, 10, 50)
-      range_filter(["5", "20", "60", "30"])
-      >> [None, "20", None, "30"]
+      emoji_sentiment = make_emoji_sentiment_classifier(rasp.tokens)
+      emoji_sentiment(["😊", "😢", "📘"])
+      >> ["positive", "negative", "neutral"]
     """
-    def in_range(token):
-        return token if token.isdigit() and min_val <= int(token) <= max_val else None
-
-    range_filter = rasp.Map(in_range, sop)
-    return range_filter
+    # Define mapping for emoji sentiment classification
+    emoji_sentiments = {"😊": "positive", "😢": "negative", "📘": "neutral"}
+    classify_sentiment = rasp.Map(lambda x: emoji_sentiments.get(x, "neutral"), sop)
+    return classify_sentiment

@@ -2,31 +2,32 @@ from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.common_programs import make_length
+from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor, make_length
 from tracr.rasp import rasp
 
 
-class Case16(BenchmarkCase):
+class Case44(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
-    return make_token_position_encoding()
+    return make_lexical_density_calculator(rasp.tokens)
 
   def get_vocab(self) -> Set:
-    return vocabs.get_ascii_letters_vocab(count=3)
+    return vocabs.get_words_vocab()
 
-def make_token_position_encoding() -> rasp.SOp:
+
+def make_lexical_density_calculator(sop: rasp.SOp) -> rasp.SOp:
     """
-    Encodes each token's position relative to the start and end of the sequence.
+    Calculates the lexical density of a text (unique words to total words ratio).
 
     Example usage:
-      position_encoding = make_token_position_encoding()
-      position_encoding(["a", "b", "c", "d"])
-      >> [(0, 3), (1, 2), (2, 1), (3, 0)]
-
-    Returns:
-      A SOp that maps each token in the input sequence to a tuple representing 
-      its position index from the start and its reverse index from the end.
+      lexical_density = make_lexical_density_calculator(rasp.tokens)
+      lexical_density(["the", "quick", "brown", "fox"])
+      >> 0.75
     """
-    position_encoding = rasp.SequenceMap(
-        lambda start_idx, end_idx: (start_idx, end_idx),
-        rasp.indices, make_length() - rasp.indices - 1).named("position_encoding")
-    return position_encoding
+    unique_words = make_unique_token_extractor(sop)
+    total_words = make_length()
+    unique_word_count = rasp.SelectorWidth(rasp.Select(unique_words, unique_words, rasp.Comparison.TRUE))
+    # note map only works for one input, so we have to use Select if we want the lambda x,y
+    temp = rasp.SequenceMap(lambda x, y: (x / y) if y > 0 else None, unique_word_count, total_words)
+    lexical_density = rasp.Map(lambda x: x if x is not None else 0, temp)
+
+    return lexical_density

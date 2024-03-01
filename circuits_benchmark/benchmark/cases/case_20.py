@@ -5,35 +5,24 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case20(BenchmarkCase):
+class Case42(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
-    return make_token_counter(rasp.tokens, "a")
+    return make_spam_message_detector(rasp.tokens)
 
   def get_vocab(self) -> Set:
-    return vocabs.get_ascii_letters_vocab(count=3)
+    return vocabs.get_words_vocab().union({"spam", "offer", "click", "now"})
 
 
-def make_token_counter(sop: rasp.SOp, target_token: rasp.Value) -> rasp.SOp:
+def make_spam_message_detector(sop: rasp.SOp) -> rasp.SOp:
     """
-    Counts occurrences of a specific token in a sequence.
+    Detects spam messages based on keyword frequency.
 
     Example usage:
-      token_count = make_token_counter(rasp.tokens, "a")
-      token_count("banana")
-      >> [1, 1, 1, 1, 1, 1]
-
-    Args:
-      sop: SOp representing the sequence to analyze.
-      target_token: The token to count occurrences of.
-
-    Returns:
-      A SOp that maps an input sequence to a sequence where each element is 
-      the count of the target token up to that position.
+      spam_detector = make_spam_message_detector(rasp.tokens)
+      spam_detector(["free", "offer", "click", "now"])
+      >> "spam"
     """
-    token_equals = rasp.Map(lambda x: x == target_token, sop).named("token_equals")
-    pre_agg = rasp.Select(rasp.indices, rasp.indices, rasp.Comparison.LEQ).named("pre_agg")
-    count_sop = rasp.Aggregate(
-        pre_agg,
-        token_equals).named("count_sop")
-    count_sop = rasp.Map(lambda x: x if x is not None else 0, count_sop).named("count_sop")
-    return count_sop
+    spam_keywords = {"free", "offer", "click", "now"}
+    keyword_count = rasp.Map(lambda x: sum(x == keyword for keyword in spam_keywords), sop)
+    is_spam = rasp.Map(lambda x: "spam" if x > 0 else "not spam", keyword_count)
+    return is_spam

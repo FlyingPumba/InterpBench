@@ -15,12 +15,6 @@ class CompileBenchmarkTest(unittest.TestCase):
     case_file_names = [str(f.name) for f in Path(project_root).glob("benchmark/cases/case_*.py") if f.is_file()]
     indices = [f.split("_")[1].split(".")[0] for f in case_file_names]
 
-    # remove cases that are known to fail and we have yet to fix
-    failing_cases = ["8", "10", "11", "16", "18", "20", "23", "36"]
-    for failing_case in failing_cases:
-      if failing_case in indices:
-        indices.remove(failing_case)
-
     args, _ = build_main_parser().parse_known_args(["compile",
                                                     ("-i=" + ",".join(indices)),
                                                     "--fail-on-error",
