@@ -12,7 +12,7 @@ from circuits_benchmark.utils.project_paths import detect_project_root
 class CompileBenchmarkTest(unittest.TestCase):
   def test_all_cases_can_be_compiled_and_have_expected_outputs(self):
     project_root = detect_project_root()
-    case_file_names = [str(f.name) for f in Path(project_root).glob("benchmark/cases/case_*.py") if f.is_file()]
+    case_file_names = [str(f.name) for f in Path(project_root).glob("circuits_benchmark/benchmark/cases/case_*.py") if f.is_file()]
     indices = [f.split("_")[1].split(".")[0] for f in case_file_names]
 
     args, _ = build_main_parser().parse_known_args(["compile",
