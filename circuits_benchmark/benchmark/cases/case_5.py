@@ -20,14 +20,3 @@ class Case5(BenchmarkCase):
 
   def supports_causal_masking(self) -> bool:
     return False
-
-  def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
-    if metric_name not in ["l2"]:
-      raise ValueError(f"Metric {metric_name} is not available for case {self}")
-
-    inputs = self.get_clean_data().get_inputs()
-    with torch.no_grad():
-      baseline_output = tl_model(inputs)
-
-    if metric_name == "l2":
-      return partial(l2_metric, baseline_output=baseline_output, is_categorical=False)

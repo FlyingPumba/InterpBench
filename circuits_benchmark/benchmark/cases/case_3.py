@@ -26,21 +26,3 @@ class Case3(BenchmarkCase):
   def get_max_seq_len(self) -> int:
     return 5
 
-  def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
-    if metric_name not in ["l2"]:
-      # TODO: Figure out why KL divergence is not working for this case. It seems to be available in ACDC's experiments.
-      raise ValueError(f"Metric {metric_name} is not available for case {self}")
-
-    inputs = self.get_clean_data().get_inputs()
-    with torch.no_grad():
-      baseline_output = tl_model(inputs)
-      base_model_logprobs = F.log_softmax(baseline_output, dim=-1)
-
-    if metric_name == "kl":
-      return partial(kl_divergence,
-                     base_model_logprobs=base_model_logprobs,
-                     mask_repeat_candidates=None,
-                     last_seq_element_only=False)
-    else:
-      return partial(l2_metric, baseline_output=baseline_output, is_categorical=False)
-

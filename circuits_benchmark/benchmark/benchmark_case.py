@@ -1,5 +1,6 @@
 import importlib
 import os.path
+from functools import partial
 from random import randint
 from typing import Set, Optional, Sequence
 
@@ -10,6 +11,7 @@ from torch import Tensor
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
+from circuits_benchmark.metrics.validation_metrics import l2_metric
 from circuits_benchmark.transformers.alignment import Alignment
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
@@ -135,9 +137,21 @@ class BenchmarkCase(object):
     """
     return self.get_program()(input)
 
-  def get_validation_metric(self, metric_name: str, tl_model: HookedTracrTransformer) -> Tensor:
-    """Returns the validation metric for the benchmark case."""
-    raise NotImplementedError()
+  def get_validation_metric(self,
+                            metric_name: str,
+                            tl_model: HookedTracrTransformer,
+                            data_size: Optional[int] = 100) -> Tensor:
+    """Returns the validation metric for the benchmark case.
+    By default, only the l2 metric is available. Other metrics should override this method.
+    """
+    if metric_name not in ["l2"]:
+      raise ValueError(f"Metric {metric_name} is not available for case {self}")
+
+    inputs = self.get_clean_data(count=data_size).get_inputs()
+    with t.no_grad():
+      baseline_output = tl_model(inputs)
+
+    return partial(l2_metric, baseline_output=baseline_output, is_categorical=False)
 
   def get_corrupted_data(self, count: Optional[int] = 10, seed: Optional[int] = 43) -> CaseDataset:
     """Returns the corrupted data for the benchmark case.

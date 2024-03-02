@@ -20,6 +20,7 @@ def setup_args_parser(subparsers):
   parser.add_argument('--threshold', type=float, required=True, help='Value for threshold')
   parser.add_argument('--metric', type=str, required=True, choices=["kl", "l2"],
                       help="Which metric to use for the experiment")
+  parser.add_argument('--data-size', type=int, required=False, default=1000, help='How many samples to use')
 
   parser.add_argument('--first-cache-cpu', type=str, required=False, default="True",
                       help='Value for first_cache_cpu (the old name for the `online_cache`)')
@@ -98,9 +99,10 @@ def run_acdc(case: BenchmarkCase, args):
   second_metric = None  # some tasks only have one metric
   use_pos_embed = True  # Always true for all tracr models.
 
-  validation_metric = case.get_validation_metric(metric_name, tl_model)
-  toks_int_values = case.get_clean_data().get_inputs()
-  toks_int_values_other = case.get_corrupted_data().get_inputs()
+  data_size = args.data_size
+  validation_metric = case.get_validation_metric(metric_name, tl_model, data_size=data_size)
+  toks_int_values = case.get_clean_data(count=data_size).get_inputs()
+  toks_int_values_other = case.get_corrupted_data(count=data_size).get_inputs()
 
   try:
     with open(__file__, "r") as f:
