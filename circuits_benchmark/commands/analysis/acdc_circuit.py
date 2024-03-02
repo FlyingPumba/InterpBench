@@ -1,15 +1,5 @@
-import os
-
-import numpy as np
-import plotly
-import plotly.express as px
-from transformer_lens.utils import to_numpy
-
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.utils.get_cases import get_cases
-from tracr.compiler.assemble import AssembledTransformerModel
-from circuits_benchmark.utils.cloudpickle import load_from_pickle
-from circuits_benchmark.utils.project_paths import get_default_output_dir
 
 
 def setup_args_parser(subparsers):
@@ -53,3 +43,10 @@ def run(args):
   false_negatives = tracr_edges - acdc_edges
   print(f" - False Positives: {sorted(false_positives)}")
   print(f" - False Negatives: {sorted(false_negatives)}")
+
+  # print rates of FP/FN for nodes and edges as summary
+  print("\nSummary:")
+  print(f" - Nodes FP rate: {len(false_positives) / len(tracr_nodes)}")
+  print(f" - Nodes FN rate: {len(false_negatives) / len(tracr_nodes)}")
+  print(f" - Edges FP rate: {len(false_positives) / len(tracr_edges)}")
+  print(f" - Edges FN rate: {len(false_negatives) / len(tracr_edges)}")
