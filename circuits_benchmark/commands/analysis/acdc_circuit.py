@@ -1,3 +1,4 @@
+from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.utils.get_cases import get_cases
 
@@ -20,6 +21,10 @@ def run(args):
     raise ValueError(f"No case found with index {args.i}")
   case = cases[0]
 
+  full_circuit = get_full_acdc_circuit(case.get_tl_model().cfg.n_layers)
+  all_nodes = set(full_circuit.nodes)
+  all_edges = set(full_circuit.edges)
+
   tracr_hl_circuit, tracr_ll_circuit, alignment = case.get_tracr_circuit(granularity="acdc_hooks")
 
   # remove from ACDC nodes and edges the indices at the end (e.g., "[:]") to compare with tracr
@@ -30,23 +35,32 @@ def run(args):
   print("\nNodes analysis:")
   acdc_nodes = set(acdc_nodes)
   tracr_nodes = set(tracr_ll_circuit.nodes)
-  false_positives = acdc_nodes - tracr_nodes
-  false_negatives = tracr_nodes - acdc_nodes
-  print(f" - False Positives: {sorted(false_positives)}")
-  print(f" - False Negatives: {sorted(false_negatives)}")
+  false_positive_nodes = acdc_nodes - tracr_nodes
+  false_negative_nodes = tracr_nodes - acdc_nodes
+  true_positive_nodes = acdc_nodes & tracr_nodes
+  true_negative_nodes = all_nodes - (acdc_nodes | tracr_nodes)
+  print(f" - False Positives: {sorted(false_positive_nodes)}")
+  print(f" - False Negatives: {sorted(false_negative_nodes)}")
+  print(f" - True Positives: {sorted(true_positive_nodes)}")
+  print(f" - True Negatives: {sorted(true_negative_nodes)}")
 
   # calculate edges false positives and false negatives
   print("\nEdges analysis:")
   acdc_edges = set(acdc_edges)
   tracr_edges = set(tracr_ll_circuit.edges)
-  false_positives = acdc_edges - tracr_edges
-  false_negatives = tracr_edges - acdc_edges
-  print(f" - False Positives: {sorted(false_positives)}")
-  print(f" - False Negatives: {sorted(false_negatives)}")
+  false_positive_edges = acdc_edges - tracr_edges
+  false_negative_edges = tracr_edges - acdc_edges
+  true_positive_edges = acdc_edges & tracr_edges
+  true_negative_edges = all_edges - (acdc_edges | tracr_edges)
+  print(f" - False Positives: {sorted(false_positive_edges)}")
+  print(f" - False Negatives: {sorted(false_negative_edges)}")
+  print(f" - True Positives: {sorted(true_positive_edges)}")
+  print(f" - True Negatives: {sorted(true_negative_edges)}")
 
-  # print rates of FP/FN for nodes and edges as summary
+  # print FP and TP rates for nodes and edges as summary
   print("\nSummary:")
-  print(f" - Nodes FP rate: {len(false_positives) / len(tracr_nodes)}")
-  print(f" - Nodes FN rate: {len(false_negatives) / len(tracr_nodes)}")
-  print(f" - Edges FP rate: {len(false_positives) / len(tracr_edges)}")
-  print(f" - Edges FN rate: {len(false_negatives) / len(tracr_edges)}")
+  print(f" - Nodes TP rate: {len(true_positive_nodes) / len(true_positive_nodes | false_negative_nodes)}")
+  print(f" - Nodes FP rate: {len(false_positive_nodes) / len(false_positive_nodes | true_negative_nodes)}")
+
+  print(f" - Edges TP rate: {len(true_positive_edges) / len(true_positive_edges | false_negative_edges)}")
+  print(f" - Edges FP rate: {len(false_positive_edges) / len(false_positive_edges | true_negative_edges)}")
