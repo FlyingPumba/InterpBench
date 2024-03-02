@@ -9,6 +9,8 @@ def setup_args_parser(subparsers):
                       help="The index of the case to compare against.")
   parser.add_argument("--path", type=str, required=True,
                       help="The path to the acdc circuit to analyze (.pkl file).")
+  parser.add_argument("-v", "--verbose", action="store_true",
+                      help="Prints more information about the process.")
 
 
 def run(args):
@@ -32,35 +34,37 @@ def run(args):
   acdc_edges = [(edge[0].split("[")[0], edge[1].split("[")[0]) for edge in acdc_circuit.edges]
 
   # calculate nodes false positives and false negatives
-  print("\nNodes analysis:")
   acdc_nodes = set(acdc_nodes)
   tracr_nodes = set(tracr_ll_circuit.nodes)
   false_positive_nodes = acdc_nodes - tracr_nodes
   false_negative_nodes = tracr_nodes - acdc_nodes
   true_positive_nodes = acdc_nodes & tracr_nodes
   true_negative_nodes = all_nodes - (acdc_nodes | tracr_nodes)
-  print(f" - False Positives: {sorted(false_positive_nodes)}")
-  print(f" - False Negatives: {sorted(false_negative_nodes)}")
-  print(f" - True Positives: {sorted(true_positive_nodes)}")
-  print(f" - True Negatives: {sorted(true_negative_nodes)}")
+
+  if args.verbose:
+    print("\nNodes analysis:")
+    print(f" - False Positives: {sorted(false_positive_nodes)}")
+    print(f" - False Negatives: {sorted(false_negative_nodes)}")
+    print(f" - True Positives: {sorted(true_positive_nodes)}")
+    print(f" - True Negatives: {sorted(true_negative_nodes)}")
 
   # calculate edges false positives and false negatives
-  print("\nEdges analysis:")
   acdc_edges = set(acdc_edges)
   tracr_edges = set(tracr_ll_circuit.edges)
   false_positive_edges = acdc_edges - tracr_edges
   false_negative_edges = tracr_edges - acdc_edges
   true_positive_edges = acdc_edges & tracr_edges
   true_negative_edges = all_edges - (acdc_edges | tracr_edges)
-  print(f" - False Positives: {sorted(false_positive_edges)}")
-  print(f" - False Negatives: {sorted(false_negative_edges)}")
-  print(f" - True Positives: {sorted(true_positive_edges)}")
-  print(f" - True Negatives: {sorted(true_negative_edges)}")
+  if args.verbose:
+    print("\nEdges analysis:")
+    print(f" - False Positives: {sorted(false_positive_edges)}")
+    print(f" - False Negatives: {sorted(false_negative_edges)}")
+    print(f" - True Positives: {sorted(true_positive_edges)}")
+    print(f" - True Negatives: {sorted(true_negative_edges)}")
 
   # print FP and TP rates for nodes and edges as summary
-  print("\nSummary:")
+  print(f"\nSummary for file {args.path} and case {args.i}:")
   print(f" - Nodes TP rate: {len(true_positive_nodes) / len(true_positive_nodes | false_negative_nodes)}")
   print(f" - Nodes FP rate: {len(false_positive_nodes) / len(false_positive_nodes | true_negative_nodes)}")
-
   print(f" - Edges TP rate: {len(true_positive_edges) / len(true_positive_edges | false_negative_edges)}")
   print(f" - Edges FP rate: {len(false_positive_edges) / len(false_positive_edges | true_negative_edges)}")
