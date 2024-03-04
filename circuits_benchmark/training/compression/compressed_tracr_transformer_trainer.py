@@ -146,9 +146,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       if residual_stream_mapper is not None:
         resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
 
-      self.test_metrics["resample_ablation_loss"] = get_resample_ablation_loss(
-        **resample_ablation_loss_args
-      ).item()
+      resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
+      self.test_metrics["resample_ablation_loss"] = resample_ablation_output.loss
+      self.test_metrics["resample_ablation_var_exp"] = resample_ablation_output.variance_explained
 
     # calculate sparsity metrics
     self.test_metrics["zero_weights_pct"] = get_zero_weights_pct(self.get_compressed_model())

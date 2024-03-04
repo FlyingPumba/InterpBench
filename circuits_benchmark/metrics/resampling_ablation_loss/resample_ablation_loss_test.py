@@ -118,7 +118,7 @@ class ResampleAblationLossTest(unittest.TestCase):
           original_tracr_model,
           random_model,
           max_interventions=n_interventions
-        )
+        ).loss
         row.append(loss)
 
       # add row to the beginning of the list
@@ -172,8 +172,7 @@ class ResampleAblationLossTest(unittest.TestCase):
           original_tracr_model,
           random_model,
           max_interventions=n_interventions
-        )
-
+        ).loss
         row.append(loss)
 
       # add row to the beginning of the list
@@ -229,7 +228,7 @@ class ResampleAblationLossTest(unittest.TestCase):
           original_tracr_model,
           random_model,
           max_interventions=n_interventions
-        )
+        ).loss
         row.append(loss)
 
       # add row to the beginning of the list
@@ -283,7 +282,7 @@ class ResampleAblationLossTest(unittest.TestCase):
           original_tracr_model,
           random_model,
           max_interventions=n_interventions
-        )
+        ).loss
         row.append(loss)
 
       # add row to the beginning of the list
@@ -336,7 +335,7 @@ class ResampleAblationLossTest(unittest.TestCase):
             original_tracr_model,
             random_model,
             max_interventions=n_interventions
-          )
+          ).loss
           row.append(loss)
 
         # add row to the beginning of the list
@@ -389,7 +388,7 @@ class ResampleAblationLossTest(unittest.TestCase):
             original_tracr_model,
             random_model,
             max_interventions=n_interventions
-          )
+          ).loss
           row.append(loss)
 
         # add row to the beginning of the list
@@ -457,7 +456,7 @@ class ResampleAblationLossTest(unittest.TestCase):
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions
-          )
+          ).loss
           row.append(loss)
 
         # add row to the beginning of the list
@@ -527,7 +526,7 @@ class ResampleAblationLossTest(unittest.TestCase):
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions
-          )
+          ).loss
           row.append(loss)
 
         # add row to the beginning of the list
@@ -619,7 +618,7 @@ class ResampleAblationLossTest(unittest.TestCase):
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions
-          )
+          ).loss
           row.append(loss)
 
         # add row to the beginning of the list

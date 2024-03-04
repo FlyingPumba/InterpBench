@@ -18,6 +18,7 @@ class TrainTest(unittest.TestCase):
                                                     "--train-data-size=10",
                                                     "--test-data-ratio=0.3",
                                                     "--epochs=2",
+                                                    "--resample-ablation-loss=True",
                                                     "--resample-ablation-max-interventions=5",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
@@ -31,6 +32,7 @@ class TrainTest(unittest.TestCase):
                                                     "--train-data-size=10",
                                                     "--test-data-ratio=0.3",
                                                     "--batch-size=2",
+                                                    "--resample-ablation-loss=True",
                                                     "--resample-ablation-max-interventions=5",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
@@ -44,6 +46,7 @@ class TrainTest(unittest.TestCase):
                                                     "--train-data-size=10",
                                                     "--auto-compression-accuracy=0.01",
                                                     "--early-stop-test-accuracy=0.01",
+                                                    "--resample-ablation-loss=True",
                                                     "--resample-ablation-max-interventions=5",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
@@ -56,6 +59,7 @@ class TrainTest(unittest.TestCase):
                                                     "--train-data-size=10",
                                                     "--test-data-ratio=0.3",
                                                     "--epochs=2",
+                                                    "--resample-ablation-loss=True",
                                                     "--resample-ablation-max-interventions=5",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
@@ -70,6 +74,7 @@ class TrainTest(unittest.TestCase):
                                                     "--ae-epochs=2",
                                                     "--freeze-ae-weights",
                                                     "--epochs=2",
+                                                    "--resample-ablation-loss=True",
                                                     "--resample-ablation-max-interventions=5",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
@@ -90,6 +95,7 @@ class TrainTest(unittest.TestCase):
                                                     "--test-data-ratio=0.3",
                                                     "--freeze-ae-weights",
                                                     "--epochs=2",
+                                                    "--resample-ablation-loss=True",
                                                     "--resample-ablation-max-interventions=5",
                                                     ("--ae-path=" + ae_weights_path),
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
@@ -110,6 +116,7 @@ class TrainTest(unittest.TestCase):
                                                     "--train-data-size=10",
                                                     "--test-data-ratio=0.3",
                                                     "--epochs=2",
+                                                    "--resample-ablation-loss=True",
                                                     "--resample-ablation-max-interventions=5",
                                                     ("--ae-path=" + ae_weights_path),
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])

@@ -1,6 +1,7 @@
 import random
 from typing import List, Generator
 
+import numpy as np
 from transformer_lens import HookedTransformer
 
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Intervention

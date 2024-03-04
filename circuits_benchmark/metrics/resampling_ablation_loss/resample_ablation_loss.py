@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import List
 
 import numpy as np
@@ -11,6 +12,11 @@ from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Int
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_interventions import get_interventions
 from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 
+@dataclass
+class ResampleAblationLossOutput:
+  loss: float
+  variance_explained: float
+
 
 def get_resample_ablation_loss(
     clean_inputs: CaseDataset,
@@ -21,7 +27,7 @@ def get_resample_ablation_loss(
     hook_filters: List[str] | None = None,
     batch_size: int = 2048,
     max_interventions: int = 10
-) -> Float[Tensor, ""]:
+) -> ResampleAblationLossOutput:
   if hook_filters is None:
     # by default, we use the following hooks for the intervention points.
     # This will give 2 + n_layers * 2 intervention points.
@@ -50,6 +56,7 @@ def get_resample_ablation_loss(
 
   # for each intervention, run both models, calculate MSE and add it to the losses.
   losses = []
+  variance_explained = []
   for intervention in get_interventions(base_model,
                                         hypothesis_model,
                                         hook_filters,
@@ -57,6 +64,7 @@ def get_resample_ablation_loss(
                                         max_interventions):
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
     intervention_losses = []
+    intervention_variance_explained = []
     for intervention_data in batched_intervention_data:
       clean_inputs_batch = intervention_data.clean_inputs
 
@@ -65,11 +73,15 @@ def get_resample_ablation_loss(
         hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
 
         loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits).item()
+        var_explained = 1 - loss / t.var(base_model_logits).item()
+
         intervention_losses.append(loss)
+        intervention_variance_explained.append(var_explained)
 
     losses.append(np.mean(intervention_losses))
+    variance_explained.append(np.mean(intervention_variance_explained))
 
-  return np.mean(losses)
+  return ResampleAblationLossOutput(loss=np.mean(losses), variance_explained=np.mean(variance_explained))
 
 
 def get_batched_intervention_data(
