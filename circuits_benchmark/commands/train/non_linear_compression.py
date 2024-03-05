@@ -7,8 +7,7 @@ from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.auto_compression import run_auto_compression_training
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
-from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
-  causal_compression_train_loss_options
+from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
 from circuits_benchmark.training.compression.non_linear_compressed_tracr_transformer_trainer import \
   NonLinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
@@ -24,7 +23,7 @@ def setup_args_parser(subparsers):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
-  parser.add_argument("--train-loss", type=str, default="layer", choices=causal_compression_train_loss_options,
+  parser.add_argument("--train-loss", type=str, default="layer", choices=compression_train_loss_level_options,
                       help="The train loss level for the compression training.")
   parser.add_argument("--ae-path", type=str, default=None,
                       help="Path to trained AutoEncoder model.")
@@ -86,7 +85,9 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
 
     print(
       f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
-    trainer = AutoEncoderTrainer(case, autoencoder, tl_model, ae_training_args, output_dir=args.output_dir)
+    trainer = AutoEncoderTrainer(case, autoencoder, tl_model, ae_training_args,
+                                 train_loss_level=args.train_loss,
+                                 output_dir=args.output_dir)
     final_metrics = trainer.train()
     print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
     print(final_metrics)

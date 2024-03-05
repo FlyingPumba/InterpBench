@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
+from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
@@ -19,11 +20,13 @@ class AutoEncoderTrainer(GenericTrainer):
                autoencoder: AutoEncoder,
                tl_model: HookedTracrTransformer,
                args: TrainingArgs,
+               train_loss_level: CompressionTrainLossLevel = "layer",
                output_dir: str | None = None):
     self.autoencoder = autoencoder
     self.tl_model = tl_model
     self.tl_model_n_layers = tl_model.cfg.n_layers
     self.tl_model.freeze_all_weights()
+    self.train_loss_level = train_loss_level
     super().__init__(case, list(autoencoder.parameters()), args, output_dir=output_dir)
 
   def setup_dataset(self):
@@ -31,10 +34,19 @@ class AutoEncoderTrainer(GenericTrainer):
     tl_inputs = tl_dataset.get_inputs()
     _, tl_cache = self.tl_model.run_with_cache(tl_inputs)
 
-    # collect the residual stream activations from all layers
-    all_resid_pre = [tl_cache["resid_pre", layer] for layer in range(self.tl_model_n_layers)]
-    last_resid_post = tl_cache["resid_post", self.tl_model_n_layers - 1]
-    tl_activations = t.cat(all_resid_pre + [last_resid_post])
+    if self.train_loss_level == "layer":
+      # collect the residual stream activations from all layers
+      all_resid_pre = [tl_cache["resid_pre", layer] for layer in range(self.tl_model_n_layers)]
+      last_resid_post = tl_cache["resid_post", self.tl_model_n_layers - 1]
+      tl_activations = t.cat(all_resid_pre + [last_resid_post])
+    elif self.train_loss_level == "component":
+      # collect the output of the attention and mlp components from all layers, as well as the embeddings
+      all_attn_out = [tl_cache["attn_out", layer] for layer in range(self.tl_model_n_layers)]
+      all_mlp_out = [tl_cache["mlp_out", layer] for layer in range(self.tl_model_n_layers)]
+      embeddings = [tl_cache["hook_embed"], tl_cache["hook_pos_embed"]]
+      tl_activations = t.cat(all_attn_out + all_mlp_out + embeddings)
+    else:
+      raise ValueError(f"Invalid train_loss_level: {self.train_loss_level}")
 
     # Shape of tl_activations is [activations_len, seq_len, d_model], we will convert to [activations_len, d_model] to
     # treat the residual stream for each sequence position as a separate sample.
@@ -94,6 +106,18 @@ class AutoEncoderTrainer(GenericTrainer):
     tags = super().get_wandb_tags()
     tags.append("autoencoder-trainer")
     return tags
+
+  def get_wandb_config(self):
+    cfg = super().get_wandb_config()
+    cfg.update({
+      "train_loss_level": self.train_loss_level,
+      "ae_input_size": self.autoencoder.input_size,
+      "ae_compression_size": self.autoencoder.compression_size,
+      "ae_layers": self.autoencoder.n_layers,
+      "ae_first_hidden_layer_shape": self.autoencoder.first_hidden_layer_shape,
+      "ae_use_bias": self.autoencoder.use_bias,
+    })
+    return cfg
 
   def save_artifacts(self):
     prefix = f"case-{self.case.get_index()}-resid-{self.autoencoder.compression_size}"

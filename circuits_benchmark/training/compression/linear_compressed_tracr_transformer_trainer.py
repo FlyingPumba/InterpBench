@@ -4,7 +4,8 @@ from transformer_lens import ActivationCache, HookedTransformer, utils
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
-  CausallyCompressedTracrTransformerTrainer, CausalCompressionTrainLoss
+  CausallyCompressedTracrTransformerTrainer
+from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
 from circuits_benchmark.training.compression.residual_stream_mapper.linear_mapper import LinearMapper
 from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
@@ -19,7 +20,7 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
                original_model: HookedTracrTransformer,
                compressed_model: LinearCompressedTracrTransformer,
                args: TrainingArgs,
-               train_loss_level: CausalCompressionTrainLoss = "layer",
+               train_loss_level: CompressionTrainLossLevel = "layer",
                output_dir: str | None = None):
     self.original_model = original_model
     self.compressed_model = compressed_model
@@ -56,6 +57,11 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
           cache_key = utils.get_act_name(hook_name, layer)
           compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
             compressed_model_cache.cache_dict[cache_key])
+
+      for component in ["embed", "pos_embed"]:
+        hook_name = f"hook_{component}"
+        compressed_model_cache.cache_dict[hook_name] = self.get_residual_stream_mapper().decompress(
+          compressed_model_cache.cache_dict[hook_name])
 
     else:
       raise ValueError(f"Invalid train loss level: {self.train_loss_level}")

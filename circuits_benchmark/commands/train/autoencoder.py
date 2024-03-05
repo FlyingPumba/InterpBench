@@ -7,6 +7,7 @@ from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.compression_training_utils import parse_compression_size
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
+from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
@@ -17,6 +18,8 @@ def setup_args_parser(subparsers):
 
   parser.add_argument("--residual-stream-compression-size", type=str, required=True,
                       help="A list of comma separated sizes for the compressed residual stream.")
+  parser.add_argument("--train-loss", type=str, default="layer", choices=compression_train_loss_level_options,
+                      help="The train loss level for the compression training.")
   parser.add_argument("--ae-layers", type=int, default=2,
                       help="The desired number of layers for the autoencoder.")
   parser.add_argument("--ae-first-hidden-layer-shape", type=str, default="wide", choices=["wide", "narrow"],
@@ -43,7 +46,9 @@ def train_autoencoder(case: BenchmarkCase, args: Namespace):
 
     print(
       f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
-    trainer = AutoEncoderTrainer(case, autoencoder, tl_model, training_args, output_dir=args.output_dir)
+    trainer = AutoEncoderTrainer(case, autoencoder, tl_model, training_args,
+                                 train_loss_level=args.train_loss,
+                                 output_dir=args.output_dir)
     final_metrics = trainer.train()
     print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
     print(final_metrics)

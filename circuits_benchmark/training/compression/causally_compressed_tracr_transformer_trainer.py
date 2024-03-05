@@ -1,5 +1,4 @@
-import typing
-from typing import List, Dict, Literal
+from typing import List, Dict
 
 import torch as t
 import wandb
@@ -11,11 +10,9 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
   CompressedTracrTransformerTrainer
+from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-
-CausalCompressionTrainLoss = Literal["layer", "component"]
-causal_compression_train_loss_options = list(typing.get_args(CausalCompressionTrainLoss))
 
 
 class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer):
@@ -26,7 +23,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
                training_args: TrainingArgs,
                is_categorical: bool,
                n_layers: int,
-               train_loss_level: CausalCompressionTrainLoss = "layer",
+               train_loss_level: CompressionTrainLossLevel = "layer",
                output_dir: str | None = None):
     super().__init__(case, parameters, training_args, is_categorical, n_layers, output_dir=output_dir)
     self.train_loss_level = train_loss_level
@@ -73,6 +70,18 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
             wandb.log({f"layer_{str(layer)}_{component}_loss": component_loss}, step=self.step)
 
           loss += component_loss
+
+      # Sum the L2 output vectors for the embeddings in both compressed and original model
+      for component in ["embed", "pos_embed"]:
+        hook_name = f"hook_{component}"
+        compressed_model_output = compressed_model_cache[hook_name]
+        original_model_output = original_model_cache[hook_name]
+
+        component_loss = t.nn.functional.mse_loss(original_model_output, compressed_model_output)
+        if self.use_wandb:
+          wandb.log({f"{hook_name}_loss": component_loss}, step=self.step)
+
+        loss += component_loss
 
     else:
       raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")

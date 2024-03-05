@@ -12,7 +12,8 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
 from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
-  CausallyCompressedTracrTransformerTrainer, CausalCompressionTrainLoss
+  CausallyCompressedTracrTransformerTrainer
+from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
 from circuits_benchmark.training.compression.residual_stream_mapper.autoencoder_mapper import AutoEncoderMapper
 from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from circuits_benchmark.training.training_args import TrainingArgs
@@ -26,7 +27,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                new_tl_model: HookedTracrTransformer,
                autoencoder: AutoEncoder,
                args: TrainingArgs,
-               train_loss_level: CausalCompressionTrainLoss = "layer",
+               train_loss_level: CompressionTrainLossLevel = "layer",
                output_dir: str | None = None,
                freeze_ae_weights: bool = False,
                ae_training_epochs_gap: int = 10,
@@ -56,8 +57,11 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       if self.ae_training_args is None:
         self.ae_training_args = dataclasses.replace(args, wandb_project=None, wandb_name=None)
 
-      self.autoencoder_trainer = AutoEncoderTrainer(case, self.autoencoder, self.old_tl_model,
-                                                    self.ae_training_args, output_dir=output_dir)
+      self.autoencoder_trainer = AutoEncoderTrainer(case, self.autoencoder,
+                                                    self.old_tl_model,
+                                                    self.ae_training_args,
+                                                    train_loss_level=train_loss_level,
+                                                    output_dir=output_dir)
 
     super().__init__(case,
                      parameters,
@@ -126,6 +130,11 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
           cache_key = utils.get_act_name(hook_name, layer)
           compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
             compressed_model_cache.cache_dict[cache_key])
+
+      for component in ["embed", "pos_embed"]:
+        hook_name = f"hook_{component}"
+        compressed_model_cache.cache_dict[hook_name] = self.get_residual_stream_mapper().decompress(
+          compressed_model_cache.cache_dict[hook_name])
 
     else:
       raise ValueError(f"Invalid train loss level: {self.train_loss_level}")

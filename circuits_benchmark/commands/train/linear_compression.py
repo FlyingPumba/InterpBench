@@ -3,8 +3,7 @@ from argparse import Namespace
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.auto_compression import run_auto_compression_training
-from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
-  causal_compression_train_loss_options
+from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import \
   LinearCompressedTracrTransformer, \
   linear_compression_initialization_options
@@ -23,7 +22,7 @@ def setup_args_parser(subparsers):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
-  parser.add_argument("--train-loss", type=str, default="layer", choices=causal_compression_train_loss_options,
+  parser.add_argument("--train-loss", type=str, default="layer", choices=compression_train_loss_level_options,
                       help="The train loss level for the compression training.")
   parser.add_argument("--linear-compression-initialization", type=str, default="linear",
                       choices=linear_compression_initialization_options,
