@@ -54,6 +54,14 @@ def get_resample_ablation_loss(
                                                             residual_stream_mapper,
                                                             batch_size)
 
+  # Calculate the variance of the base model logits.
+  base_model_logits_variance = []
+  for intervention_data in batched_intervention_data:
+    clean_inputs_batch = intervention_data.clean_inputs
+    base_model_logits = base_model(clean_inputs_batch)
+    base_model_logits_variance.append(t.var(base_model_logits).item())
+  base_model_logits_variance = np.mean(base_model_logits_variance)
+
   # for each intervention, run both models, calculate MSE and add it to the losses.
   losses = []
   variance_explained = []
@@ -73,8 +81,7 @@ def get_resample_ablation_loss(
         hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
 
         loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits).item()
-        base_logits_variance = t.var(base_model_logits).item()
-        var_explained = 1 - loss / base_logits_variance
+        var_explained = 1 - loss / base_model_logits_variance
 
         intervention_losses.append(loss)
         intervention_variance_explained.append(var_explained)
