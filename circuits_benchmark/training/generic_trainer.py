@@ -179,11 +179,13 @@ class GenericTrainer:
     return f"Command: {' '.join(sys.argv)}"
 
   def get_wandb_config(self):
-    return dataclasses.asdict(self.args).update({
+    cfg = dataclasses.asdict(self.args)
+    cfg.update({
       "resolved_epochs": self.epochs,
       "resolved_steps": self.steps,
       "case": self.case.get_index()
     })
+    return cfg
 
   def save_artifacts(self):
     pass

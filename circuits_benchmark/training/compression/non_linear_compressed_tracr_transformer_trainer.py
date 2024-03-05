@@ -153,6 +153,8 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
       })
       cfg.update({f"ae_training_args_{k}": v for k, v in dataclasses.asdict(self.ae_training_args).items()})
 
+    return cfg
+
   def save_artifacts(self):
     if not os.path.exists(self.output_dir):
       os.makedirs(self.output_dir)
