@@ -23,6 +23,8 @@ class AutoEncoder(nn.Module):
 
     self.input_size = encoder_input_size
     self.compression_size = encoder_output_size
+    self.n_layers = n_layers
+    self.first_hidden_layer_shape = first_hidden_layer_shape
     self.use_bias = True
 
     self.setup_encoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)

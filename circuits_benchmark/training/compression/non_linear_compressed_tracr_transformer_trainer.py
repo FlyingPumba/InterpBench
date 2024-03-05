@@ -140,6 +140,8 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
     cfg = super().get_wandb_config()
     cfg.update({
       "freeze_ae_weights": self.freeze_ae_weights,
+      "ae_input_size": self.autoencoder.input_size,
+      "ae_compression_size": self.autoencoder.compression_size,
       "ae_layers": self.autoencoder.n_layers,
       "ae_first_hidden_layer_shape": self.autoencoder.first_hidden_layer_shape,
       "ae_use_bias": self.autoencoder.use_bias,
