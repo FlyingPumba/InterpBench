@@ -409,7 +409,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         f"{output_dir}/resample-ablation-loss-variance-re-init-no-op-matrix-random-data-and-interventions-{idx_plot + 1}.png")
 
   def test_variance_for_natural_transformer(self):
-    self.skipTest("This test takes a long time to run, so it is skipped by default.")
+    # self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
     original_tracr_model: HookedTracrTransformer = case.get_tl_model()
@@ -444,40 +444,60 @@ class ResampleAblationLossTest(unittest.TestCase):
       max_interventions_step = int(max_interventions * 0.1)
       intervention_numbers = list(range(1, max_interventions + 1, max_interventions_step)) + [max_interventions]
 
-      heatmap_data = []
+      loss_heatmap_data = []
+      var_exp_heatmap_data = []
 
       for data_size in data_sizes:
-        row = []
+        heatmap_row = []
+        var_exp_row = []
         for n_interventions in intervention_numbers:
           self.set_random_seed()
-          loss = get_resample_ablation_loss(
+          output = get_resample_ablation_loss(
             case.get_clean_data(count=data_size, seed=None),
             case.get_corrupted_data(count=data_size, seed=None),
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions
-          ).loss
-          row.append(loss)
+          )
+          heatmap_row.append(output.loss)
+          var_exp_row.append(output.variance_explained)
 
         # add row to the beginning of the list
-        heatmap_data.insert(0, row)
+        loss_heatmap_data.insert(0, heatmap_row)
+        var_exp_heatmap_data.insert(0, var_exp_row)
 
       # Plot heatmap using plotly
-      fig = px.imshow(heatmap_data,
+      fig = px.imshow(loss_heatmap_data,
                       color_continuous_scale="RdBu_r",  # reverse RdBu (red is positive)
                       x=[str(i) for i in intervention_numbers],
                       y=[str(i) for i in reversed(data_sizes)],
                       width=800,
-                      height=800)
+                      height=800,
+                      title="Resample Ablation Loss - Natural Compression")
       fig.update_layout(
         xaxis={"title": "Interventions"},
         yaxis={"title": "Data Size"},
       )
       fig.write_image(
-        f"{output_dir}/resample-ablation-loss-variance-for-natural-compression-{idx_plot + 1}.png")
+        f"{output_dir}/resample-ablation-loss-for-natural-compression-{idx_plot + 1}.png")
+
+      fig = px.imshow(var_exp_heatmap_data,
+                      color_continuous_scale="RdBu_r",  # reverse RdBu (red is positive)
+                      color_continuous_midpoint=0,
+                      x=[str(i) for i in intervention_numbers],
+                      y=[str(i) for i in reversed(data_sizes)],
+                      width=800,
+                      height=800,
+                      title="Resample Ablation Loss Variance Explained - Natural Compression")
+      fig.update_layout(
+        xaxis={"title": "Interventions"},
+        yaxis={"title": "Data Size"},
+      )
+      fig.write_image(
+        f"{output_dir}/resample-ablation-loss-var-exp-for-natural-compression-{idx_plot + 1}.png")
 
   def test_variance_for_linear_transformer(self):
-    self.skipTest("This test takes a long time to run, so it is skipped by default.")
+    # self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
     original_tracr_model: HookedTracrTransformer = case.get_tl_model()
@@ -514,40 +534,60 @@ class ResampleAblationLossTest(unittest.TestCase):
       max_interventions_step = int(max_interventions * 0.1)
       intervention_numbers = list(range(1, max_interventions + 1, max_interventions_step)) + [max_interventions]
 
-      heatmap_data = []
+      loss_heatmap_data = []
+      var_exp_heatmap_data = []
 
       for data_size in data_sizes:
-        row = []
+        heatmap_row = []
+        var_exp_row = []
         for n_interventions in intervention_numbers:
           self.set_random_seed()
-          loss = get_resample_ablation_loss(
+          output = get_resample_ablation_loss(
             case.get_clean_data(count=data_size, seed=None),
             case.get_corrupted_data(count=data_size, seed=None),
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions
-          ).loss
-          row.append(loss)
+          )
+          heatmap_row.append(output.loss)
+          var_exp_row.append(output.variance_explained)
 
         # add row to the beginning of the list
-        heatmap_data.insert(0, row)
+        loss_heatmap_data.insert(0, heatmap_row)
+        var_exp_heatmap_data.insert(0, var_exp_row)
 
       # Plot heatmap using plotly
-      fig = px.imshow(heatmap_data,
+      fig = px.imshow(loss_heatmap_data,
                       color_continuous_scale="RdBu_r",  # reverse RdBu (red is positive)
                       x=[str(i) for i in intervention_numbers],
                       y=[str(i) for i in reversed(data_sizes)],
                       width=800,
-                      height=800)
+                      height=800,
+                      title="Resample Ablation Loss - Linear Compression")
       fig.update_layout(
         xaxis={"title": "Interventions"},
         yaxis={"title": "Data Size"},
       )
       fig.write_image(
-        f"{output_dir}/resample-ablation-loss-variance-for-linear-compression-{idx_plot + 1}.png")
+        f"{output_dir}/resample-ablation-loss-for-linear-compression-{idx_plot + 1}.png")
+
+      fig = px.imshow(var_exp_heatmap_data,
+                      color_continuous_scale="RdBu_r",  # reverse RdBu (red is positive)
+                      color_continuous_midpoint=0,
+                      x=[str(i) for i in intervention_numbers],
+                      y=[str(i) for i in reversed(data_sizes)],
+                      width=800,
+                      height=800,
+                      title="Resample Ablation Loss Variance Explained - Linear Compression")
+      fig.update_layout(
+        xaxis={"title": "Interventions"},
+        yaxis={"title": "Data Size"},
+      )
+      fig.write_image(
+        f"{output_dir}/resample-ablation-loss-var-exp-for-linear-compression-{idx_plot + 1}.png")
 
   def test_variance_for_non_linear_transformer(self):
-    self.skipTest("This test takes a long time to run, so it is skipped by default.")
+    # self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
     original_tracr_model: HookedTracrTransformer = case.get_tl_model()
@@ -600,40 +640,60 @@ class ResampleAblationLossTest(unittest.TestCase):
       # At the end, plot using plotly.
       max_data_size = 256
       data_sizes_step = int(max_data_size * 0.1)
-      data_sizes = list(range(1, max_data_size + 1, data_sizes_step)) + [max_data_size]
+      data_sizes = list(range(26, max_data_size + 1, data_sizes_step)) + [max_data_size]
 
       max_interventions = 64
       max_interventions_step = int(max_interventions * 0.1)
       intervention_numbers = list(range(1, max_interventions + 1, max_interventions_step)) + [max_interventions]
 
-      heatmap_data = []
+      loss_heatmap_data = []
+      var_exp_heatmap_data = []
 
       for data_size in data_sizes:
-        row = []
+        heatmap_row = []
+        var_exp_row = []
         for n_interventions in intervention_numbers:
           self.set_random_seed()
-          loss = get_resample_ablation_loss(
+          output = get_resample_ablation_loss(
             case.get_clean_data(count=data_size, seed=None),
             case.get_corrupted_data(count=data_size, seed=None),
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions
-          ).loss
-          row.append(loss)
+          )
+          heatmap_row.append(output.loss)
+          var_exp_row.append(output.variance_explained)
 
         # add row to the beginning of the list
-        heatmap_data.insert(0, row)
+        loss_heatmap_data.insert(0, heatmap_row)
+        var_exp_heatmap_data.insert(0, var_exp_row)
 
       # Plot heatmap using plotly
-      fig = px.imshow(heatmap_data,
+      fig = px.imshow(loss_heatmap_data,
                       color_continuous_scale="RdBu_r",  # reverse RdBu (red is positive)
                       x=[str(i) for i in intervention_numbers],
                       y=[str(i) for i in reversed(data_sizes)],
                       width=800,
-                      height=800)
+                      height=800,
+                      title="Resample Ablation Loss - Non-Linear Compression")
       fig.update_layout(
         xaxis={"title": "Interventions"},
         yaxis={"title": "Data Size"},
       )
       fig.write_image(
-        f"{output_dir}/resample-ablation-loss-variance-for-non-linear-compression-{idx_plot + 1}.png")
+        f"{output_dir}/resample-ablation-loss-for-non-linear-compression-{idx_plot + 1}.png")
+
+      fig = px.imshow(var_exp_heatmap_data,
+                      color_continuous_scale="RdBu_r",  # reverse RdBu (red is positive)
+                      color_continuous_midpoint=0,
+                      x=[str(i) for i in intervention_numbers],
+                      y=[str(i) for i in reversed(data_sizes)],
+                      width=800,
+                      height=800,
+                      title="Resample Ablation Loss Variance Explained - Non-Linear Compression")
+      fig.update_layout(
+        xaxis={"title": "Interventions"},
+        yaxis={"title": "Data Size"},
+      )
+      fig.write_image(
+        f"{output_dir}/resample-ablation-loss-var-exp-for-non-linear-compression-{idx_plot + 1}.png")

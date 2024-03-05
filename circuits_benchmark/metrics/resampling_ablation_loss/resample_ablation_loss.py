@@ -73,7 +73,8 @@ def get_resample_ablation_loss(
         hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
 
         loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits).item()
-        var_explained = 1 - loss / t.var(base_model_logits).item()
+        base_logits_variance = t.var(base_model_logits).item()
+        var_explained = 1 - loss / base_logits_variance
 
         intervention_losses.append(loss)
         intervention_variance_explained.append(var_explained)
