@@ -33,6 +33,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     self.is_categorical = is_categorical
     self.n_layers = n_layers
 
+    if self.args.resample_ablation_loss:
+      self.epochs_since_last_resample_ablation_loss = 0
+
   def setup_dataset(self):
     self.clean_dataset = self.case.get_clean_data(count=self.args.train_data_size)
     self.corrupted_dataset = self.case.get_corrupted_data(count=self.args.train_data_size)
@@ -131,24 +134,30 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if not self.is_categorical:
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
+
     if self.args.resample_ablation_loss:
-      # Compute the resampling ablation loss
-      resample_ablation_loss_args = {
-        "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size),
-        "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size),
-        "base_model": self.get_original_model(),
-        "hypothesis_model": self.get_compressed_model(),
-        "max_interventions": self.args.resample_ablation_max_interventions,
-        "batch_size": self.args.resample_ablation_batch_size,
-      }
+      if self.epochs_since_last_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
+        self.epochs_since_last_resample_ablation_loss = 0
 
-      residual_stream_mapper = self.get_residual_stream_mapper()
-      if residual_stream_mapper is not None:
-        resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
+        # Compute the resampling ablation loss
+        resample_ablation_loss_args = {
+          "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size),
+          "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size),
+          "base_model": self.get_original_model(),
+          "hypothesis_model": self.get_compressed_model(),
+          "max_interventions": self.args.resample_ablation_max_interventions,
+          "batch_size": self.args.resample_ablation_batch_size,
+        }
 
-      resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
-      self.test_metrics["resample_ablation_loss"] = resample_ablation_output.loss
-      self.test_metrics["resample_ablation_var_exp"] = resample_ablation_output.variance_explained
+        residual_stream_mapper = self.get_residual_stream_mapper()
+        if residual_stream_mapper is not None:
+          resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
+
+        resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
+        self.test_metrics["resample_ablation_loss"] = resample_ablation_output.loss
+        self.test_metrics["resample_ablation_var_exp"] = resample_ablation_output.variance_explained
+
+      self.epochs_since_last_resample_ablation_loss += 1
 
     # calculate sparsity metrics
     self.test_metrics["zero_weights_pct"] = get_zero_weights_pct(self.get_compressed_model())
