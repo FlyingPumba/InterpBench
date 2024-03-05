@@ -85,6 +85,10 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
 
     return instance
 
+  def load_weights_from_file(self, path: str):
+    """Loads the transformer weights from file."""
+    self.load_state_dict(t.load(path))
+
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
     if isinstance(args[0], list) or isinstance(args[0], pd.Series):

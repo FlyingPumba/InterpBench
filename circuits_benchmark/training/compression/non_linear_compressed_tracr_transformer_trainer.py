@@ -184,11 +184,11 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
 
     # save the weights of the model using state_dict
     weights_path = os.path.join(self.output_dir, f"{prefix}-non-linear-compression-weights.pt")
-    t.save(self.autoencoder.state_dict(), weights_path)
+    t.save(self.get_compressed_model().state_dict(), weights_path)
 
     # save the entire model
     model_path = os.path.join(self.output_dir, f"{prefix}-non-linearly-compressed-tracr-transformer.pt")
-    t.save(self.autoencoder, model_path)
+    t.save(self.get_compressed_model(), model_path)
 
     if self.wandb_run is not None:
       # save the files as artifacts to wandb
