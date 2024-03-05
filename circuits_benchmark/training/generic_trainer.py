@@ -114,8 +114,7 @@ class GenericTrainer:
       with t.no_grad():
         self.compute_test_metrics()
 
-      lr_validation_metric = self.test_metrics["test_accuracy"]
-      self.lr_scheduler.step(lr_validation_metric)
+      self.lr_scheduler.step(self.get_lr_validation_metric())
 
       if (self.args.early_stop_test_accuracy is not None and
           self.test_metrics["test_accuracy"] >= self.args.early_stop_test_accuracy):
@@ -158,6 +157,9 @@ class GenericTrainer:
 
   def compute_test_metrics(self):
     raise NotImplementedError
+
+  def get_lr_validation_metric(self):
+    return self.test_metrics["test_accuracy"]
 
   def build_test_metrics_string(self):
     if len(self.test_metrics.items()) == 0:

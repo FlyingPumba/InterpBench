@@ -34,7 +34,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     self.n_layers = n_layers
 
     if self.args.resample_ablation_loss:
-      self.epochs_since_last_resample_ablation_loss = 0
+      self.epochs_since_last_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def setup_dataset(self):
     self.clean_dataset = self.case.get_clean_data(count=self.args.train_data_size)
@@ -131,6 +131,13 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
+
+  def get_lr_validation_metric(self):
+    metric = super().get_lr_validation_metric()
+    if self.args.resample_ablation_loss:
+      # our LR scheduler is maximizing, so we need to subtract the resample ablation loss from the metric
+      metric = metric - self.test_metrics["resample_ablation_loss"]
+    return metric
 
   def define_wandb_metrics(self):
     super().define_wandb_metrics()
