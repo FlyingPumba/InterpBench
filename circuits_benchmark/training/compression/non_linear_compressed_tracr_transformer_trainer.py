@@ -11,19 +11,22 @@ from transformer_lens import ActivationCache, HookedTransformer
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
-from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import CompressedTracrTransformerTrainer
+from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
+  CausallyCompressedTracrTransformerTrainer, CausalCompressionTrainLoss
 from circuits_benchmark.training.compression.residual_stream_mapper.autoencoder_mapper import AutoEncoderMapper
 from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
+  HookedTracrTransformerBatchInput
 
 
-class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer):
+class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformerTrainer):
   def __init__(self, case: BenchmarkCase,
                old_tl_model: HookedTracrTransformer,
                new_tl_model: HookedTracrTransformer,
                autoencoder: AutoEncoder,
                args: TrainingArgs,
+               train_loss_level: CausalCompressionTrainLoss = "layer",
                output_dir: str | None = None,
                freeze_ae_weights: bool = False,
                ae_training_epochs_gap: int = 10,
@@ -61,6 +64,7 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
                      args,
                      old_tl_model.is_categorical(),
                      new_tl_model.cfg.n_layers,
+                     train_loss_level=train_loss_level,
                      output_dir=output_dir)
 
   def training_epoch(self):
@@ -106,10 +110,25 @@ class NonLinearCompressedTracrTransformerTrainer(CompressedTracrTransformerTrain
   ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
     compressed_model_logits, compressed_model_cache = self.new_tl_model.run_with_cache(inputs)
 
-    for layer in range(self.n_layers):
-      cache_key = utils.get_act_name("resid_post", layer)
-      compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
-        compressed_model_cache.cache_dict[cache_key])
+    if self.train_loss_level == "layer":
+      # Decompress the residual streams of all layers except the last one, which we have already decompressed for using
+      # the unembedding since TransformerLens does not have a hook for that.
+      for layer in range(self.n_layers):
+        cache_key = utils.get_act_name("resid_post", layer)
+        compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
+          compressed_model_cache.cache_dict[cache_key])
+
+    elif self.train_loss_level == "component":
+      # Decompress the residual streams outputted by the attention and mlp components of all layers
+      for layer in range(self.n_layers):
+        for component in ["attn", "mlp"]:
+          hook_name = f"{component}_out"
+          cache_key = utils.get_act_name(hook_name, layer)
+          compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
+            compressed_model_cache.cache_dict[cache_key])
+
+      else:
+        raise ValueError(f"Invalid train loss level: {self.train_loss_level}")
 
     return compressed_model_logits, compressed_model_cache
 

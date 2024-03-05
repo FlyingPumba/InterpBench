@@ -1,6 +1,5 @@
 from argparse import Namespace
 
-from argparse_dataclass import ArgumentParser
 from torch.nn import init
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
@@ -8,6 +7,8 @@ from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.auto_compression import run_auto_compression_training
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
+from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
+  causal_compression_train_loss_options
 from circuits_benchmark.training.compression.non_linear_compressed_tracr_transformer_trainer import \
   NonLinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
@@ -23,6 +24,8 @@ def setup_args_parser(subparsers):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
+  parser.add_argument("--train-loss", type=str, default="layer", choices=causal_compression_train_loss_options,
+                      help="The train loss level for the compression training.")
   parser.add_argument("--ae-path", type=str, default=None,
                       help="Path to trained AutoEncoder model.")
 
@@ -94,6 +97,7 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                        new_tl_model,
                                                        autoencoder,
                                                        training_args,
+                                                       train_loss_level=args.train_loss,
                                                        output_dir=args.output_dir,
                                                        freeze_ae_weights=args.freeze_ae_weights,
                                                        ae_training_epochs_gap=args.ae_training_epochs_gap,

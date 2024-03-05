@@ -65,39 +65,6 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
   def get_residual_stream_mapper(self) -> ResidualStreamMapper | None:
     return None
 
-  def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
-    # Run the input on both compressed and original model
-    inputs = batch[CaseDataset.INPUT_FIELD]
-    compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
-    original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
-
-    if self.is_categorical:
-      # Cross entropy loss
-      loss = t.nn.functional.cross_entropy(compressed_model_logits.flatten(end_dim=-2),
-                                           original_model_logits.flatten(end_dim=-2))
-    else:
-      # MSE loss
-      loss = t.nn.functional.mse_loss(compressed_model_logits, original_model_logits)
-
-    if self.use_wandb:
-      wandb.log({"output_loss": loss}, step=self.step)
-
-    # Sum the L2 of output vectors for all layers in both compressed and original model
-    for layer in range(self.n_layers):
-      compressed_model_output = compressed_model_cache["resid_post", layer]
-      original_model_output = original_model_cache["resid_post", layer]
-
-      layer_loss = t.nn.functional.mse_loss(compressed_model_output, original_model_output)
-      if self.use_wandb:
-        wandb.log({f"layer_{str(layer)}_loss": layer_loss}, step=self.step)
-
-      loss += layer_loss
-
-    if self.use_wandb:
-      wandb.log({"train_loss": loss}, step=self.step)
-
-    return loss
-
   def compute_test_metrics(self):
     test_data: Dict[str, HookedTracrTransformerBatchInput] = next(iter(self.test_loader))
     inputs = test_data[CaseDataset.INPUT_FIELD]

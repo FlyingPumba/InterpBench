@@ -1,13 +1,15 @@
 from argparse import Namespace
 
-from argparse_dataclass import ArgumentParser
-
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.auto_compression import run_auto_compression_training
-from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer, \
+from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
+  causal_compression_train_loss_options
+from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import \
+  LinearCompressedTracrTransformer, \
   linear_compression_initialization_options
-from circuits_benchmark.training.compression.linear_compressed_tracr_transformer_trainer import LinearCompressedTracrTransformerTrainer
+from circuits_benchmark.training.compression.linear_compressed_tracr_transformer_trainer import \
+  LinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
@@ -21,6 +23,8 @@ def setup_args_parser(subparsers):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
+  parser.add_argument("--train-loss", type=str, default="layer", choices=causal_compression_train_loss_options,
+                      help="The train loss level for the compression training.")
   parser.add_argument("--linear-compression-initialization", type=str, default="linear",
                       choices=linear_compression_initialization_options,
                       help="The initialization method for the linear compression matrix.")
@@ -41,6 +45,7 @@ def run_single_linear_compression_training(case: BenchmarkCase,
     tl_model.device)
 
   trainer = LinearCompressedTracrTransformerTrainer(case, tl_model, compressed_tracr_transformer, training_args,
+                                                    train_loss_level=args.train_loss,
                                                     output_dir=args.output_dir)
   final_metrics = trainer.train()
   print(f" >>> Final metrics for {case} with residual stream compression size {compression_size}: ")
