@@ -141,11 +141,11 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
   def define_wandb_metrics(self):
     super().define_wandb_metrics()
-    wandb.define_metric("output_loss", summary="min")
-    for layer in range(self.n_layers):
-      wandb.define_metric(f"layer_{str(layer)}_loss", summary="min")
     if not self.is_categorical:
       wandb.define_metric("test_mse", summary="min")
+    if self.args.resample_ablation_loss:
+      wandb.define_metric("resample_ablation_loss", summary="min")
+      wandb.define_metric("resample_ablation_var_exp", summary="max")
 
   def get_wandb_config(self):
     cfg = super().get_wandb_config()
