@@ -152,17 +152,24 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
   def define_wandb_metrics(self):
     super().define_wandb_metrics()
-    wandb.define_metric("output_loss", summary="min")
 
     if self.train_loss_level == "layer":
+      wandb.define_metric("output_loss", summary="min")
       for layer in range(self.n_layers):
         wandb.define_metric(f"layer_{str(layer)}_loss", summary="min")
+
     elif self.train_loss_level == "component":
+      wandb.define_metric("output_loss", summary="min")
       for layer in range(self.n_layers):
         for component in ["attn", "mlp"]:
           wandb.define_metric(f"layer_{str(layer)}_{component}_loss", summary="min")
       for component in ["embed", "pos_embed"]:
         wandb.define_metric(f"hook_{component}_loss", summary="min")
+
+    elif self.train_loss_level == "intervention":
+      wandb.define_metric("train_resample_ablation_loss", summary="min")
+      wandb.define_metric("train_resample_ablation_var_exp", summary="max")
+    
     else:
       raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")
 
