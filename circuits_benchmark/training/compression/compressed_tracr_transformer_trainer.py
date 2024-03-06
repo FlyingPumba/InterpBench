@@ -34,7 +34,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     self.n_layers = n_layers
 
     if self.args.resample_ablation_loss:
-      self.epochs_since_last_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
+      self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def setup_dataset(self):
     self.clean_dataset = self.case.get_clean_data(count=self.args.train_data_size)
@@ -103,8 +103,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
                                                                expected_outputs_tensor).item()
 
     if self.args.resample_ablation_loss:
-      if self.epochs_since_last_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
-        self.epochs_since_last_resample_ablation_loss = 0
+      if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
+        self.epochs_since_last_test_resample_ablation_loss = 0
 
         # Compute the resampling ablation loss
         resample_ablation_loss_args = {
@@ -124,7 +124,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         self.test_metrics["test_resample_ablation_loss"] = resample_ablation_output.loss
         self.test_metrics["test_resample_ablation_var_exp"] = resample_ablation_output.variance_explained
 
-      self.epochs_since_last_resample_ablation_loss += 1
+      self.epochs_since_last_test_resample_ablation_loss += 1
 
     # calculate sparsity metrics
     self.test_metrics["zero_weights_pct"] = get_zero_weights_pct(self.get_compressed_model())
