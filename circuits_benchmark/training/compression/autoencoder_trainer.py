@@ -43,7 +43,8 @@ class AutoEncoderTrainer(GenericTrainer):
       # collect the output of the attention and mlp components from all layers, as well as the embeddings
       all_attn_out = [tl_cache["attn_out", layer] for layer in range(self.tl_model_n_layers)]
       all_mlp_out = [tl_cache["mlp_out", layer] for layer in range(self.tl_model_n_layers)]
-      embeddings = [tl_cache["hook_embed"], tl_cache["hook_pos_embed"]]
+      embeddings = [tl_cache["hook_embed"]] * self.tl_model_n_layers + \
+                   [tl_cache["hook_pos_embed"]] * self.tl_model_n_layers
       tl_activations = t.cat(all_attn_out + all_mlp_out + embeddings)
     else:
       raise ValueError(f"Invalid train_loss_level: {self.train_loss_level}")
