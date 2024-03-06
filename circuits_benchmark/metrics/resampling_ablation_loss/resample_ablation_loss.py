@@ -14,11 +14,11 @@ from circuits_benchmark.training.compression.residual_stream_mapper.residual_str
 
 @dataclass
 class ResampleAblationLossOutput:
-  loss: float
-  variance_explained: float
+  loss: Float[Tensor, ""]
+  variance_explained: Float[Tensor, ""]
 
 
-def get_resample_ablation_loss(
+def get_resample_ablation_loss_from_inputs(
     clean_inputs: CaseDataset,
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,
@@ -28,6 +28,29 @@ def get_resample_ablation_loss(
     batch_size: int = 2048,
     max_interventions: int = 10
 ) -> ResampleAblationLossOutput:
+  # assert that clean_input and corrupted_input have the same length
+  assert len(clean_inputs) == len(corrupted_inputs), "clean and corrupted inputs should have same length."
+  # assert that clean and corrupted inputs are not exactly the same, otherwise the comparison is flawed.
+  assert clean_inputs != corrupted_inputs, "clean and corrupted inputs should have different data."
+
+  # Build data for interventions before starting to avoid recomputing the same data for each intervention.
+  batched_intervention_data = get_batched_intervention_data(clean_inputs,
+                                                            corrupted_inputs,
+                                                            base_model,
+                                                            hypothesis_model,
+                                                            residual_stream_mapper,
+                                                            batch_size)
+
+  return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, residual_stream_mapper,
+                                    hook_filters, max_interventions)
+
+
+def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
+                               base_model: HookedTransformer,
+                               hypothesis_model: HookedTransformer,
+                               residual_stream_mapper: ResidualStreamMapper | None,
+                               hook_filters: List[str] | None = None,
+                               max_interventions: int = 10):
   if hook_filters is None:
     # by default, we use the following hooks for the intervention points.
     # This will give 2 + n_layers * 2 intervention points.
@@ -40,19 +63,7 @@ def get_resample_ablation_loss(
   assert base_model.cfg.n_ctx == hypothesis_model.cfg.n_ctx
   assert base_model.cfg.d_vocab == hypothesis_model.cfg.d_vocab
 
-  # assert that clean_input and corrupted_input have the same length
-  assert len(clean_inputs) == len(corrupted_inputs), "clean and corrupted inputs should have same length."
-  # assert that clean and corrupted inputs are not exactly the same, otherwise the comparison is flawed.
-  assert clean_inputs != corrupted_inputs, "clean and corrupted inputs should have different data."
   assert max_interventions > 0, "max_interventions should be greater than 0."
-
-  # Build data for interventions before starting to avoid recomputing the same data for each intervention.
-  batched_intervention_data = get_batched_intervention_data(clean_inputs,
-                                                            corrupted_inputs,
-                                                            base_model,
-                                                            hypothesis_model,
-                                                            residual_stream_mapper,
-                                                            batch_size)
 
   # Calculate the variance of the base model logits.
   base_model_logits_variance = []
@@ -80,16 +91,16 @@ def get_resample_ablation_loss(
         base_model_logits = base_model(clean_inputs_batch)
         hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
 
-        loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits).item()
+        loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits)
         var_explained = 1 - loss / base_model_logits_variance
 
-        intervention_losses.append(loss)
-        intervention_variance_explained.append(var_explained)
+        intervention_losses.append(loss.reshape(1))
+        intervention_variance_explained.append(var_explained.reshape(1))
 
-    losses.append(np.mean(intervention_losses))
-    variance_explained.append(np.mean(intervention_variance_explained))
+    losses.append(t.cat(intervention_losses).mean().reshape(1))
+    variance_explained.append(t.cat(intervention_variance_explained).mean().reshape(1))
 
-  return ResampleAblationLossOutput(loss=np.mean(losses), variance_explained=np.mean(variance_explained))
+  return ResampleAblationLossOutput(loss=t.cat(losses).mean(), variance_explained=t.cat(variance_explained).mean())
 
 
 def get_batched_intervention_data(

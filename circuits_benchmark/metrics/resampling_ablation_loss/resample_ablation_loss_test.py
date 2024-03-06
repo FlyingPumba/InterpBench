@@ -19,7 +19,7 @@ from circuits_benchmark.training.compression.non_linear_compressed_tracr_transfo
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.project_paths import get_default_output_dir
-from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss
+from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss_from_inputs
 
 
 class ResampleAblationLossTest(unittest.TestCase):
@@ -112,7 +112,7 @@ class ResampleAblationLossTest(unittest.TestCase):
       row = []
       for n_interventions in intervention_numbers:
         self.set_random_seed()
-        loss = get_resample_ablation_loss(
+        loss = get_resample_ablation_loss_from_inputs(
           case.get_clean_data(count=data_size, seed=None),
           case.get_corrupted_data(count=data_size, seed=None),
           original_tracr_model,
@@ -166,7 +166,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         # set the seed to have fixed interventions
         self.set_fixed_seed(42 * 4)
 
-        loss = get_resample_ablation_loss(
+        loss = get_resample_ablation_loss_from_inputs(
           clean_datas[data_size],
           corrupted_datas[data_size],
           original_tracr_model,
@@ -222,7 +222,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         # set the seed to have fixed interventions
         self.set_fixed_seed(42 * 5)
 
-        loss = get_resample_ablation_loss(
+        loss = get_resample_ablation_loss_from_inputs(
           clean_datas[data_size],
           corrupted_datas[data_size],
           original_tracr_model,
@@ -276,7 +276,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         # set the seed to have fixed interventions
         self.set_fixed_seed(42 * 5)
 
-        loss = get_resample_ablation_loss(
+        loss = get_resample_ablation_loss_from_inputs(
           clean_datas[data_size],
           corrupted_datas[data_size],
           original_tracr_model,
@@ -329,7 +329,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         row = []
         for n_interventions in intervention_numbers:
           self.set_random_seed()
-          loss = get_resample_ablation_loss(
+          loss = get_resample_ablation_loss_from_inputs(
             case.get_clean_data(count=data_size, seed=None),
             case.get_corrupted_data(count=data_size, seed=None),
             original_tracr_model,
@@ -382,7 +382,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         row = []
         for n_interventions in intervention_numbers:
           self.set_random_seed()
-          loss = get_resample_ablation_loss(
+          loss = get_resample_ablation_loss_from_inputs(
             case.get_clean_data(count=data_size, seed=None),
             case.get_corrupted_data(count=data_size, seed=None),
             original_tracr_model,
@@ -452,7 +452,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         var_exp_row = []
         for n_interventions in intervention_numbers:
           self.set_random_seed()
-          output = get_resample_ablation_loss(
+          output = get_resample_ablation_loss_from_inputs(
             case.get_clean_data(count=data_size, seed=None),
             case.get_corrupted_data(count=data_size, seed=None),
             original_tracr_model,
@@ -542,7 +542,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         var_exp_row = []
         for n_interventions in intervention_numbers:
           self.set_random_seed()
-          output = get_resample_ablation_loss(
+          output = get_resample_ablation_loss_from_inputs(
             case.get_clean_data(count=data_size, seed=None),
             case.get_corrupted_data(count=data_size, seed=None),
             original_tracr_model,
@@ -654,7 +654,7 @@ class ResampleAblationLossTest(unittest.TestCase):
         var_exp_row = []
         for n_interventions in intervention_numbers:
           self.set_random_seed()
-          output = get_resample_ablation_loss(
+          output = get_resample_ablation_loss_from_inputs(
             case.get_clean_data(count=data_size, seed=None),
             case.get_corrupted_data(count=data_size, seed=None),
             original_tracr_model,

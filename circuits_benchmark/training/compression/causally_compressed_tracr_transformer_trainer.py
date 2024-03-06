@@ -8,6 +8,8 @@ from torch.nn import Parameter
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.metrics.resampling_ablation_loss.intervention import InterventionData
+from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
   CompressedTracrTransformerTrainer
 from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
@@ -31,9 +33,39 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     # Run the input on both compressed and original model
     inputs = batch[CaseDataset.INPUT_FIELD]
-    compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
-    original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
 
+    if self.train_loss_level == "layer":
+      compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
+      original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
+      loss = self.get_layer_level_loss(compressed_model_logits, compressed_model_cache, original_model_logits,
+                                       original_model_cache)
+
+    elif self.train_loss_level == "component":
+      compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
+      original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
+      loss = self.get_component_level_loss(compressed_model_logits, compressed_model_cache, original_model_logits,
+                                           original_model_cache)
+
+    elif self.train_loss_level == "intervention":
+      _, compressed_model_clean_cache = self.get_logits_and_cache_from_compressed_model(inputs)
+      _, base_model_clean_cache = self.get_logits_and_cache_from_original_model(inputs)
+
+      corruped_inputs = self.case.get_corrupted_data(count=len(inputs)).get_inputs()
+      _, compressed_model_corrupted_cache = self.get_logits_and_cache_from_compressed_model(corruped_inputs)
+      _, base_model_corrupted_cache = self.get_logits_and_cache_from_original_model(corruped_inputs)
+
+      loss = self.get_intervention_level_loss(inputs, compressed_model_clean_cache, base_model_clean_cache,
+                                              compressed_model_corrupted_cache, base_model_corrupted_cache)
+
+    else:
+      raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")
+
+    if self.use_wandb:
+      wandb.log({"train_loss": loss}, step=self.step)
+
+    return loss
+
+  def get_output_loss(self, compressed_model_logits, original_model_logits):
     if self.is_categorical:
       # Cross entropy loss
       loss = t.nn.functional.cross_entropy(compressed_model_logits.flatten(end_dim=-2),
@@ -45,51 +77,78 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     if self.use_wandb:
       wandb.log({"output_loss": loss}, step=self.step)
 
-    if self.train_loss_level == "layer":
-      # Sum the L2 of output vectors for all layers in both compressed and original model
-      for layer in range(self.n_layers):
-        compressed_model_output = compressed_model_cache["resid_post", layer]
-        original_model_output = original_model_cache["resid_post", layer]
+    return loss
 
-        layer_loss = t.nn.functional.mse_loss(compressed_model_output, original_model_output)
-        if self.use_wandb:
-          wandb.log({f"layer_{str(layer)}_loss": layer_loss}, step=self.step)
+  def get_layer_level_loss(self, compressed_model_logits, compressed_model_cache,
+                           original_model_logits, original_model_cache):
+    loss = self.get_output_loss(compressed_model_logits, original_model_logits)
 
-        loss += layer_loss
+    # Sum the L2 of output vectors for all layers in both compressed and original model
+    for layer in range(self.n_layers):
+      compressed_model_output = compressed_model_cache["resid_post", layer]
+      original_model_output = original_model_cache["resid_post", layer]
 
-    elif self.train_loss_level == "component":
-      # Sum the L2 output vectors for all components (Attention heads and MLPS) in both compressed and original model
-      for layer in range(self.n_layers):
-        for component in ["attn", "mlp"]:
-          hook_name = f"{component}_out"
-          compressed_model_output = compressed_model_cache[hook_name, layer]
-          original_model_output = original_model_cache[hook_name, layer]
+      layer_loss = t.nn.functional.mse_loss(compressed_model_output, original_model_output)
+      if self.use_wandb:
+        wandb.log({f"layer_{str(layer)}_loss": layer_loss}, step=self.step)
 
-          component_loss = t.nn.functional.mse_loss(original_model_output, compressed_model_output)
-          if self.use_wandb:
-            wandb.log({f"layer_{str(layer)}_{component}_loss": component_loss}, step=self.step)
+      loss += layer_loss
+    return loss
 
-          loss += component_loss
+  def get_component_level_loss(self, compressed_model_logits, compressed_model_cache, original_model_logits,
+                               original_model_cache):
+    loss = self.get_output_loss(compressed_model_logits, original_model_logits)
 
-      # Sum the L2 output vectors for the embeddings in both compressed and original model
-      for component in ["embed", "pos_embed"]:
-        hook_name = f"hook_{component}"
-        compressed_model_output = compressed_model_cache[hook_name]
-        original_model_output = original_model_cache[hook_name]
+    # Sum the L2 output vectors for all components (Attention heads and MLPS) in both compressed and original model
+    for layer in range(self.n_layers):
+      for component in ["attn", "mlp"]:
+        hook_name = f"{component}_out"
+        compressed_model_output = compressed_model_cache[hook_name, layer]
+        original_model_output = original_model_cache[hook_name, layer]
 
         component_loss = t.nn.functional.mse_loss(original_model_output, compressed_model_output)
         if self.use_wandb:
-          wandb.log({f"{hook_name}_loss": component_loss}, step=self.step)
+          wandb.log({f"layer_{str(layer)}_{component}_loss": component_loss}, step=self.step)
 
-        loss += component_loss
+    # Sum the L2 output vectors for the embeddings in both compressed and original model
+    for component in ["embed", "pos_embed"]:
+      hook_name = f"hook_{component}"
+      compressed_model_output = compressed_model_cache[hook_name]
+      original_model_output = original_model_cache[hook_name]
 
-    else:
-      raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")
+      component_loss = t.nn.functional.mse_loss(original_model_output, compressed_model_output)
+      if self.use_wandb:
+        wandb.log({f"{hook_name}_loss": component_loss}, step=self.step)
+
+      loss += component_loss
+    return loss
+
+  def get_intervention_level_loss(self, clean_inputs, compressed_model_clean_cache, base_model_clean_cache,
+                                  compressed_model_corrupted_cache, base_model_corrupted_cache):
+    intervention_data = InterventionData(clean_inputs,
+                                         base_model_corrupted_cache,
+                                         compressed_model_corrupted_cache,
+                                         base_model_clean_cache,
+                                         compressed_model_clean_cache)
+    batched_intervention_data = [intervention_data]
+    resample_ablation_loss_args = {
+      "batched_intervention_data": batched_intervention_data,
+      "base_model": self.get_original_model(),
+      "hypothesis_model": self.get_compressed_model(),
+      "max_interventions": self.args.resample_ablation_max_interventions,
+    }
+
+    residual_stream_mapper = self.get_residual_stream_mapper()
+    if residual_stream_mapper is not None:
+      resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
+
+    resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
 
     if self.use_wandb:
-      wandb.log({"train_loss": loss}, step=self.step)
+      wandb.log({"train_resample_ablation_loss": resample_ablation_output.loss,
+                 "train_resample_ablation_var_exp": resample_ablation_output.variance_explained}, step=self.step)
 
-    return loss
+    return resample_ablation_output.loss
 
   def define_wandb_metrics(self):
     super().define_wandb_metrics()

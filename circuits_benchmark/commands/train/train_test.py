@@ -79,6 +79,21 @@ class TrainTest(unittest.TestCase):
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
 
+  def test_non_linear_compression_works_for_case_3(self):
+    args, _ = build_main_parser().parse_known_args(["train",
+                                                    "non-linear-compression",
+                                                    "-i=3",
+                                                    "--residual-stream-compression-size=8",
+                                                    "--train-data-size=10",
+                                                    "--test-data-ratio=0.3",
+                                                    "--ae-epochs=2",
+                                                    "--freeze-ae-weights",
+                                                    "--epochs=2",
+                                                    "--resample-ablation-loss=True",
+                                                    "--resample-ablation-max-interventions=5",
+                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
+    train.run(args)
+
   def test_non_linear_compression_with_component_level_train_loss_works_for_case_3(self):
     args, _ = build_main_parser().parse_known_args(["train",
                                                     "non-linear-compression",
@@ -95,7 +110,7 @@ class TrainTest(unittest.TestCase):
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
 
-  def test_non_linear_compression_works_for_case_3(self):
+  def test_non_linear_compression_with_intervention_level_train_loss_works_for_case_3(self):
     args, _ = build_main_parser().parse_known_args(["train",
                                                     "non-linear-compression",
                                                     "-i=3",
@@ -107,6 +122,7 @@ class TrainTest(unittest.TestCase):
                                                     "--epochs=2",
                                                     "--resample-ablation-loss=True",
                                                     "--resample-ablation-max-interventions=5",
+                                                    "--train-loss=intervention",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
 

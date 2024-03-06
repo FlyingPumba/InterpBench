@@ -134,6 +134,9 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
         compressed_model_cache.cache_dict[hook_name] = self.get_residual_stream_mapper().decompress(
           compressed_model_cache.cache_dict[hook_name])
 
+    elif self.train_loss_level == "intervention":
+      return compressed_model_logits, compressed_model_cache
+
     else:
       raise ValueError(f"Invalid train loss level: {self.train_loss_level}")
 

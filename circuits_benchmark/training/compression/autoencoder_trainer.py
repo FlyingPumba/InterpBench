@@ -42,7 +42,7 @@ class AutoEncoderTrainer(GenericTrainer):
         named_data[f"layer_{layer}_resid_pre"] = tl_cache["resid_pre", layer]
       named_data[f"layer_{self.tl_model_n_layers-1}_resid_post"] = tl_cache["resid_post", self.tl_model_n_layers-1]
 
-    elif self.train_loss_level == "component":
+    elif self.train_loss_level == "component" or self.train_loss_level == "intervention":
       # collect the output of the attention and mlp components from all layers
       for layer in range(self.tl_model_n_layers):
         named_data[f"layer_{layer}_attn_out"] = tl_cache["attn_out", layer]

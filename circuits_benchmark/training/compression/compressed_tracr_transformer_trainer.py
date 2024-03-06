@@ -10,7 +10,7 @@ from transformer_lens import ActivationCache, HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
-from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss
+from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss_from_inputs
 from circuits_benchmark.metrics.sparsity import get_zero_weights_pct
 from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from circuits_benchmark.training.generic_trainer import GenericTrainer
@@ -120,7 +120,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         if residual_stream_mapper is not None:
           resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
 
-        resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
+        resample_ablation_output = get_resample_ablation_loss_from_inputs(**resample_ablation_loss_args)
         self.test_metrics["resample_ablation_loss"] = resample_ablation_output.loss
         self.test_metrics["resample_ablation_var_exp"] = resample_ablation_output.variance_explained
 
