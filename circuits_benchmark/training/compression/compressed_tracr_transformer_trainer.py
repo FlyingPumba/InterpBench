@@ -121,8 +121,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
           resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
 
         resample_ablation_output = get_resample_ablation_loss_from_inputs(**resample_ablation_loss_args)
-        self.test_metrics["resample_ablation_loss"] = resample_ablation_output.loss
-        self.test_metrics["resample_ablation_var_exp"] = resample_ablation_output.variance_explained
+        self.test_metrics["test_resample_ablation_loss"] = resample_ablation_output.loss
+        self.test_metrics["test_resample_ablation_var_exp"] = resample_ablation_output.variance_explained
 
       self.epochs_since_last_resample_ablation_loss += 1
 
@@ -136,7 +136,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     metric = super().get_lr_validation_metric()
     if self.args.resample_ablation_loss:
       # our LR scheduler is maximizing, so we need to subtract the resample ablation loss from the metric
-      metric = metric - self.test_metrics["resample_ablation_loss"]
+      metric = metric - self.test_metrics["test_resample_ablation_loss"]
     return metric
 
   def define_wandb_metrics(self):
@@ -144,8 +144,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if not self.is_categorical:
       wandb.define_metric("test_mse", summary="min")
     if self.args.resample_ablation_loss:
-      wandb.define_metric("resample_ablation_loss", summary="min")
-      wandb.define_metric("resample_ablation_var_exp", summary="max")
+      wandb.define_metric("test_resample_ablation_loss", summary="min")
+      wandb.define_metric("test_resample_ablation_var_exp", summary="max")
 
   def get_wandb_config(self):
     cfg = super().get_wandb_config()
