@@ -33,29 +33,26 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     # Run the input on both compressed and original model
     inputs = batch[CaseDataset.INPUT_FIELD]
+    compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
+    original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
+
+    # Independently of the train loss level, we always compute the output loss since we want the compressed model to
+    # have the same output as the original model.
+    loss = self.get_output_loss(compressed_model_logits, original_model_logits)
 
     if self.train_loss_level == "layer":
-      compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
-      original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
-      loss = self.get_layer_level_loss(compressed_model_logits, compressed_model_cache, original_model_logits,
-                                       original_model_cache)
+      loss = loss + self.get_layer_level_loss(compressed_model_cache, original_model_cache)
 
     elif self.train_loss_level == "component":
-      compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
-      original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
-      loss = self.get_component_level_loss(compressed_model_logits, compressed_model_cache, original_model_logits,
-                                           original_model_cache)
+      loss = loss + self.get_component_level_loss(compressed_model_cache, original_model_cache)
 
     elif self.train_loss_level == "intervention":
-      _, compressed_model_clean_cache = self.get_logits_and_cache_from_compressed_model(inputs)
-      _, base_model_clean_cache = self.get_logits_and_cache_from_original_model(inputs)
-
       corruped_inputs = self.case.get_corrupted_data(count=len(inputs)).get_inputs()
       _, compressed_model_corrupted_cache = self.get_logits_and_cache_from_compressed_model(corruped_inputs)
       _, base_model_corrupted_cache = self.get_logits_and_cache_from_original_model(corruped_inputs)
 
-      loss = self.get_intervention_level_loss(inputs, compressed_model_clean_cache, base_model_clean_cache,
-                                              compressed_model_corrupted_cache, base_model_corrupted_cache)
+      loss = loss + self.get_intervention_level_loss(inputs, compressed_model_cache, original_model_cache,
+                                                     compressed_model_corrupted_cache, base_model_corrupted_cache)
 
     else:
       raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")
@@ -79,9 +76,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     return loss
 
-  def get_layer_level_loss(self, compressed_model_logits, compressed_model_cache,
-                           original_model_logits, original_model_cache):
-    loss = self.get_output_loss(compressed_model_logits, original_model_logits)
+  def get_layer_level_loss(self, compressed_model_cache, original_model_cache):
+    loss = t.tensor(0.0, device=self.device)
 
     # Sum the L2 of output vectors for all layers in both compressed and original model
     for layer in range(self.n_layers):
@@ -93,11 +89,11 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
         wandb.log({f"layer_{str(layer)}_loss": layer_loss}, step=self.step)
 
       loss += layer_loss
+
     return loss
 
-  def get_component_level_loss(self, compressed_model_logits, compressed_model_cache, original_model_logits,
-                               original_model_cache):
-    loss = self.get_output_loss(compressed_model_logits, original_model_logits)
+  def get_component_level_loss(self, compressed_model_cache, original_model_cache):
+    loss = t.tensor(0.0, device=self.device)
 
     # Sum the L2 output vectors for all components (Attention heads and MLPS) in both compressed and original model
     for layer in range(self.n_layers):
@@ -121,6 +117,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
         wandb.log({f"{hook_name}_loss": component_loss}, step=self.step)
 
       loss += component_loss
+
     return loss
 
   def get_intervention_level_loss(self, clean_inputs, compressed_model_clean_cache, base_model_clean_cache,
@@ -169,7 +166,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     elif self.train_loss_level == "intervention":
       wandb.define_metric("train_resample_ablation_loss", summary="min")
       wandb.define_metric("train_resample_ablation_var_exp", summary="max")
-    
+
     else:
       raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")
 
