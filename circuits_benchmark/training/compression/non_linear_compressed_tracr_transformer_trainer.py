@@ -99,11 +99,9 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       ae_training_epoch += 1
 
     if self.use_wandb and avg_ae_train_loss is not None:
-      # We performed training for the AutoEncoder. Log average train loss and test mse
-      wandb.log({
-        "ae_test_mse": self.autoencoder_trainer.test_metrics["test_mse"],
-        "ae_train_loss": avg_ae_train_loss
-      }, step=self.step)
+      # We performed training for the AutoEncoder. Log average train loss and test metrics
+      wandb.log({"ae_train_loss": avg_ae_train_loss}, step=self.step)
+      wandb.log({f"ae_{k}": v for k, v in self.autoencoder_trainer.test_metrics.items()}, step=self.step)
 
   def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
     return self.new_tl_model(inputs, return_type="decoded")

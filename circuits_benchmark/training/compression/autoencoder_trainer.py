@@ -34,43 +34,59 @@ class AutoEncoderTrainer(GenericTrainer):
     tl_inputs = tl_dataset.get_inputs()
     _, tl_cache = self.tl_model.run_with_cache(tl_inputs)
 
+    named_data = {}
+
     if self.train_loss_level == "layer":
       # collect the residual stream activations from all layers
-      all_resid_pre = [tl_cache["resid_pre", layer] for layer in range(self.tl_model_n_layers)]
-      last_resid_post = tl_cache["resid_post", self.tl_model_n_layers - 1]
-      tl_activations = t.cat(all_resid_pre + [last_resid_post])
+      for layer in range(self.tl_model_n_layers):
+        named_data[f"layer_{layer}_resid_pre"] = tl_cache["resid_pre", layer]
+      named_data[f"layer_{self.tl_model_n_layers-1}_resid_post"] = tl_cache["resid_post", self.tl_model_n_layers-1]
+
     elif self.train_loss_level == "component":
-      # collect the output of the attention and mlp components from all layers, as well as the embeddings
-      all_attn_out = [tl_cache["attn_out", layer] for layer in range(self.tl_model_n_layers)]
-      all_mlp_out = [tl_cache["mlp_out", layer] for layer in range(self.tl_model_n_layers)]
-      embeddings = [tl_cache["hook_embed"]] * self.tl_model_n_layers + \
-                   [tl_cache["hook_pos_embed"]] * self.tl_model_n_layers
-      tl_activations = t.cat(all_attn_out + all_mlp_out + embeddings)
+      # collect the output of the attention and mlp components from all layers
+      for layer in range(self.tl_model_n_layers):
+        named_data[f"layer_{layer}_attn_out"] = tl_cache["attn_out", layer]
+        named_data[f"layer_{layer}_mlp_out"] = tl_cache["mlp_out", layer]
+
+      # collect the embeddings, but repeat the data self.tl_model_n_layers times
+      named_data["embed"] = tl_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
+      named_data["pos_embed"] = tl_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
     else:
       raise ValueError(f"Invalid train_loss_level: {self.train_loss_level}")
 
-    # Shape of tl_activations is [activations_len, seq_len, d_model], we will convert to [activations_len, d_model] to
+    # Shape of tensors is [activations_len, seq_len, d_model]. We will convert to [activations_len, d_model] to
     # treat the residual stream for each sequence position as a separate sample.
-    # The final length of tl_activations is train_data_size*(n_layers + 1)*seq_len
-    tl_activations: Float[Tensor, "activations_len, seq_len, d_model"] = (
-      tl_activations.transpose(0, 1).reshape(-1, tl_activations.shape[-1]))
+    # The final length of all activations together is train_data_size*(n_layers + 1)*seq_len
+    for name, data in named_data.items():
+      named_data[name]: Float[Tensor, "activations_len, seq_len, d_model"] = (
+        data.transpose(0, 1).reshape(-1, data.shape[-1]))
 
-    # shuffle tl_activations
-    tl_activations = tl_activations[t.randperm(len(tl_activations))]
-
+    # split the data into train and test sets
+    self.named_test_data = {}
+    self.named_train_data = {}
     if self.args.test_data_ratio is not None:
       # split the data into train and test sets
-      test_data_size = int(len(tl_activations) * self.args.test_data_ratio)
-      train_data_size = len(tl_activations) - test_data_size
-      train_data, test_data = tl_activations.split([train_data_size, test_data_size])
+      for name, data in named_data.items():
+        data_size = data.shape[0]
+        test_data_size = int(data_size * self.args.test_data_ratio)
+        train_data_size = data_size - test_data_size
+        self.named_train_data[name], self.named_test_data[name] = t.split(data, [train_data_size, test_data_size])
     else:
       # use all data for training, and the same data for testing
-      train_data = tl_activations
-      test_data = tl_activations
+      for name, data in named_data.items():
+        self.named_train_data[name] = data.clone()
+        self.named_test_data[name] = data.clone()
 
-    batch_size = self.args.batch_size if self.args.batch_size is not None else len(train_data)
-    self.train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    self.test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
+    # shuffle the activations in train and test data
+    for name, data in self.named_train_data.items():
+      self.named_train_data[name] = data[t.randperm(len(data))]
+    for name, data in self.named_test_data.items():
+      self.named_test_data[name] = data[t.randperm(len(data))]
+
+    # collect all the train data into a single tensor
+    train_data = t.cat(list(self.named_train_data.values()), dim=0)
+    self.batch_size = self.args.batch_size if self.args.batch_size is not None else len(train_data)
+    self.train_loader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
 
   def compute_train_loss(self, batch: Float[Tensor, "batch_size d_model"]) -> Float[Tensor, "batch posn-1"]:
     output = self.autoencoder(batch)
@@ -84,18 +100,34 @@ class AutoEncoderTrainer(GenericTrainer):
 
   def compute_test_metrics(self):
     # compute MSE and accuracy on each batch and take average at the end
-    mse = t.tensor(0.0, device=self.device)
-    accuracy = t.tensor(0.0, device=self.device)
-    count = 0
+    test_mse = t.tensor(0.0, device=self.device)
+    test_accuracy = t.tensor(0.0, device=self.device)
+    test_batches = 0
 
-    for inputs in self.test_loader:
-      outputs = self.autoencoder(inputs)
-      mse = mse + t.nn.functional.mse_loss(inputs, outputs)
-      accuracy = accuracy + t.isclose(inputs, outputs, atol=self.args.test_accuracy_atol).float().mean()
-      count = count + 1
+    for name, test_data in self.named_test_data.items():
+      self.test_loader = DataLoader(test_data, batch_size=self.batch_size, shuffle=False)
 
-    self.test_metrics["test_mse"] = (mse / count).item()
-    self.test_metrics["test_accuracy"] = (accuracy / count).item()
+      named_mse = t.tensor(0.0, device=self.device)
+      named_accuracy = t.tensor(0.0, device=self.device)
+      batches = 0
+
+      for inputs in self.test_loader:
+        outputs = self.autoencoder(inputs)
+
+        named_mse = named_mse + t.nn.functional.mse_loss(inputs, outputs)
+        named_accuracy = named_accuracy + t.isclose(inputs, outputs, atol=self.args.test_accuracy_atol).float().mean()
+
+        batches = batches + 1
+        test_batches = test_batches + 1
+
+      test_mse = test_mse + named_mse
+      test_accuracy = test_accuracy + named_accuracy
+
+      named_mse = named_mse / batches
+      self.test_metrics[f"test_{name}_mse"] = named_mse.item()
+
+    self.test_metrics["test_mse"] = (test_mse / test_batches).item()
+    self.test_metrics["test_accuracy"] = (test_accuracy / test_batches).item()
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
