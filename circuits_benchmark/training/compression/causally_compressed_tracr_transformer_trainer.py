@@ -50,8 +50,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       loss = loss + self.get_component_level_loss(compressed_model_cache, original_model_cache)
 
     elif self.train_loss_level == "intervention":
-      if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
-        self.epochs_since_last_test_resample_ablation_loss = 0
+      if self.epochs_since_last_train_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
+        self.epochs_since_last_train_resample_ablation_loss = 0
 
         corruped_inputs = self.case.get_corrupted_data(count=len(inputs)).get_inputs()
         _, compressed_model_corrupted_cache = self.get_logits_and_cache_from_compressed_model(corruped_inputs)
@@ -60,7 +60,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
         loss = loss + self.get_intervention_level_loss(inputs, compressed_model_cache, original_model_cache,
                                                        compressed_model_corrupted_cache, base_model_corrupted_cache)
 
-      self.epochs_since_last_test_resample_ablation_loss += 1
+      self.epochs_since_last_train_resample_ablation_loss += 1
 
     else:
       raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")
