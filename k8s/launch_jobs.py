@@ -187,6 +187,7 @@ def build_wandb_name(command: List[str]):
     # "freeze-ae-weights": "frozen",
     # "ae-training-epochs-gap": "ae-gap",
     # "ae-desired-test-mse": "ae-mse",
+    "lr-patience": "lr-patience",
   }
   important_args = important_args_aliases.keys()
   wandb_name = ""
