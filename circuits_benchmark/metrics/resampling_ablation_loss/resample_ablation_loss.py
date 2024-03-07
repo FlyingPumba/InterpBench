@@ -1,3 +1,4 @@
+import gc
 from dataclasses import dataclass
 from typing import List
 
@@ -51,6 +52,10 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                residual_stream_mapper: ResidualStreamMapper | None,
                                hook_filters: List[str] | None = None,
                                max_interventions: int = 10):
+  # This is a memory intensive operation, so we will garbage collect before starting.
+  gc.collect()
+  t.cuda.empty_cache()
+
   if hook_filters is None:
     # by default, we use the following hooks for the intervention points.
     # This will give 2 + n_layers * 2 intervention points.
