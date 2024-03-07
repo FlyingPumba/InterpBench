@@ -154,7 +154,7 @@ def create_jobs() -> List[str]:
   jobs = []
   priority = "normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
-  cpu = 4
+  cpu = 8
   memory = "32Gi"
   gpu = 0
 
