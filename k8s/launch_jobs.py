@@ -68,7 +68,7 @@ def build_commands():
                              f"--batch-size={batch_size}",
                              f"--epochs={epochs}",
                              f"--lr-start={lr_start}",
-                             f"--lr-patience=500",
+                             f"--lr-patience=2000",
                              # "--early-stop-test-accuracy=0.97",
                              "--resample-ablation-loss=True",
                              "--resample-ablation-data-size=1000",
