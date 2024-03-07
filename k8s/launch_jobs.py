@@ -72,7 +72,7 @@ def build_commands():
                              # "--early-stop-test-accuracy=0.97",
                              "--resample-ablation-loss=True",
                              "--resample-ablation-data-size=1000",
-                             "--resample-ablation-max-interventions=100",
+                             "--resample-ablation-max-interventions=50",
                              "--train-loss=intervention",
                              f"--wandb-project={wandb_project}"]
 
@@ -155,7 +155,7 @@ def create_jobs() -> List[str]:
   priority = "normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
   cpu = 4
-  memory = "16Gi"
+  memory = "32Gi"
   gpu = 0
 
   commands = build_commands()
