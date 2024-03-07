@@ -119,7 +119,7 @@ class ResampleAblationLossTest(unittest.TestCase):
           random_model,
           max_interventions=n_interventions
         ).loss
-        row.append(loss)
+        row.append(loss.item())
 
       # add row to the beginning of the list
       heatmap_data.insert(0, row)
@@ -173,7 +173,7 @@ class ResampleAblationLossTest(unittest.TestCase):
           random_model,
           max_interventions=n_interventions
         ).loss
-        row.append(loss)
+        row.append(loss.item())
 
       # add row to the beginning of the list
       heatmap_data.insert(0, row)
@@ -229,7 +229,7 @@ class ResampleAblationLossTest(unittest.TestCase):
           random_model,
           max_interventions=n_interventions
         ).loss
-        row.append(loss)
+        row.append(loss.item())
 
       # add row to the beginning of the list
       heatmap_data.insert(0, row)
@@ -283,7 +283,7 @@ class ResampleAblationLossTest(unittest.TestCase):
           random_model,
           max_interventions=n_interventions
         ).loss
-        row.append(loss)
+        row.append(loss.item())
 
       # add row to the beginning of the list
       heatmap_data.insert(0, row)
@@ -336,7 +336,7 @@ class ResampleAblationLossTest(unittest.TestCase):
             random_model,
             max_interventions=n_interventions
           ).loss
-          row.append(loss)
+          row.append(loss.item())
 
         # add row to the beginning of the list
         heatmap_data.insert(0, row)
@@ -389,7 +389,7 @@ class ResampleAblationLossTest(unittest.TestCase):
             random_model,
             max_interventions=n_interventions
           ).loss
-          row.append(loss)
+          row.append(loss.item())
 
         # add row to the beginning of the list
         heatmap_data.insert(0, row)
@@ -459,8 +459,8 @@ class ResampleAblationLossTest(unittest.TestCase):
             compressed_model,
             max_interventions=n_interventions
           )
-          heatmap_row.append(output.loss)
-          var_exp_row.append(output.variance_explained)
+          heatmap_row.append(output.loss.item())
+          var_exp_row.append(output.variance_explained.item())
 
         # add row to the beginning of the list
         loss_heatmap_data.insert(0, heatmap_row)
@@ -549,8 +549,8 @@ class ResampleAblationLossTest(unittest.TestCase):
             compressed_model,
             max_interventions=n_interventions
           )
-          heatmap_row.append(output.loss)
-          var_exp_row.append(output.variance_explained)
+          heatmap_row.append(output.loss.item())
+          var_exp_row.append(output.variance_explained.item())
 
         # add row to the beginning of the list
         loss_heatmap_data.insert(0, heatmap_row)
@@ -661,8 +661,8 @@ class ResampleAblationLossTest(unittest.TestCase):
             compressed_model,
             max_interventions=n_interventions
           )
-          heatmap_row.append(output.loss)
-          var_exp_row.append(output.variance_explained)
+          heatmap_row.append(output.loss.item())
+          var_exp_row.append(output.variance_explained.item())
 
         # add row to the beginning of the list
         loss_heatmap_data.insert(0, heatmap_row)
