@@ -6,3 +6,7 @@
 	path = submodules/Automatic-Circuit-Discovery
 	url = git@github.com:FlyingPumba/Automatic-Circuit-Discovery.git
 	ignore = untracked
+[submodule "submodules/iit"]
+	path = submodules/iit
+	url = git@github.com:tkwa/iit.git
+	ignore = untracked

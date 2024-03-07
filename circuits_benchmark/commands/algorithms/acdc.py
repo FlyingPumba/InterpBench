@@ -61,8 +61,11 @@ def setup_args_parser(subparsers):
                       help='Use the absolute value of the result to check threshold')
 
 
-def run_acdc(case: BenchmarkCase, args):
-  tl_model = case.get_tl_model(device=args.device)
+def run_acdc(case: BenchmarkCase, args, model=None):
+  if model is None:
+    tl_model = case.get_tl_model(device=args.device)
+  else:
+    tl_model = model
 
   tags = [f"case{case.get_index()}", "acdc"]
   notes = f"Command: {' '.join(sys.argv)}"

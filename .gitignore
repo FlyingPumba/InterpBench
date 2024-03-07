@@ -3,3 +3,8 @@ __pycache__
 .idea
 *.pkl
 results
+*.pth
+.ipynb_checkpoints
+rough_*
+*.json
+*.png
