@@ -56,7 +56,7 @@ def build_commands():
               for test_data_ratio in test_data_ratios:
                 for batch_size in batch_sizes:
 
-                  wandb_project = f"non-linear-compression-intervention-level"
+                  wandb_project = f"non-linear-compression-intervention-level-2"
 
                   command = [".venv/bin/python", "main.py",
                              "train", method,
