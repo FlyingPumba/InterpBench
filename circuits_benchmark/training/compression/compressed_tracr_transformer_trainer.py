@@ -134,7 +134,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
   def get_lr_validation_metric(self):
     metric = super().get_lr_validation_metric()
-    if self.args.resample_ablation_loss:
+    if self.args.resample_ablation_loss and "test_resample_ablation_loss" in self.test_metrics:
       # our LR scheduler is maximizing, so we need to subtract the resample ablation loss from the metric
       metric = metric - self.test_metrics["test_resample_ablation_loss"]
     return metric
