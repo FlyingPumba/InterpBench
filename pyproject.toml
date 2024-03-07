@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A benchmark for mechanistic discovery of circuits in Transformers"
 authors = ["Iván Arcuschin Moreno <iarcuschin@gmail.com>", "Niels uit de Bos <nielius@gmail.com>"]
 readme = "README.md"
-packages = [{include = "benchmark"}]
+packages = [{include = "circuits_benchmark"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"

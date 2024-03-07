@@ -4,11 +4,11 @@ import sys
 
 import jax
 
-from commands.build_main_parser import build_main_parser
-from commands.algorithms import run_algorithm
-from commands.compilation import compile_benchmark
-from commands.analysis import perform_analysis
-from commands.train import train
+from circuits_benchmark.commands.build_main_parser import build_main_parser
+from circuits_benchmark.commands.algorithms import run_algorithm
+from circuits_benchmark.commands.compilation import compile_benchmark
+from circuits_benchmark.commands.analysis import perform_analysis
+from circuits_benchmark.commands.train import train
 
 # The default of float16 can lead to discrepancies between outputs of
 # the compiled model and the RASP program.
