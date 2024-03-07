@@ -73,6 +73,7 @@ def build_commands():
                              "--resample-ablation-loss=True",
                              "--resample-ablation-data-size=1000",
                              "--resample-ablation-max-interventions=50",
+                             "--resample-ablation-loss-epochs-gap=25",
                              "--train-loss=intervention",
                              f"--wandb-project={wandb_project}"]
 
