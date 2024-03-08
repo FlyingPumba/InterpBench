@@ -78,12 +78,12 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     for predicted_output, expected_output in zip(predicted_outputs, expected_outputs):
       # Replace all predictions and expectations values where expectations have None, BOS, or PAD with 0.
       # We do this so that we don't compare the loss of invalid positions.
-      expected, predicted = replace_invalid_positions(expected_output, predicted_output, 0.0)
+      expected, predicted = replace_invalid_positions(expected_output, predicted_output, 0)
 
       if any(isinstance(p, str) for p in predicted):
-        # We have chars, convert them to numbers using ord to avoid the torch issue: "too many dimensions 'str'".
-        predicted = [ord(p) if isinstance(p, str) else p for p in predicted]
-        expected = [ord(e) if isinstance(e, str) else e for e in expected]
+        # We have chars, convert them to numbers to avoid the torch issue: "too many dimensions 'str'".
+        predicted = [self.get_original_model().tracr_output_encoder.encoding_map[p] if isinstance(p, str) else p for p in predicted]
+        expected = [self.get_original_model().tracr_output_encoder.encoding_map[e] if isinstance(e, str) else e for e in expected]
 
       predicted_outputs_flattened.extend(predicted)
       expected_outputs_flattened.extend(expected)
