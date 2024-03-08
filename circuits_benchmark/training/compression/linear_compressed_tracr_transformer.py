@@ -117,7 +117,7 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
 
     return hooks
 
-  def named_parameters(
+  def folded_named_parameters(
             self,
             prefix: str = '',
             recurse: bool = True,
@@ -203,7 +203,7 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
       else:
         raise ValueError(f"Unknown parameter name: {name}")
 
-  def parameters(self, recurse: bool = True) -> Iterator[Parameter]:
+  def folded_parameters(self, recurse: bool = True) -> Iterator[Parameter]:
     for name, param in self.named_parameters(recurse=recurse):
       yield param
 
