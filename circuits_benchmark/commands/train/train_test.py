@@ -52,6 +52,21 @@ class TrainTest(unittest.TestCase):
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
 
+  def test_linear_compression_with_intervention_level_train_loss(self):
+    args, _ = build_main_parser().parse_known_args(["train",
+                                                    "linear-compression",
+                                                    "-i=1,2,3",
+                                                    "--residual-stream-compression-size=5",
+                                                    "--epochs=2",
+                                                    "--train-data-size=10",
+                                                    "--test-data-ratio=0.3",
+                                                    "--batch-size=2",
+                                                    "--resample-ablation-loss=True",
+                                                    "--resample-ablation-max-interventions=5",
+                                                    "--train-loss=intervention",
+                                                    "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
+    train.run(args)
+
   def test_auto_linear_compression_works_for_case_2(self):
     args, _ = build_main_parser().parse_known_args(["train",
                                                     "linear-compression",
