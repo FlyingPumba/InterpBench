@@ -2,8 +2,11 @@
 import subprocess
 import sys
 from itertools import product
+from math import ceil
 from pathlib import Path
 from typing import List
+
+from circuits_benchmark.utils.get_cases import get_cases
 
 JOB_TEMPLATE_PATH = Path(__file__).parent / "runner.yaml"
 with JOB_TEMPLATE_PATH.open() as f:
@@ -14,21 +17,30 @@ with JOB_TEMPLATE_PATH.open() as f:
 
 def build_commands():
   # training_methods = ["linear-compression", "non-linear-compression", "natural-compression", "autoencoder"]
-  training_methods = ["non-linear-compression"]
-  cases = [39]
-  compression_sizes = [5, 10, 15, 20, 35]
-  seeds = [65,66]
+  training_methods = ["linear-compression", "non-linear-compression", "natural-compression"]
+  case_instances = get_cases(indices=None)
+
+  cases = []
+  compression_sizes_by_case = {}
+  for case in case_instances:
+    original_resid_size = case.get_tl_model().cfg.d_model
+    compression_sizes_by_case[case.get_index()] = [ceil(original_resid_size / 3)]
+    cases.append(case.get_index())
+
+  seeds = [67]
   lr_starts = [0.001]
-  epochs = 20000
+  epochs = 30000
   train_data_sizes = [1000]
   test_data_ratios = [0.3]
   batch_sizes = [2048]
 
   linear_compression_args = {
+    "train-loss": ["intervention"],
     "linear-compression-initialization": ["linear"],  # ["orthogonal", "linear"],
   }
 
   non_linear_compression_args = {
+    "train-loss": ["intervention"],
     "ae-layers": [2],
     "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
     "ae-epochs": [100],
@@ -49,14 +61,14 @@ def build_commands():
 
   for method in training_methods:
     for case in cases:
-      for compression_size in compression_sizes:
+      for compression_size in compression_sizes_by_case[case]:
         for seed in seeds:
           for lr_start in lr_starts:
             for train_data_size in train_data_sizes:
               for test_data_ratio in test_data_ratios:
                 for batch_size in batch_sizes:
 
-                  wandb_project = f"non-linear-compression-intervention-level-2"
+                  wandb_project = f"compress-all-cases"
 
                   command = [".venv/bin/python", "main.py",
                              "train", method,
@@ -74,7 +86,6 @@ def build_commands():
                              "--resample-ablation-data-size=1000",
                              "--resample-ablation-max-interventions=50",
                              "--resample-ablation-loss-epochs-gap=25",
-                             "--train-loss=intervention",
                              f"--wandb-project={wandb_project}"]
 
                   if method == "linear-compression":
@@ -181,18 +192,19 @@ def build_wandb_name(command: List[str]):
   # Use a set of important arguments for our experiment to build the wandb name.
   # Each argument will be separated by a dash. We also define an alias for each argument so that the name is more readable.
   important_args_aliases = {
+    "-i": "case",
     "residual-stream-compression-size": "size",
-    "seed": "seed",
+    # "seed": "seed",
     # "ae-epochs": "ae-epochs",
     # "freeze-ae-weights": "frozen",
     # "ae-training-epochs-gap": "ae-gap",
     # "ae-desired-test-mse": "ae-mse",
-    "lr-patience": "lr-patience",
+    # "lr-patience": "lr-patience",
   }
   important_args = important_args_aliases.keys()
   wandb_name = ""
 
-  # wandb_name += command[3] + "-"  # training method
+  wandb_name += command[3] + "-"  # training method
 
   for arg in important_args:
     for part in command:
