@@ -8,9 +8,9 @@ from torch import Tensor
 from transformer_lens import ActivationCache, HookedTransformer
 from transformer_lens.hook_points import HookPoint
 
+from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
 from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
 
 
 def regular_intervention_hook_fn(

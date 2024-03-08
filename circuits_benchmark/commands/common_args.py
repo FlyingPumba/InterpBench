@@ -1,5 +1,7 @@
-from circuits_benchmark.utils.project_paths import get_default_output_dir
 import torch as t
+
+from circuits_benchmark.utils.project_paths import get_default_output_dir
+
 
 def add_common_args(parser):
   parser.add_argument("-i", "--indices", type=str, default=None,

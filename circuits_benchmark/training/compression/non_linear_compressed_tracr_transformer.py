@@ -6,7 +6,8 @@ from torch import nn, Tensor
 from transformer_lens.hook_points import HookPoint
 
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, HookedTracrTransformerBatchInput, \
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
+  HookedTracrTransformerBatchInput, \
   HookedTracrTransformerReturnType
 
 

@@ -11,11 +11,11 @@ from jaxtyping import Float
 from torch import Tensor
 from transformer_lens import HookedTransformerConfig
 
+from circuits_benchmark.transformers.hooked_benchmark_transformer import HookedBenchmarkTransformer
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
 from tracr.transformer.encoder import CategoricalEncoder, Encoder
-from circuits_benchmark.transformers.hooked_benchmark_transformer import HookedBenchmarkTransformer
 
 HookedTracrTransformerBatchInput = List[List[Any]]
 HookedTracrTransformerReturnType = Literal["logits", "decoded"]

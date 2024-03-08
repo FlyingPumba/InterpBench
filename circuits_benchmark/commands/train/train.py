@@ -3,7 +3,8 @@ import random
 import numpy as np
 import torch as t
 
-from circuits_benchmark.commands.train import linear_compression, non_linear_compression, autoencoder, natural_compression
+from circuits_benchmark.commands.train import linear_compression, non_linear_compression, autoencoder, \
+  natural_compression
 from circuits_benchmark.commands.train.autoencoder import train_autoencoder
 from circuits_benchmark.commands.train.linear_compression import train_linear_compression
 from circuits_benchmark.commands.train.non_linear_compression import train_non_linear_compression
