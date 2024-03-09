@@ -1,24 +1,27 @@
 from typing import Dict, Set, List
 
 from circuits_benchmark.transformers.circuit import Circuit
+from circuits_benchmark.transformers.circuit_node import CircuitNode
 
 
 class Alignment(object):
   def __init__(self):
-    self.hl_to_ll_mapping: Dict[str, Set[str]] = {}
+    self.hl_to_ll_mapping: Dict[str, Set[CircuitNode]] = {}
 
-  def map_hl_to_ll(self, hl_node: str, ll_node: str):
+  def map_hl_to_ll(self, hl_node: str, ll_node: CircuitNode):
     if hl_node not in self.hl_to_ll_mapping:
       self.hl_to_ll_mapping[hl_node] = set()
     self.hl_to_ll_mapping[hl_node].add(ll_node)
 
-  def get_ll_nodes(self, hl_node: str | List[str],
+  def get_ll_nodes(self, hl_node: str | List[str] | CircuitNode,
                    remove_predecessors_by_ll_circuit: Circuit | None = None,
-                   remove_successors_by_ll_circuit: Circuit | None = None) -> Set[str]:
+                   remove_successors_by_ll_circuit: Circuit | None = None) -> Set[CircuitNode]:
     hl_nodes = set()
 
     if isinstance(hl_node, str):
       hl_nodes.add(hl_node)
+    elif isinstance(hl_node, CircuitNode):
+      hl_nodes.add(hl_node.name)
     else:
       hl_nodes = set(hl_node)
 

@@ -13,10 +13,13 @@ from transformer_lens.hook_points import NamesFilter
 class HookedBenchmarkTransformer(HookedTransformer):
   """A small variation of the default implementation of HookedTransformer."""
 
-  def __init__(self, *args, **kwargs) -> None:
+  def __init__(self, remove_extra_tensor_cloning: bool = True, *args, **kwargs) -> None:
     super().__init__(*args, **kwargs)
     self.weights_frozen = False
-    self.rewrite_forward_methods()
+    self.remove_extra_tensor_cloning = remove_extra_tensor_cloning
+
+    if self.remove_extra_tensor_cloning:
+      self.rewrite_forward_methods()
 
   def freeze_all_weights(self):
     """Freezes all weights in the model."""

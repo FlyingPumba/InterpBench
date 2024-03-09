@@ -1,13 +1,12 @@
 import os
 
 import numpy as np
-import plotly
 import plotly.express as px
 from transformer_lens.utils import to_numpy
 
-from tracr.compiler.assemble import AssembledTransformerModel
 from circuits_benchmark.utils.cloudpickle import load_from_pickle
 from circuits_benchmark.utils.project_paths import get_default_output_dir
+from tracr.compiler.assemble import AssembledTransformerModel
 
 
 def setup_args_parser(subparsers):

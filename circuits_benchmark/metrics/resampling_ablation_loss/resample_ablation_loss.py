@@ -13,6 +13,7 @@ from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Int
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_interventions import get_interventions
 from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
 
+
 @dataclass
 class ResampleAblationLossOutput:
   loss: Float[Tensor, ""]

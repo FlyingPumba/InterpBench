@@ -6,9 +6,10 @@ from circuits_benchmark.benchmark.vocabs import TRACR_BOS
 from circuits_benchmark.transformers.alignment import Alignment
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
+from circuits_benchmark.transformers.circuit_node import CircuitNode
 from tracr.compiler import nodes
 from tracr.craft.bases import VectorSpaceWithBasis
-from tracr.craft.transformers import SeriesWithResiduals, MultiAttentionHead, AttentionHead
+from tracr.craft.transformers import SeriesWithResiduals, MultiAttentionHead, AttentionHead, MLP
 from tracr.rasp.rasp import Aggregate, Selector
 
 
@@ -27,8 +28,8 @@ def build_tracr_circuits(tracr_graph: DiGraph,
     else:
       ll_node = "hook_embed"
 
-    ll_circuit.add_node(ll_node)
-    alignment.map_hl_to_ll("tokens", ll_node)
+    ll_circuit.add_node(CircuitNode(ll_node))
+    alignment.map_hl_to_ll("tokens", CircuitNode(ll_node))
 
   if "indices" in hl_circuit.nodes:
     if granularity == "component":
@@ -38,23 +39,24 @@ def build_tracr_circuits(tracr_graph: DiGraph,
     else:
       ll_node = "hook_pos_embed"
 
-    ll_circuit.add_node(ll_node)
-    alignment.map_hl_to_ll("indices", ll_node)
+    ll_circuit.add_node(CircuitNode(ll_node))
+    alignment.map_hl_to_ll("indices", CircuitNode(ll_node))
 
   layer = -1
   last_component_type = "mlp"
   for block in craft_model.blocks:
     if isinstance(block, MultiAttentionHead):
-      assert len(block.sub_blocks) == 1, "Only one sub block is supported."
-      block = block.sub_blocks[0]
-
-    if isinstance(block, AttentionHead):
       # We always increase layer when we find an attention head
       layer += 1
       last_component_type = "attn"
 
-      process_attention_head_block(block, layer, ll_circuit, granularity, alignment)
-    else:
+      for block_idx, block in enumerate(block.sub_blocks):
+        if isinstance(block, AttentionHead):
+          process_attention_head_block(block, block_idx, layer, ll_circuit, granularity, alignment)
+        else:
+          raise ValueError(f"MultiAttentionHead sub-block {block_idx} is not an AttentionHead")
+
+    if isinstance(block, MLP):
       if last_component_type == "mlp":
         # we only increase layer when we find an mlp and the last component was also an mlp
         layer += 1
@@ -63,12 +65,13 @@ def build_tracr_circuits(tracr_graph: DiGraph,
       process_mlp_block(block, layer, ll_circuit, granularity, alignment)
 
   if granularity == "acdc_hooks" or granularity == "sp_hooks":
-    ll_circuit.add_node(f"blocks.{layer}.hook_resid_post")
+    resid_post_node = CircuitNode(f"blocks.{layer}.hook_resid_post")
+    ll_circuit.add_node(resid_post_node)
+
     hl_result_node = hl_circuit.get_result_node()
-    input_ll_nodes = alignment.get_ll_nodes(hl_result_node, remove_predecessors_by_ll_circuit=ll_circuit)
-    for ll_node in input_ll_nodes:
-      ll_circuit.add_edge(ll_node, f"blocks.{layer}.hook_resid_post")
-    alignment.map_hl_to_ll(hl_result_node, f"blocks.{layer}.hook_resid_post")
+    for ll_node in alignment.get_ll_nodes(hl_result_node, remove_predecessors_by_ll_circuit=ll_circuit):
+      ll_circuit.add_edge(ll_node, resid_post_node)
+    alignment.map_hl_to_ll(hl_result_node, resid_post_node)
 
   # Assert that we have all the nodes and edges in the tracr_graph (which are also nodes in the hl_circuit).
   # Also, complete the alignment for the cases in which we have a selector or an aggregate expression.
@@ -97,12 +100,12 @@ def build_tracr_circuits(tracr_graph: DiGraph,
               elif granularity == "matrix":
                 # the selector is implemented by the nodes that are input for the aggregate
                 for pred_node in ll_circuit.predecessors(ll_node):
-                  if "W_Q" in pred_node or "W_K" in pred_node:
+                  if "W_Q" in pred_node.name or "W_K" in pred_node.name:
                     alignment.map_hl_to_ll(label, pred_node)
               elif granularity == "acdc_hooks" or granularity == "sp_hooks":
                 # the selector is implemented by the nodes that are input for the aggregate
                 for pred_node in ll_circuit.predecessors(ll_node):
-                  if "hook_q" in pred_node or "hook_k" in pred_node:
+                  if "hook_q" in pred_node.name or "hook_k" in pred_node.name:
                     alignment.map_hl_to_ll(label, pred_node)
               else:
                 raise ValueError(f"Granularity {granularity} not supported for Select expressions")
@@ -111,134 +114,147 @@ def build_tracr_circuits(tracr_graph: DiGraph,
   return hl_circuit, ll_circuit, alignment
 
 
-def process_attention_head_block(block, layer, ll_circuit, granularity, alignment):
+def process_attention_head_block(block: AttentionHead,
+                                 head_index: int,
+                                 layer: int,
+                                 ll_circuit: Circuit,
+                                 granularity: CircuitGranularity,
+                                 alignment: Alignment):
   if granularity == "component":
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.attn",
+                                 CircuitNode(f"blocks.{layer}.attn", head_index),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.w_qk.left_space,
                                                                                          block.w_qk.right_space,
                                                                                          block.w_ov.input_space])))
 
     for label in get_hl_labels_from_input_spaces([block.w_ov.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.attn")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.attn", head_index))
 
   elif granularity == "matrix":
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.attn.W_Q",
+                                 CircuitNode(f"blocks.{layer}.attn.W_Q", head_index),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.w_qk.left_space]),
                                                         remove_predecessors_by_ll_circuit=ll_circuit))
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.attn.W_K",
+                                 CircuitNode(f"blocks.{layer}.attn.W_K", head_index),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.w_qk.right_space]),
                                                         remove_predecessors_by_ll_circuit=ll_circuit))
 
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.attn.W_V",
+                                 CircuitNode(f"blocks.{layer}.attn.W_V", head_index),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.w_ov.input_space]),
                                                         remove_predecessors_by_ll_circuit=ll_circuit))
     for label in get_hl_labels_from_input_spaces([block.w_ov.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.attn.W_V")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.attn.W_V", head_index))
 
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.attn.W_O",
-                                 {f"blocks.{layer}.attn.W_Q", f"blocks.{layer}.attn.W_K", f"blocks.{layer}.attn.W_V"})
+                                 CircuitNode(f"blocks.{layer}.attn.W_O", head_index),
+                                 {
+                                   CircuitNode(f"blocks.{layer}.attn.W_Q", head_index),
+                                   CircuitNode(f"blocks.{layer}.attn.W_K", head_index),
+                                   CircuitNode(f"blocks.{layer}.attn.W_V", head_index)
+                                 })
     for label in get_hl_labels_from_input_spaces([block.w_ov.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.attn.W_O")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.attn.W_O", head_index))
 
   elif granularity == "acdc_hooks" or granularity == "sp_hooks":
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.hook_q_input",
+                                 CircuitNode(f"blocks.{layer}.hook_q_input", head_index),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.w_qk.left_space]),
                                                         remove_predecessors_by_ll_circuit=ll_circuit))
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.hook_k_input",
+                                 CircuitNode(f"blocks.{layer}.hook_k_input", head_index),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.w_qk.right_space]),
                                                         remove_predecessors_by_ll_circuit=ll_circuit))
 
     add_node_and_edges_for_block(ll_circuit,
-                                  f"blocks.{layer}.hook_v_input",
+                                 CircuitNode(f"blocks.{layer}.hook_v_input", head_index),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.w_ov.input_space]),
                                                         remove_predecessors_by_ll_circuit=ll_circuit))
     for label in get_hl_labels_from_input_spaces([block.w_ov.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.hook_v_input")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.hook_v_input", head_index))
 
     if granularity == "acdc_hooks":
       add_node_and_edges_for_block(ll_circuit,
-                                   f"blocks.{layer}.attn.hook_q",
-                                   {f"blocks.{layer}.hook_q_input"})
+                                   CircuitNode(f"blocks.{layer}.attn.hook_q", head_index),
+                                   {CircuitNode(f"blocks.{layer}.hook_q_input", head_index)})
       for label in get_hl_labels_from_input_spaces([block.w_qk.left_space]):
-        alignment.map_hl_to_ll(label, f"blocks.{layer}.attn.hook_q")
+        alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.attn.hook_q", head_index))
 
       add_node_and_edges_for_block(ll_circuit,
-                                   f"blocks.{layer}.attn.hook_k",
-                                   {f"blocks.{layer}.hook_k_input"})
+                                   CircuitNode(f"blocks.{layer}.attn.hook_k", head_index),
+                                   {CircuitNode(f"blocks.{layer}.hook_k_input", head_index)})
       for label in get_hl_labels_from_input_spaces([block.w_qk.right_space]):
-        alignment.map_hl_to_ll(label, f"blocks.{layer}.attn.hook_k")
+        alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.attn.hook_k", head_index))
 
       add_node_and_edges_for_block(ll_circuit,
-                                   f"blocks.{layer}.attn.hook_v",
-                                   {f"blocks.{layer}.hook_v_input"})
+                                   CircuitNode(f"blocks.{layer}.attn.hook_v", head_index),
+                                   {CircuitNode(f"blocks.{layer}.hook_v_input", head_index)})
       for label in get_hl_labels_from_input_spaces([block.w_ov.output_space]):
-        alignment.map_hl_to_ll(label, f"blocks.{layer}.attn.hook_v")
+        alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.attn.hook_v", head_index))
 
-      attn_result_input_edges = {f"blocks.{layer}.attn.hook_q",
-                                 f"blocks.{layer}.attn.hook_k",
-                                 f"blocks.{layer}.attn.hook_v"}
+      attn_result_input_edges = {CircuitNode(f"blocks.{layer}.attn.hook_q", head_index),
+                                 CircuitNode(f"blocks.{layer}.attn.hook_k", head_index),
+                                 CircuitNode(f"blocks.{layer}.attn.hook_v", head_index)}
     else:
-      attn_result_input_edges = {f"blocks.{layer}.hook_q_input",
-                                  f"blocks.{layer}.hook_k_input",
-                                  f"blocks.{layer}.hook_v_input"}
+      attn_result_input_edges = {CircuitNode(f"blocks.{layer}.hook_q_input", head_index),
+                                 CircuitNode(f"blocks.{layer}.hook_k_input", head_index),
+                                 CircuitNode(f"blocks.{layer}.hook_v_input", head_index)}
 
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.attn.hook_result",
+                                 CircuitNode(f"blocks.{layer}.attn.hook_result", head_index),
                                  attn_result_input_edges)
     for label in get_hl_labels_from_input_spaces([block.w_ov.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.attn.hook_result")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.attn.hook_result", head_index))
 
 
-def process_mlp_block(block, layer, ll_circuit, granularity, alignment):
+def process_mlp_block(block: MLP,
+                      layer: int,
+                      ll_circuit: Circuit,
+                      granularity: CircuitGranularity,
+                      alignment: Alignment):
   if granularity == "component":
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.mlp",
+                                 CircuitNode(f"blocks.{layer}.mlp"),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.fst.input_space])))
     for label in get_hl_labels_from_input_spaces([block.snd.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.mlp")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.mlp"))
 
   elif granularity == "matrix":
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.mlp.W_in",
+                                 CircuitNode(f"blocks.{layer}.mlp.W_in"),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.fst.input_space]),
                                                         remove_predecessors_by_ll_circuit=ll_circuit))
     for label in get_hl_labels_from_input_spaces([block.snd.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.mlp.W_in")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.mlp.W_in"))
 
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.mlp.W_out",
-                                 {f"blocks.{layer}.mlp.W_in"})
+                                 CircuitNode(f"blocks.{layer}.mlp.W_out"),
+                                 {CircuitNode(f"blocks.{layer}.mlp.W_in")})
     for label in get_hl_labels_from_input_spaces([block.snd.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.mlp.W_out")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.mlp.W_out"))
 
   else:
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.hook_mlp_in",
+                                 CircuitNode(f"blocks.{layer}.hook_mlp_in"),
                                  alignment.get_ll_nodes(get_hl_labels_from_input_spaces([block.fst.input_space]),
                                                         remove_predecessors_by_ll_circuit=ll_circuit))
     for label in get_hl_labels_from_input_spaces([block.snd.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.hook_mlp_in")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.hook_mlp_in"))
 
     add_node_and_edges_for_block(ll_circuit,
-                                 f"blocks.{layer}.hook_mlp_out",
-                                 {f"blocks.{layer}.hook_mlp_in"})
+                                 CircuitNode(f"blocks.{layer}.hook_mlp_out"),
+                                 {CircuitNode(f"blocks.{layer}.hook_mlp_in")})
     for label in get_hl_labels_from_input_spaces([block.snd.output_space]):
-      alignment.map_hl_to_ll(label, f"blocks.{layer}.hook_mlp_out")
+      alignment.map_hl_to_ll(label, CircuitNode(f"blocks.{layer}.hook_mlp_out"))
 
 
 def add_node_and_edges_for_block(ll_circuit: Circuit,
-                                 node_name: str,
-                                 input_ll_nodes: Set[str]):
-  ll_circuit.add_node(node_name)
+                                 node: CircuitNode,
+                                 input_ll_nodes: Set[CircuitNode]):
+  ll_circuit.add_node(node)
   for input_node in input_ll_nodes:
-    ll_circuit.add_edge(input_node, node_name)
+    ll_circuit.add_edge(input_node, node)
 
 
 def get_hl_labels_from_input_spaces(input_spaces: list[VectorSpaceWithBasis]) -> list[str]:
@@ -252,10 +268,10 @@ def build_hl_circuit(tracr_graph: DiGraph) -> Circuit:
   hl_circuit = Circuit()
 
   for node in tracr_graph.nodes:
-    hl_circuit.add_node(node)
+    hl_circuit.add_node(CircuitNode(node))
 
-  for edge in tracr_graph.edges:
-    hl_circuit.add_edge(*edge)
+  for from_node, to_node in tracr_graph.edges:
+    hl_circuit.add_edge(CircuitNode(from_node), CircuitNode(to_node))
 
   return hl_circuit
 
