@@ -5,12 +5,17 @@ import shutil
 
 import torch
 import wandb
+from torch.nn import init
 
 from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.commands.analysis.acdc_circuit import calculate_fpr_and_tpr
 from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
 from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from circuits_benchmark.utils.wandb_artifact_download import download_artifact
 
 
 def setup_args_parser(subparsers):
@@ -21,6 +26,13 @@ def setup_args_parser(subparsers):
   parser.add_argument('--metric', type=str, required=True, choices=["kl", "l2"],
                       help="Which metric to use for the experiment")
   parser.add_argument('--data-size', type=int, required=False, default=1000, help='How many samples to use')
+
+  parser.add_argument('--wandb-checkpoint-project-name', type=str, required=False,
+                      help="A project name to download the checkpoint artifact on which to run the experiment")
+  parser.add_argument('--wandb-checkpoint-artifact-name', type=str, required=False,
+                      help="A artifact name to download the checkpoint artifact on which to run the experiment")
+  parser.add_argument('--wandb-checkpoint-type', type=str, required=False,
+                      help="A type to download the checkpoint artifact on which to run the experiment")
 
   parser.add_argument('--first-cache-cpu', type=str, required=False, default="True",
                       help='Value for first_cache_cpu (the old name for the `online_cache`)')
@@ -48,6 +60,39 @@ def setup_args_parser(subparsers):
 
 def run_acdc(case: BenchmarkCase, args):
   tl_model = case.get_tl_model(device=args.device)
+
+  if (args.wandb_checkpoint_project_name is not None or
+      args.wandb_checkpoint_artifact_name is not None or
+      args.wandb_checkpoint_type is not None):
+    downloaded_files = download_artifact(args.wandb_checkpoint_project_name,
+                                         args.wandb_checkpoint_artifact_name)
+
+    if len(downloaded_files) == 0:
+      raise ValueError(f"Failed to download artifact {args.wandb_checkpoint_artifact_name} from project {args.wandb_checkpoint_project_name}")
+
+    weights_file = next((f for f in downloaded_files if f.name.endswith("weights.pt")), None)
+    if weights_file is None:
+      raise ValueError(f"Failed to find weights file in {downloaded_files}")
+
+    # parse the case index and resid size out of the filename
+    case_index = weights_file.name.split("-")[1]
+    compression_size = int(weights_file.name.split("-")[3].split(".")[0])
+
+    if case_index != case.get_index():
+      raise ValueError(f"Case index {case_index} in weights artifact does not match the case index {case.get_index()}")
+
+    if args.wandb_checkpoint_type == "natural-compression" or args.wandb_checkpoint_type == "non-linear-compression":
+      tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
+        tl_model,
+        overwrite_cfg_dict={"d_model": compression_size},
+        init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
+      )
+      tl_model.load_state_dict(torch.load(weights_file))
+    elif args.wandb_checkpoint_type == "linear-compression":
+      tl_model = LinearCompressedTracrTransformer(tl_model, int(compression_size), "linear")
+      tl_model.load_state_dict(torch.load(weights_file))
+    else:
+      raise ValueError(f"Unknown wandb_checkpoint_type {args.wandb_checkpoint_type}")
 
   output_dir = args.output_dir
   if not os.path.exists(output_dir):
@@ -181,15 +226,6 @@ def run_acdc(case: BenchmarkCase, args):
 
   exp.save_edges(os.path.join(output_dir, "another_final_edges.pkl"))
 
-  if using_wandb:
-    edges_fname = f"edges.pth"
-    exp.save_edges(edges_fname)
-    artifact = wandb.Artifact(edges_fname, type="dataset")
-    artifact.add_file(edges_fname)
-    wandb.log_artifact(artifact)
-    os.remove(edges_fname)
-    wandb.finish()
-
   exp.save_subgraph(
     fpath=f"{output_dir}/subgraph.pth",
     return_it=True,
@@ -198,4 +234,28 @@ def run_acdc(case: BenchmarkCase, args):
   acdc_circuit = build_acdc_circuit(exp.corr)
   acdc_circuit.save(f"{output_dir}/final_circuit.pkl")
 
+  print("Calculating FPR and TPR for threshold", threshold)
+  result = calculate_fpr_and_tpr(acdc_circuit, case, verbose=True)
 
+  if using_wandb:
+    edges_fname = f"edges.pth"
+    exp.save_edges(edges_fname)
+
+    artifact = wandb.Artifact(edges_fname, type="dataset")
+    artifact.add_file(edges_fname)
+    wandb.log_artifact(artifact)
+
+    nodes_fpr = result["nodes"]["fpr"]
+    nodes_tpr = result["nodes"]["tpr"]
+    edges_fpr = result["edges"]["fpr"]
+    edges_tpr = result["edges"]["tpr"]
+    wandb.log({
+      "threshold": threshold,
+      "nodes_fpr": nodes_fpr,
+      "nodes_tpr": nodes_tpr,
+      "edges_fpr": edges_fpr,
+      "edges_tpr": edges_tpr,
+    })
+
+    os.remove(edges_fname)
+    wandb.finish()
