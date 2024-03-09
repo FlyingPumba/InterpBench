@@ -47,13 +47,19 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
   def from_tracr_model(
       cls,
       tracr_model: AssembledTransformerModel,
-      device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")
+      device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+      *args, **kwargs
   ) -> HookedTracrTransformer:
     """
     Initialize a HookedTracrTransformer from a Tracr model.
     """
     cfg = cls.extract_tracr_config(tracr_model)
-    tl_model = cls(cfg, tracr_model.input_encoder, tracr_model.output_encoder, tracr_model.residual_labels, device)
+    tl_model = cls(cfg,
+                   tracr_model.input_encoder,
+                   tracr_model.output_encoder,
+                   tracr_model.residual_labels,
+                   device,
+                   *args, **kwargs)
     tl_model.load_weights_from_tracr_model(tracr_model)
 
     return tl_model
@@ -62,7 +68,8 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
   def from_hooked_tracr_transformer(cls,
                                     tl_model,
                                     overwrite_cfg_dict: Dict[str, Any] = None,
-                                    init_params_fn: Optional[Callable[[Tensor], Tensor]] = None
+                                    init_params_fn: Optional[Callable[[Tensor], Tensor]] = None,
+                                    *args, **kwargs
                                     ) -> HookedTracrTransformer:
     """
     Initialize a HookedTracrTransformer from a HookedTracrTransformer.
@@ -76,7 +83,8 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
                    tl_model.tracr_input_encoder,
                    tl_model.tracr_output_encoder,
                    tl_model.residual_stream_labels,
-                   tl_model.device)
+                   tl_model.device,
+                    *args, **kwargs)
 
     if init_params_fn is not None:
       instance.reset_parameters(init_params_fn)
