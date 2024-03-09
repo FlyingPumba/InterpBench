@@ -30,18 +30,14 @@ def run(args):
 def calculate_fpr_and_tpr(acdc_circuit: Circuit,
                           case: BenchmarkCase,
                           verbose: bool = False):
-  full_circuit = get_full_acdc_circuit(case.get_tl_model().cfg.n_layers)
+  full_circuit = get_full_acdc_circuit(case.get_tl_model().cfg.n_layers, case.get_tl_model().cfg.n_heads)
   all_nodes = set(full_circuit.nodes)
   all_edges = set(full_circuit.edges)
 
   tracr_hl_circuit, tracr_ll_circuit, alignment = case.get_tracr_circuit(granularity="acdc_hooks")
 
-  # remove from ACDC nodes and edges the indices at the end (e.g., "[:]") to compare with tracr
-  acdc_nodes = [node.split("[")[0] for node in acdc_circuit.nodes]
-  acdc_edges = [(edge[0].split("[")[0], edge[1].split("[")[0]) for edge in acdc_circuit.edges]
-
   # calculate nodes false positives and false negatives
-  acdc_nodes = set(acdc_nodes)
+  acdc_nodes = set(acdc_circuit.nodes)
   tracr_nodes = set(tracr_ll_circuit.nodes)
   false_positive_nodes = acdc_nodes - tracr_nodes
   false_negative_nodes = tracr_nodes - acdc_nodes
@@ -56,7 +52,7 @@ def calculate_fpr_and_tpr(acdc_circuit: Circuit,
     print(f" - True Negatives: {sorted(true_negative_nodes)}")
 
   # calculate edges false positives and false negatives
-  acdc_edges = set(acdc_edges)
+  acdc_edges = set(acdc_circuit.edges)
   tracr_edges = set(tracr_ll_circuit.edges)
   false_positive_edges = acdc_edges - tracr_edges
   false_negative_edges = tracr_edges - acdc_edges
