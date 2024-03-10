@@ -2,6 +2,7 @@ import datetime
 import gc
 import os
 import shutil
+import sys
 
 import torch
 import wandb
@@ -61,6 +62,9 @@ def setup_args_parser(subparsers):
 def run_acdc(case: BenchmarkCase, args):
   tl_model = case.get_tl_model(device=args.device)
 
+  tags = [f"case{case.get_index()}", "acdc"]
+  notes = f"Command: {' '.join(sys.argv)}"
+
   if (args.wandb_checkpoint_project_name is not None or
       args.wandb_checkpoint_artifact_name is not None or
       args.wandb_checkpoint_type is not None):
@@ -81,6 +85,7 @@ def run_acdc(case: BenchmarkCase, args):
     if case_index != case.get_index():
       raise ValueError(f"Case index {case_index} in weights artifact does not match the case index {case.get_index()}")
 
+    tags.append(args.wandb_checkpoint_type)
     if args.wandb_checkpoint_type == "natural-compression" or args.wandb_checkpoint_type == "non-linear-compression":
       tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
         tl_model,
@@ -153,12 +158,6 @@ def run_acdc(case: BenchmarkCase, args):
   toks_int_values = case.get_clean_data(count=data_size).get_inputs()
   toks_int_values_other = case.get_corrupted_data(count=data_size).get_inputs()
 
-  try:
-    with open(__file__, "r") as f:
-      notes = f.read()
-  except Exception as e:
-    notes = "No notes generated, expected when running in an .ipynb file. Error is " + str(e)
-
   tl_model.reset_hooks()
 
   # Save some mem
@@ -182,6 +181,7 @@ def run_acdc(case: BenchmarkCase, args):
     wandb_run_name=wandb_run_name,
     wandb_group_name=wandb_group_name,
     wandb_notes=notes,
+    wandb_tags=tags,
     wandb_dir=args.wandb_dir,
     wandb_mode=args.wandb_mode,
     wandb_config=args,
