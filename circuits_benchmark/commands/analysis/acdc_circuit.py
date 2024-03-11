@@ -69,15 +69,33 @@ def calculate_fpr_and_tpr(acdc_circuit: Circuit,
   # print FP and TP rates for nodes and edges as summary
   print(f"\nSummary:")
 
-  nodes_tpr = len(true_positive_nodes) / len(true_positive_nodes | false_negative_nodes)
-  print(f" - Nodes TP rate: {nodes_tpr}")
-  nodes_fpr = len(false_positive_nodes) / len(false_positive_nodes | true_negative_nodes)
-  print(f" - Nodes FP rate: {nodes_fpr}")
+  if len(true_positive_nodes | false_negative_nodes) == 0:
+    nodes_tpr = "N/A"
+    print(f" - Nodes TP rate: N/A")
+  else:
+    nodes_tpr = len(true_positive_nodes) / len(true_positive_nodes | false_negative_nodes)
+    print(f" - Nodes TP rate: {nodes_tpr}")
 
-  edges_tpr = len(true_positive_edges) / len(true_positive_edges | false_negative_edges)
-  print(f" - Edges TP rate: {edges_tpr}")
-  edges_fpr = len(false_positive_edges) / len(false_positive_edges | true_negative_edges)
-  print(f" - Edges FP rate: {edges_fpr}")
+  if len(false_positive_nodes | true_negative_nodes) == 0:
+    nodes_fpr = "N/A"
+    print(f" - Nodes FP rate: N/A")
+  else:
+    nodes_fpr = len(false_positive_nodes) / len(false_positive_nodes | true_negative_nodes)
+    print(f" - Nodes FP rate: {nodes_fpr}")
+
+  if len(true_positive_edges | false_negative_edges) == 0:
+    edges_tpr = "N/A"
+    print(f" - Edges TP rate: N/A")
+  else:
+    edges_tpr = len(true_positive_edges) / len(true_positive_edges | false_negative_edges)
+    print(f" - Edges TP rate: {edges_tpr}")
+
+  if len(false_positive_edges | true_negative_edges) == 0:
+    edges_fpr = "N/A"
+    print(f" - Edges FP rate: N/A")
+  else:
+    edges_fpr = len(false_positive_edges) / len(false_positive_edges | true_negative_edges)
+    print(f" - Edges FP rate: {edges_fpr}")
 
   return {
     "nodes": {
