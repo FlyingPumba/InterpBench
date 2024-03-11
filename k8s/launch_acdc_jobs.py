@@ -168,5 +168,5 @@ def print_commands():
 
 
 if __name__ == "__main__":
-  # launch_kubernetes_jobs()
+  launch_kubernetes_jobs()
   print_commands()
