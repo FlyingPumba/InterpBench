@@ -103,9 +103,8 @@ def build_wandb_name(command: List[str]):
   # Use a set of important arguments for our experiment to build the wandb name.
   # Each argument will be separated by a dash. We also define an alias for each argument so that the name is more readable.
   important_args_aliases = {
-    "-i": "case",
-    "residual-stream-compression-size": "size",
     "threshold": "",
+    "-i": "case",
     "wandb-checkpoint-type": "",
     # "seed": "seed",
     # "ae-epochs": "ae-epochs",
@@ -138,7 +137,6 @@ def build_wandb_name(command: List[str]):
           wandb_name += f"{suffix}"
 
         break
-
     if not found and arg == "wandb-checkpoint-type":
       wandb_name += "tracr-"
 
@@ -170,5 +168,5 @@ def print_commands():
 
 
 if __name__ == "__main__":
-  launch_kubernetes_jobs()
+  # launch_kubernetes_jobs()
   print_commands()
