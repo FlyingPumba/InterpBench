@@ -1,9 +1,11 @@
 import datetime
 import gc
 import os
+import random
 import shutil
 import sys
 
+import numpy as np
 import torch
 import wandb
 from torch.nn import init
@@ -118,7 +120,11 @@ def run_acdc(case: BenchmarkCase, args):
 
   if args.torch_num_threads > 0:
     torch.set_num_threads(args.torch_num_threads)
+
+  # Set the seed
   torch.manual_seed(args.seed)
+  random.seed(args.seed)
+  np.random.seed(args.seed)
 
   if args.first_cache_cpu is None:
     online_cache_cpu = True
