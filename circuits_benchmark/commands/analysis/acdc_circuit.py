@@ -57,7 +57,7 @@ def calculate_fpr_and_tpr(acdc_circuit: Circuit,
   false_positive_edges = acdc_edges - tracr_edges
   false_negative_edges = tracr_edges - acdc_edges
   true_positive_edges = acdc_edges & tracr_edges
-  true_negative_edges = all_edges - (acdc_edges | tracr_edges)
+  true_negative_edges = all_edges - (acdc_edges | tracr_edges) # == (all_edges - acdc_edges) & (all_edges - tracr_edges)
 
   if verbose:
     print("\nEdges analysis:")
