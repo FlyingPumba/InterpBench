@@ -62,7 +62,8 @@ def setup_args_parser(subparsers):
 
 
 def run_acdc(case: BenchmarkCase, args):
-  tl_model = case.get_tl_model(device=args.device)
+  tl_model = case.get_tl_model(device=args.device,
+                               remove_extra_tensor_cloning=False)
 
   tags = [f"case{case.get_index()}", "acdc"]
   notes = f"Command: {' '.join(sys.argv)}"
