@@ -29,6 +29,7 @@ def build_commands():
 
   checkpoint_types = ["tracr", "linear-compression", "non-linear-compression", "natural-compression"]
   thresholds = 10**np.linspace(0, -8, 50)
+  thresholds = np.append(thresholds, [0])
 
   commands = []
   for case in cases:
