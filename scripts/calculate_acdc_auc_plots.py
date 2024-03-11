@@ -10,27 +10,26 @@ if __name__ == "__main__":
   runs = api.runs("acdc-experiment")
 
   skipped_runs_by_case: Dict[str, Dict[str, List[str]]] = {}
-  for i in range(0, 40):
+  for i in range(1, 40):
     skipped_runs_by_case[str(i)] = {
       "non-finished": [],
       "no-metrics": [],
       "no-threshold": []
     }
 
-  runs_per_case: Dict[str, int] = {}
-  for i in range(0, 40):
-    runs_per_case[str(i)] = 0
+  runs_per_case: Dict[str, Dict[str, int]] = {}
+  for i in range(1, 40):
+    runs_per_case[str(i)] = {
+      "non-linear": 0,
+      "linear": 0,
+      "natural": 0,
+      "tracr": 0
+    }
 
   data_by_case: Dict[str, Dict[str, Dict[str, List[float]]]] = {}
   for run in runs:
     run_name = run.name
     case = run_name.split("case-")[1].split("-")[0]
-    runs_per_case[case] += 1
-
-    if run.state != "finished":
-      skipped_runs_by_case[case]["non-finished"].append(run.name)
-      print(f"Skipping run {run.name} (Method: {method}, case: {case}) because it is not finished.")
-      continue
 
     method = None
     if "non-linear-compression" in run_name:
@@ -41,6 +40,13 @@ if __name__ == "__main__":
       method = "natural"
     else:
       method = "tracr"
+
+    runs_per_case[case][method] += 1
+
+    if run.state != "finished":
+      skipped_runs_by_case[case]["non-finished"].append(run.name)
+      print(f"Skipping run {run.name} (Method: {method}, case: {case}) because it is not finished.")
+      continue
 
     if "edges_fpr" not in run.summary or "edges_tpr" not in run.summary:
       skipped_runs_by_case[case]["no-metrics"].append(run.name)
