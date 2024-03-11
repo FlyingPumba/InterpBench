@@ -100,6 +100,7 @@ def run_acdc(case: BenchmarkCase, args):
                                                   "linear",
                                                   remove_extra_tensor_cloning=False)
       tl_model.load_state_dict(torch.load(weights_file))
+      tl_model = tl_model.get_folded_model()
     else:
       raise ValueError(f"Unknown wandb_checkpoint_type {args.wandb_checkpoint_type}")
 

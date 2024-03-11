@@ -10,7 +10,7 @@ import wandb
 from einops import einsum
 from jaxtyping import Float
 from torch import nn, Tensor
-from torch.nn import Linear, Parameter
+from torch.nn import Linear, Parameter, init
 from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookPoint
 from wandb.sdk.wandb_run import Run
@@ -206,6 +206,22 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
   def folded_parameters(self, recurse: bool = True) -> Iterator[Parameter]:
     for name, param in self.named_parameters(recurse=recurse):
       yield param
+
+  def get_folded_model(self) -> HookedTracrTransformer:
+    tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
+      self,
+      overwrite_cfg_dict={"d_model": self.residual_stream_compression_size},
+      init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
+      remove_extra_tensor_cloning=False,
+    )
+
+    for name, param in self.folded_named_parameters():
+      matching_param = next(tl_param for tl_name, tl_param in tl_model.named_parameters() if tl_name == name)
+      # assert they have the same shape
+      assert param.shape == matching_param.shape
+      matching_param.data = param.data
+
+    return tl_model
 
   def save(self, output_dir: str, prefix: str, wandb_run: Run | None = None):
     if not os.path.exists(output_dir):
