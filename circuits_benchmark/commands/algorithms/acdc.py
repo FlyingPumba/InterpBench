@@ -19,7 +19,7 @@ from circuits_benchmark.training.compression.linear_compressed_tracr_transformer
 from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.wandb_artifact_download import download_artifact
-
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 def setup_args_parser(subparsers):
   parser = subparsers.add_parser("acdc")
@@ -61,7 +61,7 @@ def setup_args_parser(subparsers):
                       help='Use the absolute value of the result to check threshold')
 
 
-def run_acdc(case: BenchmarkCase, args, model=None):
+def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer =None):
   if model is None:
     tl_model = case.get_tl_model(device=args.device)
   else:
@@ -109,7 +109,7 @@ def run_acdc(case: BenchmarkCase, args, model=None):
     else:
       raise ValueError(f"Unknown wandb_checkpoint_type {args.wandb_checkpoint_type}")
 
-  output_dir = args.output_dir
+  output_dir = os.path.join(args.output_dir, f"acdc_{case.get_index()}")
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 

@@ -142,10 +142,10 @@ else:
         "atol": 0.05,
         "lr": 1e-2,
         "use_single_loss": False,
-        "iit_weight": 1.0,
+        "iit_weight": 0.0,
         "behavior_weight": 1.0,
-        "strict_weight": 0.4,
-        "epochs": 50,
+        "strict_weight": 0.0,
+        "epochs": 10,
         "act_fn": "gelu",
     }
     import argparse
@@ -154,12 +154,15 @@ else:
     model_pair = train_model(config=args, use_wandb=False)
 
     # save the model
-    save_dir = f"ll_models/{case.get_index()}/"
+    save_dir = f"ll_models/{case.get_index()}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
         
     weight_int = int(args.iit_weight * 10 + args.behavior_weight * 100 + args.strict_weight * 1000)
     t.save(model_pair.ll_model.state_dict(), f"{save_dir}/ll_model_{weight_int}.pth")
+    # save training args, config
+    with open(f"{save_dir}/meta_{weight_int}.json", "w") as f:
+        json.dump(config, f)
     # TODO: save the config 
     # ll_model_cfg = model_pair.ll_model.cfg
     # ll_model_cfg_dict = ll_model_cfg.to_dict()
