@@ -28,8 +28,9 @@ def build_commands():
     cases.append(case.get_index())
 
   checkpoint_types = ["tracr", "linear-compression", "non-linear-compression", "natural-compression"]
-  thresholds = 10**np.linspace(0, -8, 50)
-  thresholds = np.append(thresholds, [0])
+  # thresholds = 10**np.linspace(0, -8, 50)
+  # thresholds = np.append(thresholds, [0])
+  thresholds = 10**np.linspace(0.1, 8, 50)
 
   commands = []
   for case in cases:
@@ -131,7 +132,7 @@ def build_wandb_name(command: List[str]):
           suffix = ""
 
         if "=" in part:
-          arg_value = part.split("=")[1].replace(".", "-").replace("+", "-")
+          arg_value = part.split("=")[1].replace(".", "-").replace("+", "--")
           wandb_name += f"{suffix}{arg_value}-"
         else:
           wandb_name += f"{suffix}"
