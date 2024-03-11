@@ -17,10 +17,15 @@ if __name__ == "__main__":
       "no-threshold": []
     }
 
+  runs_per_case: Dict[str, int] = {}
+  for i in range(0, 40):
+    runs_per_case[str(i)] = 0
+
   data_by_case: Dict[str, Dict[str, Dict[str, List[float]]]] = {}
   for run in runs:
     run_name = run.name
     case = run_name.split("case-")[1].split("-")[0]
+    runs_per_case[case] += 1
 
     if run.state != "finished":
       skipped_runs_by_case[case]["non-finished"].append(run.name)
@@ -127,5 +132,6 @@ if __name__ == "__main__":
   print("Skipped runs by case:")
   for case, skipped_runs in skipped_runs_by_case.items():
     print(f"Case {case}:")
+    print(f" - Total runs: {runs_per_case[case]}")
     for reason, runs in skipped_runs.items():
       print(f" - {reason}: {len(runs)} runs")
