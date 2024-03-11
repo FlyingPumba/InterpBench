@@ -1,7 +1,7 @@
 import importlib
 import os.path
+import random
 from functools import partial
-from random import randint
 from typing import Set, Optional, Sequence
 
 import numpy as np
@@ -77,7 +77,9 @@ class BenchmarkCase(object):
 
     # set numpy seed and sort vocab to ensure reproducibility
     if seed is not None:
+      t.random.manual_seed(seed)
       np.random.seed(seed)
+      random.seed(seed)
 
     vals = sorted(list(self.get_vocab()))
 
@@ -112,7 +114,7 @@ class BenchmarkCase(object):
 
     else:
       for _ in range(count):
-        seq_len = randint(min_seq_len, max_seq_len)
+        seq_len = random.randint(min_seq_len, max_seq_len)
         pad_len = max_seq_len - seq_len
         pad = [TRACR_PAD] * pad_len
 
