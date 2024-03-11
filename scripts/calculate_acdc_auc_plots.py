@@ -15,8 +15,8 @@ if __name__ == "__main__":
       print(f"Skipping run {run.name} because it is not finished.")
       continue
 
-    run_name = run.name # 'acdc-case-12-non-linear-compression-2-947e-07'
-    case = run_name.split("-")[2]
+    run_name = run.name
+    case = run_name.split("case-")[1].split("-")[0]
 
     method = None
     if "non-linear-compression" in run_name:
@@ -39,6 +39,8 @@ if __name__ == "__main__":
     fpr = run.summary["edges_fpr"]
     tpr = run.summary["edges_tpr"]
     threshold = run.config["threshold"]
+
+    print(f"Case {case} - Method {method} - Threshold {threshold}: FPR = {fpr}, TPR = {tpr}")
 
     if case not in data_by_case:
       data_by_case[case] = {}
