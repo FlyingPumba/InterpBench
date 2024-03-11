@@ -27,7 +27,7 @@ def build_commands():
     compression_sizes_by_case[case.get_index()] = [ceil(original_resid_size / 3)]
     cases.append(case.get_index())
 
-  checkpoint_types = ["linear-compression", "non-linear-compression", "natural-compression"]
+  checkpoint_types = ["tracr", "linear-compression", "non-linear-compression", "natural-compression"]
   thresholds = 10**np.linspace(0, -8, 50)
 
   commands = []
@@ -44,6 +44,8 @@ def build_commands():
             artifact_name = f"case-{case}-resid-{compression_size}-linearly-compressed-tracr-transformer"
           elif checkpoint_type == "natural-compression":
             artifact_name = f"case-{case}-resid-{compression_size}-naturally-compressed-tracr-transformer"
+          elif checkpoint_type == "tracr":
+            pass
           else:
             raise ValueError(f"Invalid checkpoint_type: {checkpoint_type}")
 
@@ -55,12 +57,14 @@ def build_commands():
                      f"-i={case}",
                      "--metric=l2",
                      f"--threshold={threshold}",
-                     "--wandb-checkpoint-project-name=compress-all-cases",
-                     f"--wandb-checkpoint-artifact-name={artifact_name}",
-                     f"--wandb-checkpoint-type={checkpoint_type}",
                      "--using-wandb",
                      "--wandb-entity-name=iarcuschin",
                      f"--wandb-project-name={wandb_project}",]
+
+          if checkpoint_type != "tracr":
+            command.append(f"--wandb-checkpoint-project-name=compress-all-cases")
+            command.append(f"--wandb-checkpoint-artifact-name={artifact_name}")
+            command.append(f"--wandb-checkpoint-type={checkpoint_type}")
 
           command.append(f"--wandb-run-name={build_wandb_name(command)}")
           commands.append(command)
@@ -100,8 +104,8 @@ def build_wandb_name(command: List[str]):
   important_args_aliases = {
     "-i": "case",
     "residual-stream-compression-size": "size",
-    "wandb-checkpoint-type": "",
     "threshold": "",
+    "wandb-checkpoint-type": "",
     # "seed": "seed",
     # "ae-epochs": "ae-epochs",
     # "freeze-ae-weights": "frozen",
@@ -115,8 +119,11 @@ def build_wandb_name(command: List[str]):
   wandb_name += command[3] + "-"  # training method
 
   for arg in important_args:
+    found = False
     for part in command:
       if arg in part:
+        found = True
+
         alias = important_args_aliases[arg]
         if alias != "":
           suffix = f"{alias}-"
@@ -130,6 +137,9 @@ def build_wandb_name(command: List[str]):
           wandb_name += f"{suffix}"
 
         break
+
+    if not found and arg == "wandb-checkpoint-type":
+      wandb_name += "tracr-"
 
   # remove last dash from wandb_name
   wandb_name = wandb_name[:-1]
