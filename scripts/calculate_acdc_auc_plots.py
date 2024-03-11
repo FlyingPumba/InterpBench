@@ -9,14 +9,23 @@ if __name__ == "__main__":
   api = wandb.Api()
   runs = api.runs("acdc-experiment")
 
+  skipped_runs_by_case: Dict[str, Dict[str, List[str]]] = {}
+  for i in range(0, 40):
+    skipped_runs_by_case[str(i)] = {
+      "non-finished": [],
+      "no-metrics": [],
+      "no-threshold": []
+    }
+
   data_by_case: Dict[str, Dict[str, Dict[str, List[float]]]] = {}
   for run in runs:
-    if run.state != "finished":
-      print(f"Skipping run {run.name} because it is not finished.")
-      continue
-
     run_name = run.name
     case = run_name.split("case-")[1].split("-")[0]
+
+    if run.state != "finished":
+      skipped_runs_by_case[case]["non-finished"].append(run.name)
+      print(f"Skipping run {run.name} (Method: {method}, case: {case}) because it is not finished.")
+      continue
 
     method = None
     if "non-linear-compression" in run_name:
@@ -29,11 +38,13 @@ if __name__ == "__main__":
       method = "tracr"
 
     if "edges_fpr" not in run.summary or "edges_tpr" not in run.summary:
-      print(f"Skipping run {run.name} because it does not have the required metrics.")
+      skipped_runs_by_case[case]["no-metrics"].append(run.name)
+      print(f"Skipping run {run.name} (Method: {method}, case: {case}) because it does not have the required metrics.")
       continue
 
     if "threshold" not in run.config:
-      print(f"Skipping run {run.name} because it does not have the threshold in the config.")
+      skipped_runs_by_case[case]["no-threshold"].append(run.name)
+      print(f"Skipping run {run.name} (Method: {method}, case: {case}) because it does not have the threshold in the config.")
       continue
 
     fpr = run.summary["edges_fpr"]
@@ -51,6 +62,9 @@ if __name__ == "__main__":
         "tpr": [],
         "thresholds": []
       }
+
+    if threshold in data_by_case[case][method]["thresholds"]:
+      print(f"WARNING: Threshold {threshold} already exists for case {case} and method {method}.")
 
     data_by_case[case][method]["fpr"].append(fpr)
     data_by_case[case][method]["tpr"].append(tpr)
@@ -78,13 +92,40 @@ if __name__ == "__main__":
       fpr = [x[0] for x in data]
       tpr = [x[1] for x in data]
 
-      # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.auc.html
-      auc = metrics.auc(fpr, tpr)
-      print(f"Case {case} - Method {method}: AUC = {auc}")
+      # Fix non-decreasing values in fpr and tpr due to ACDC's non-deteministic behavior
+      # I.e., the order in which edges are processed can change the results.
+      total_fpr_fixed = 0
+      for i in range(1, len(fpr)):
+        if fpr[i] < fpr[i-1]:
+          fpr[i] = fpr[i-1]
+          total_fpr_fixed += 1
+          print(f"Case {case} - Method {method}: Fixed fpr at index {i}")
 
-      # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.RocCurveDisplay.html
-      display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=auc)
-      display.plot(ax=ax, name=method)
+      total_tpr_fixed = 0
+      for i in range(1, len(tpr)):
+        if tpr[i] < tpr[i-1]:
+          tpr[i] = tpr[i-1]
+          total_tpr_fixed += 1
+          print(f"Case {case} - Method {method}: Fixed tpr at index {i}")
+
+      print(f"Case {case} - Method {method}: Fixed a total of {total_fpr_fixed} fpr and {total_tpr_fixed} tpr values.")
+
+      try:
+        # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.auc.html
+        auc = metrics.auc(fpr, tpr)
+        print(f"Case {case} - Method {method}: AUC = {auc}")
+
+        # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.RocCurveDisplay.html
+        display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=auc)
+        display.plot(ax=ax, name=method)
+      except ValueError as e:
+        print(f"Case {case} - Method {method}: AUC calculation failed: {e}")
 
     plt.savefig(f"acdc-case-{case}.png")
     plt.close(fig)
+
+  print("Skipped runs by case:")
+  for case, skipped_runs in skipped_runs_by_case.items():
+    print(f"Case {case}:")
+    for reason, runs in skipped_runs.items():
+      print(f" - {reason}: {len(runs)} runs")
