@@ -28,9 +28,9 @@ def build_commands():
     cases.append(case.get_index())
 
   checkpoint_types = ["tracr", "linear-compression", "non-linear-compression", "natural-compression"]
-  # thresholds = 10**np.linspace(0, -8, 50)
-  # thresholds = np.append(thresholds, [0])
-  thresholds = 10**np.linspace(0.1, 8, 50)
+  thresholds = 10**np.linspace(0, -8, 50)
+  thresholds = np.append(thresholds, [0])
+  thresholds = np.append(thresholds, 10**np.linspace(0.1, 8, 50))
 
   commands = []
   for case in cases:
@@ -78,8 +78,8 @@ def create_jobs() -> List[str]:
   jobs = []
   priority = "normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
-  cpu = 4
-  memory = "16Gi"
+  cpu = 8
+  memory = "32Gi"
   gpu = 0
 
   commands = build_commands()

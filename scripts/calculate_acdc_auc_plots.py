@@ -119,7 +119,8 @@ if __name__ == "__main__":
           total_tpr_fixed += 1
           print(f"Case {case} - Method {method}: Fixed tpr at index {i}")
 
-      print(f"Case {case} - Method {method}: Fixed a total of {total_fpr_fixed} fpr and {total_tpr_fixed} tpr values.")
+      if total_fpr_fixed > 0 or total_tpr_fixed > 0:
+        print(f"Case {case} - Method {method}: Fixed a total of {total_fpr_fixed} fpr and {total_tpr_fixed} tpr values.")
 
       try:
         # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.auc.html
