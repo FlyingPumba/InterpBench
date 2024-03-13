@@ -9,6 +9,7 @@ from circuits_benchmark.commands.build_main_parser import build_main_parser
 from iit_utils import make_iit_hl_model, create_dataset
 import iit_utils.correspondence as correspondence
 import random
+from iit_utils.tracr_ll_corrs import get_tracr_ll_corr
 import argparse
 import os
 import json
@@ -39,6 +40,9 @@ if not case.supports_causal_masking():
 
 tracr_output = case.build_tracr_model()
 hl_model = case.build_transformer_lens_model()
+# this is the graph node -> hl node correspondence
+tracr_hl_corr = correspondence.TracrCorrespondence.from_output(tracr_output)
+
 
 train_data, test_data = create_dataset(case, hl_model)  # , 500, 100)
 
@@ -92,7 +96,8 @@ def train_model(config, use_wandb=False):
         "behavior_weight": config.behavior_weight,
         "strict_weight": config.strict_weight,
     }
-    hl_ll_corr = correspondence.TracrCorrespondence.from_output(case, tracr_output)
+    tracr_ll_corr = get_tracr_ll_corr(case)
+    hl_ll_corr = correspondence.make_hl_ll_corr(tracr_hl_corr, tracr_ll_corr)
     iit_hl_model = make_iit_hl_model(hl_model)
     model_pair = mp.StrictIITModelPair(
         hl_model=iit_hl_model, ll_model=model, corr=hl_ll_corr, training_args=training_args
@@ -139,7 +144,7 @@ else:
         "use_single_loss": False,
         "iit_weight": 1.0,
         "behavior_weight": 1.0,
-        "strict_weight": 0.0,
+        "strict_weight": 0.4,
         "epochs": 50,
         "act_fn": "gelu",
     }
@@ -149,15 +154,12 @@ else:
     model_pair = train_model(config=args, use_wandb=False)
 
     # save the model
-    save_dir = f"ll_models/{case.get_index()}"
+    save_dir = f"ll_models/{case.get_index()}/"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
         
     weight_int = int(args.iit_weight * 10 + args.behavior_weight * 100 + args.strict_weight * 1000)
     t.save(model_pair.ll_model.state_dict(), f"{save_dir}/ll_model_{weight_int}.pth")
-    # save training args, config
-    with open(f"{save_dir}/meta_{weight_int}.json", "w") as f:
-        json.dump(config, f)
     # TODO: save the config 
     # ll_model_cfg = model_pair.ll_model.cfg
     # ll_model_cfg_dict = ll_model_cfg.to_dict()

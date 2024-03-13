@@ -8,3 +8,6 @@ results
 rough_*
 *.json
 *.png
+*.log
+*.csv
+.DS_Store

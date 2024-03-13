@@ -17,15 +17,16 @@ class TracrDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx], self.labels[idx]
 
+
 def get_encoded_input_from_torch_input(xy, hl_model, device):
     """Encode input to the format expected by the model"""
     x, y = zip(*xy)
     encoded_x = hl_model.map_tracr_input_to_tl_input(x)
-    
+
     if hl_model.is_categorical():
         y = list(y)
         for i in range(len(y)):
-            y[i] =[0] + hl_model.tracr_output_encoder.encode(y[i][1:])
+            y[i] = [0] + hl_model.tracr_output_encoder.encode(y[i][1:])
         y = list(map(list, zip(*y)))
         y = torch.tensor(y, dtype=torch.long).transpose(0, 1)
         # print(y, y.shape)
@@ -37,6 +38,7 @@ def get_encoded_input_from_torch_input(xy, hl_model, device):
         y = torch.tensor(y, dtype=torch.float32).transpose(0, 1)
     intermediate_values = None
     return encoded_x.to(device), y.to(device), intermediate_values
+
 
 class TracrIITDataset(IITDataset):
     def __init__(self, base_data, ablation_data, hl_model, seed=0, every_combination=False):
@@ -63,6 +65,43 @@ class TracrIITDataset(IITDataset):
             num_workers=num_workers,
             collate_fn=lambda x: self.collate_fn(x, self.hl_model, self.device),
         )
+
+
+class TracrUniqueDataset(TracrIITDataset):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __getitem__(self, index):
+        return self.base_data[index]
+
+    def __len__(self):
+        return len(self.base_data)
+
+    @staticmethod
+    def collate_fn(batch, hl_model, device=DEVICE):
+        def get_encoded_input_from_torch_input(xy):
+            """Encode input to the format expected by the model"""
+            x, y = zip(*xy)
+            encoded_x = hl_model.map_tracr_input_to_tl_input(x)
+
+            if hl_model.is_categorical():
+                y = list(y)
+                for i in range(len(y)):
+                    y[i] = [0] + hl_model.tracr_output_encoder.encode(y[i][1:])
+                y = list(map(list, zip(*y)))
+                y = torch.tensor(y, dtype=torch.long).transpose(0, 1)
+                # print(y, y.shape)
+                num_classes = len(hl_model.tracr_output_encoder.encoding_map.keys())
+                y = torch.nn.functional.one_hot(y, num_classes=num_classes).float()
+            else:
+                y = list(map(list, zip(*y)))
+                y[0] = list(np.zeros(len(y[0])))
+                y = torch.tensor(y, dtype=torch.float32).transpose(0, 1)
+            intermediate_values = None
+            return encoded_x.to(device), y.to(device), intermediate_values
+
+        encoded_base_input = get_encoded_input_from_torch_input(batch)
+        return encoded_base_input
 
 
 def create_dataset(case, hl_model, train_count=12000, test_count=3000):

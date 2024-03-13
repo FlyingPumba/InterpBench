@@ -61,7 +61,7 @@ def setup_args_parser(subparsers):
                       help='Use the absolute value of the result to check threshold')
 
 
-def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer =None):
+def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer=None, calculate_fpr_tpr: bool = False):
   if model is None:
     tl_model = case.get_tl_model(device=args.device)
   else:
@@ -248,8 +248,9 @@ def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer =None):
   acdc_circuit = build_acdc_circuit(exp.corr)
   acdc_circuit.save(f"{output_dir}/final_circuit.pkl")
 
-  print("Calculating FPR and TPR for threshold", threshold)
-  result = calculate_fpr_and_tpr(acdc_circuit, case, verbose=True)
+  if calculate_fpr_tpr:
+    print("Calculating FPR and TPR for threshold", threshold)
+    result = calculate_fpr_and_tpr(acdc_circuit, case, verbose=True)
 
   if using_wandb:
     edges_fname = f"edges.pth"
@@ -273,3 +274,5 @@ def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer =None):
 
     os.remove(edges_fname)
     wandb.finish()
+
+  return acdc_circuit
