@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+import seaborn as sns
 import matplotlib.pyplot as plt
 import wandb
 from sklearn import metrics
@@ -83,6 +84,7 @@ if __name__ == "__main__":
 
   # Now we have the data, we can calculate the AUC and plot the ROC curve.
   cases = sorted(list(data_by_case.keys()))
+  aucs_by_method: Dict[str, List[float]] = {}
   for case in cases:
     data_by_methods = data_by_case[case]
 
@@ -126,6 +128,10 @@ if __name__ == "__main__":
         # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.auc.html
         auc = metrics.auc(fpr, tpr)
         print(f"Case {case} - Method {method}: AUC = {auc}")
+        if method not in aucs_by_method:
+          aucs_by_method[method] = []
+
+        aucs_by_method[method].append(auc)
 
         # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.RocCurveDisplay.html
         display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=auc)
@@ -135,6 +141,31 @@ if __name__ == "__main__":
 
     plt.savefig(f"acdc-case-{case}.png")
     plt.close(fig)
+
+  # Make boxplot of AUCs by method
+  plt.clf()
+  fig, ax = plt.subplots(figsize=(8, 6))  # Increase the figure size
+
+  plt.title("ACDC AUCs", fontsize=16)  # Increase the title font size
+  plt.xlabel("Method", fontsize=14)
+  plt.ylabel("AUC", fontsize=14)
+
+  # The order of boxplots should be "tracr", "linear", "non-linear", "natural"
+  data = [aucs_by_method["tracr"], aucs_by_method["linear"], aucs_by_method["non-linear"], aucs_by_method["natural"]]
+  labels = ["Tracr", "Linear", "Non-Linear", "Wild"]
+
+  # Set color palette
+  sns.set(style="darkgrid")
+
+  # plot boxplot using pastel colors, without fliers
+  ax = sns.boxplot(data, showfliers=False, palette="pastel")
+  ax.set_xticklabels(labels)
+
+  # Adjust spacing between subplots
+  plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+
+  plt.savefig("acdc-aucs.png", dpi=300, bbox_inches='tight')
+  plt.close(fig)
 
   print("Skipped runs by case:")
   for case, skipped_runs in skipped_runs_by_case.items():
