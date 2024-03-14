@@ -96,6 +96,10 @@ if __name__ == "__main__":
 
     methods = sorted(list(data_by_methods.keys())) # ['linear', 'natural', 'non-linear', 'tracr']
     for method in methods:
+      if method == "natural":
+        # We don't want to compute the AUC for the natural method
+        continue
+
       data = data_by_methods[method]
 
       # zip data together and sort it by threshold
@@ -150,9 +154,9 @@ if __name__ == "__main__":
   plt.xlabel("Method", fontsize=14)
   plt.ylabel("AUC", fontsize=14)
 
-  # The order of boxplots should be "tracr", "linear", "non-linear", "natural"
-  data = [aucs_by_method["tracr"], aucs_by_method["linear"], aucs_by_method["non-linear"], aucs_by_method["natural"]]
-  labels = ["Tracr", "Linear", "Non-Linear", "Wild"]
+  # The order of boxplots should be "tracr", "linear", "non-linear"
+  data = [aucs_by_method["tracr"], aucs_by_method["linear"], aucs_by_method["non-linear"]]
+  labels = ["Tracr", "Linear", "Non-Linear"]
 
   # Set color palette
   sns.set(style="darkgrid")
