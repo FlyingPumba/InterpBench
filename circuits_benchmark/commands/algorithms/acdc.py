@@ -61,7 +61,7 @@ def setup_args_parser(subparsers):
                       help='Use the absolute value of the result to check threshold')
 
 
-def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer=None, calculate_fpr_tpr: bool = False):
+def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer=None, calculate_fpr_tpr: bool = False, output_suffix: str = ""):
   if model is None:
     tl_model = case.get_tl_model(device=args.device)
   else:
@@ -108,14 +108,6 @@ def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer=None, calc
       tl_model = tl_model.get_folded_model()
     else:
       raise ValueError(f"Unknown wandb_checkpoint_type {args.wandb_checkpoint_type}")
-
-  output_dir = os.path.join(args.output_dir, f"acdc_{case.get_index()}")
-  if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-
-  images_output_dir = os.path.join(output_dir, "images")
-  if not os.path.exists(images_output_dir):
-    os.makedirs(images_output_dir)
 
   # Check that dot program is in path
   if not shutil.which("dot"):
@@ -170,6 +162,15 @@ def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer=None, calc
 
   tl_model.reset_hooks()
 
+  # Create the output directory
+  output_dir = os.path.join(args.output_dir, f"acdc_{case.get_index()}", output_suffix)
+  if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+  images_output_dir = os.path.join(output_dir, "images")
+  if not os.path.exists(images_output_dir):
+    os.makedirs(images_output_dir)
+  
   # Save some mem
   gc.collect()
   torch.cuda.empty_cache()
@@ -251,6 +252,9 @@ def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer=None, calc
   if calculate_fpr_tpr:
     print("Calculating FPR and TPR for threshold", threshold)
     result = calculate_fpr_and_tpr(acdc_circuit, case, verbose=True)
+  else:
+    result = {}
+  result["current_metric"] = exp.cur_metric
 
   if using_wandb:
     edges_fname = f"edges.pth"
@@ -259,20 +263,23 @@ def run_acdc(case: BenchmarkCase, args, model: HookedTracrTransformer=None, calc
     artifact = wandb.Artifact(edges_fname, type="dataset")
     artifact.add_file(edges_fname)
     wandb.log_artifact(artifact)
-
-    nodes_fpr = result["nodes"]["fpr"]
-    nodes_tpr = result["nodes"]["tpr"]
-    edges_fpr = result["edges"]["fpr"]
-    edges_tpr = result["edges"]["tpr"]
-    wandb.log({
-      "threshold": threshold,
-      "nodes_fpr": nodes_fpr,
-      "nodes_tpr": nodes_tpr,
-      "edges_fpr": edges_fpr,
-      "edges_tpr": edges_tpr,
-    })
+    if calculate_fpr_tpr:
+      nodes_fpr = result["nodes"]["fpr"]
+      nodes_tpr = result["nodes"]["tpr"]
+      edges_fpr = result["edges"]["fpr"]
+      edges_tpr = result["edges"]["tpr"]
+      wandb.log({
+        "threshold": threshold,
+        "nodes_fpr": nodes_fpr,
+        "nodes_tpr": nodes_tpr,
+        "edges_fpr": edges_fpr,
+        "edges_tpr": edges_tpr,
+      })
+    else:
+      wandb.log({"threshold": threshold})
 
     os.remove(edges_fname)
     wandb.finish()
-
-  return acdc_circuit
+  if model is None:
+    return acdc_circuit, result
+  return acdc_circuit, result

@@ -23,6 +23,9 @@ DEVICE = t.device("cuda" if t.cuda.is_available() else "cpu")
 WANDB_ENTITY = "cybershiptrooper"  # TODO make this an env var
 parser = argparse.ArgumentParser()
 parser.add_argument('-t', '--task', type=int, default=3, help="Task number")
+parser.add_argument('-iit', '--iit_weight', type=float, default=1.0, help="IIT weight")
+parser.add_argument('-b', '--behavior_weight', type=float, default=1.0, help="Behavior weight")
+parser.add_argument('-s', '--strict_weight', type=float, default=0.0, help="Strict weight")
 
 args, _ = build_main_parser().parse_known_args(
     [
@@ -137,9 +140,9 @@ else:
         "atol": 0.05,
         "lr": 1e-2,
         "use_single_loss": False,
-        "iit_weight": 1.0,
-        "behavior_weight": 1.0,
-        "strict_weight": 0.0,
+        "iit_weight": parser.parse_args().iit_weight,
+        "behavior_weight": parser.parse_args().behavior_weight,
+        "strict_weight": parser.parse_args().strict_weight,
         "epochs": 50,
         "act_fn": "gelu",
     }

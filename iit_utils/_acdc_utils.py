@@ -4,13 +4,19 @@ from iit.utils import index
 import iit_utils.correspondence as correspondence
 
 
-def get_circuit_nodes_from_ll_node(ll_node: mp.LLNode) -> list[CircuitNode]:
+def get_circuit_nodes_from_ll_node(ll_node: mp.LLNode,
+                                   n_heads: int) -> list[CircuitNode]:
     circuit_nodes = []
     def get_circuit_idxs_from_ll_idx(ll_idx: index.Index) -> list[int]:
-        if ll_idx is index.Ix[[None]]:
+        if ll_idx is index.Ix[[None]] or ll_idx is None:
             return [None]
         id = ll_idx.as_index[2]
         if isinstance(id, slice):
+            print(f"Slice: {id}")
+            if id.start is None:
+                return list(range(id.stop))
+            elif id.stop is None:
+                return list(range(id.start, n_heads+1))
             return list(range(id.start, id.stop))
         assert isinstance(id, int), ValueError(f"Unexpected index type {type(id)}")
         return [id]
@@ -45,7 +51,7 @@ def get_circuit_nodes_from_ll_node(ll_node: mp.LLNode) -> list[CircuitNode]:
     return circuit_nodes
 
 
-def get_gt_circuit(hl_ll_corr: correspondence.TracrCorrespondence, full_circuit: Circuit):
+def get_gt_circuit(hl_ll_corr: correspondence.TracrCorrespondence, full_circuit: Circuit, n_heads: int) -> Circuit:
     circuit = full_circuit.copy()
     corr_vals = hl_ll_corr.values()
     all_nodes = set(full_circuit.nodes)
@@ -54,7 +60,7 @@ def get_gt_circuit(hl_ll_corr: correspondence.TracrCorrespondence, full_circuit:
     all_circuit_nodes = set()
     for nodes in corr_vals:
         for ll_node in nodes:
-            circuit_nodes = get_circuit_nodes_from_ll_node(ll_node)
+            circuit_nodes = get_circuit_nodes_from_ll_node(ll_node, n_heads)
             all_circuit_nodes.update(circuit_nodes)
 
     # get additional nodes needed

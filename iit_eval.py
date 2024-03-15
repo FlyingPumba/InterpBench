@@ -78,7 +78,7 @@ test_set = TracrIITDataset(unique_test_data, unique_test_data, hl_model, every_c
 result_not_in_circuit = check_causal_effect(model_pair, test_set, node_type="n", verbose=False)
 result_in_circuit = check_causal_effect(model_pair, test_set, node_type="c", verbose=False)
 
-
+metric_collection = model_pair._run_eval_epoch(test_set.make_loader(256, 0), model_pair.loss_fn)
 
 # zero/mean ablation
 uni_test_set = TracrUniqueDataset(unique_test_data, unique_test_data, hl_model, every_combination=True)
@@ -87,9 +87,9 @@ za_result_not_in_circuit = check_causal_effect_on_ablation(model_pair, uni_test_
 za_result_in_circuit = check_causal_effect_on_ablation(model_pair, uni_test_set, node_type="c", verbose=False,  use_mean_cache=use_mean_cache)
 
 df = make_combined_dataframe_of_results(result_not_in_circuit, result_in_circuit, za_result_not_in_circuit, za_result_in_circuit, use_mean_cache=use_mean_cache)
-metric_collection = model_pair._run_eval_epoch(test_set.make_loader(256, 0), model_pair.loss_fn)
 
 save_dir = f"ll_models/{case_num}/results_{weight}"
 save_result(df, save_dir, model_pair)
 with open(f"{save_dir}/metric_collection.log", "w") as f:
     f.write(str(metric_collection))
+    print(metric_collection)
