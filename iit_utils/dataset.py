@@ -115,3 +115,23 @@ def create_dataset(case, hl_model, train_count=12000, test_count=3000):
     train_data = TracrDataset(train_inputs, train_outputs)
     test_data = TracrDataset(test_inputs, test_outputs)
     return TracrIITDataset(train_data, train_data, hl_model), TracrIITDataset(test_data, test_data, hl_model)
+
+
+def get_unique_data(case):
+    data = case.get_clean_data(count=50_000)
+    test_inputs = data.get_inputs().to_numpy()
+    test_outputs = data.get_correct_outputs().to_numpy()
+    arr, idxs = np.unique([", ".join(i) for i in np.array(test_inputs)], return_inverse=True)
+    # create indices that point to the first unique input
+    all_possible_inputs = np.arange(arr.shape[0])
+    # find the first occurence of all_possible_inputs in idxs
+    first_occurences = [np.where(idxs == i)[0][0] for i in all_possible_inputs]
+
+    unique_test_inputs = test_inputs[first_occurences]
+    unique_test_outputs = test_outputs[first_occurences]
+    assert len(unique_test_inputs) == len(unique_test_outputs)
+    assert len(unique_test_inputs) == len(np.unique([", ".join(i) for i in np.array(test_inputs)]))
+    assert len(np.unique([", ".join(i) for i in np.array(unique_test_inputs)])) == len(unique_test_inputs)
+
+    unique_test_data = TracrDataset(unique_test_inputs, unique_test_outputs)
+    return unique_test_data

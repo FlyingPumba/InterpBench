@@ -4,7 +4,7 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 _tracr_ll_corrs = {
     '3': {
             ("is_x_3", None): {(0, "mlp", index.Ix[[None]])},
-            ("frac_prevs_1", None): {(1, "attn", index.Ix[:, :, :3, :])},
+            ("frac_prevs_1", None): {(1, "attn", index.Ix[:, :, :2, :])},
     }
 }
 

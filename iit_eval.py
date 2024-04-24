@@ -1,13 +1,13 @@
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 import iit.model_pairs as mp
 import iit.utils.index as index
-from iit_utils.dataset import create_dataset, TracrDataset, TracrIITDataset
+from iit_utils.dataset import get_unique_data, TracrDataset, TracrIITDataset
 import iit_utils.correspondence as correspondence
 from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.commands.build_main_parser import build_main_parser
 from iit_utils.iit_hl_model import make_iit_hl_model
 from argparse import Namespace, ArgumentParser
-from iit_utils.evals import *
+from iit.utils.eval_ablations import *
 import torch as t
 import numpy as np
 from iit_utils.dataset import TracrUniqueDataset

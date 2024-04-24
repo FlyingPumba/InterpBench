@@ -5,8 +5,8 @@ task=3
 weights = ["110", "510", "100" ,"910"]
 ibs = ["-b 1.0 -i 1.0 -s 0.0", "-b 1.0 -i 1.0 -s 0.4", "-b 1.0 -i 0.0 -s 0.0", "-b 1.0 -i 1.0 -s 0.8"]
 wandb = True
-# weights = [weights[1], weights[2]]
-# ibs = [ibs[1], ibs[2]]
+weights = [weights[1], weights[2]]
+ibs = [ibs[1], ibs[2]]
 ############### train on task
 command = """python iit_train.py -t {} {}"""
 for i in (range(len(ibs))):
