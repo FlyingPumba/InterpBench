@@ -6,7 +6,7 @@ This project uses [Poetry](https://python-poetry.org/) to manage the dependencie
 
 ```bash
 git clone --recurse-submodules git@github.com:FlyingPumba/circuits-benchmark.git
-poetry env use 3.10
+poetry env use 3
 poetry install
 ```
 
