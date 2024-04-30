@@ -17,7 +17,7 @@ with JOB_TEMPLATE_PATH.open() as f:
 
 def build_commands():
   # training_methods = ["linear-compression", "non-linear-compression", "natural-compression", "autoencoder"]
-  training_methods = ["linear-compression", "non-linear-compression", "natural-compression"]
+  training_methods = ["linear-compression", "non-linear-compression"]
   case_instances = get_cases(indices=None)
 
   cases = []
@@ -27,9 +27,9 @@ def build_commands():
     compression_sizes_by_case[case.get_index()] = [ceil(original_resid_size / 3)]
     cases.append(case.get_index())
 
-  seeds = [67]
+  seeds = [68]
   lr_starts = [0.001]
-  epochs = 30000
+  epochs = 150 * 1000
   train_data_sizes = [1000]
   test_data_ratios = [0.3]
   batch_sizes = [2048]
@@ -68,7 +68,7 @@ def build_commands():
               for test_data_ratio in test_data_ratios:
                 for batch_size in batch_sizes:
 
-                  wandb_project = f"compress-all-cases"
+                  wandb_project = f"linear-vs-non-linear"
 
                   command = [".venv/bin/python", "main.py",
                              "train", method,
