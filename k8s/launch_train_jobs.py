@@ -164,10 +164,10 @@ def build_commands():
 
 def create_jobs() -> List[str]:
   jobs = []
-  priority = "normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
+  priority = "cpu-normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
   cpu = 8
-  memory = "32Gi"
+  memory = "3Gi"
   gpu = 0
 
   commands = build_commands()
