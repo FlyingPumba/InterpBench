@@ -43,7 +43,7 @@ def l2_metric(new_output: torch.Tensor,
               baseline_output: torch.Tensor,
               is_categorical: bool = True,
               discard_bos_token: bool = True):
-  assert new_output.shape == baseline_output.shape
+  assert new_output.shape == baseline_output.shape, (new_output.shape, baseline_output.shape)
 
   if discard_bos_token:
     new_output = new_output[:, 1:]
