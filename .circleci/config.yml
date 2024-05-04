@@ -10,6 +10,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Add GitHub as known host
+          command: mkdir -p ~/.ssh && ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+      - run:
           name: Init submodules
           command: git submodule update --init --recursive
       - run:
@@ -28,6 +31,9 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
+      - run:
+          name: Add GitHub as known host
+          command: mkdir -p ~/.ssh && ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
       - run:
           name: Init submodules
           command: git submodule update --init --recursive
