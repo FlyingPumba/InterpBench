@@ -8,7 +8,7 @@ from sklearn import metrics
 if __name__ == "__main__":
   """Calculates the plots for comparing linear vs non-linear compression."""
   api = wandb.Api()
-  runs = api.runs("compress-all-cases")
+  runs = api.runs("linear-vs-non-linear")
 
   metrics = ["accuracy", "cp_loss", "var_exp"]
   metrics_data = {}
@@ -17,6 +17,12 @@ if __name__ == "__main__":
       "linear": [],
       "non-linear": []
     }
+
+  finished_linear_cases = set()
+  finished_non_linear_cases = set()
+
+  running_linear_cases = set()
+  running_non_linear_cases = set()
 
   max_cp_loss = 0
   max_cp_case = None
@@ -37,6 +43,20 @@ if __name__ == "__main__":
       method = "linear"
     else:
       continue
+
+    if run.state != "finished":
+      print(f"Skipping run {run.name} (Method: {method}, case: {case}) because it is not finished.")
+
+      if run.state == "running":
+        if method == "linear":
+          running_linear_cases.add(case)
+        else:
+          running_non_linear_cases.add(case)
+
+    if method == "linear":
+      finished_linear_cases.add(case)
+    else:
+      finished_non_linear_cases.add(case)
 
     accuracy = run.summary["test_accuracy"]["max"]
     cp_loss = run.summary["test_resample_ablation_loss"]["min"]
@@ -62,7 +82,17 @@ if __name__ == "__main__":
 
   print(f"Case with max CP loss: {max_cp_case} - CP Loss: {max_cp_loss}")
   print(f"Case with min var exp: {min_var_exp_case} - Var Exp: {min_var_exp}")
-  print(f"{len(cases_with_var_exp_below_0)} cases with var exp below 0: {cases_with_var_exp_below_0}")
+  print(f"{len(cases_with_var_exp_below_0)} cases with var exp below 0: {sorted([int(case) for case in cases_with_var_exp_below_0])}")
+
+  # List all the cases that are missing for linear and non-linear.
+  # We should have strings for 1 to 39.
+  missing_linear_cases = set([str(i) for i in range(1, 40)]) - finished_linear_cases
+  missing_non_linear_cases = set([str(i) for i in range(1, 40)]) - finished_non_linear_cases
+  print(f"Missing linear cases: {sorted([int(case) for case in missing_linear_cases])}")
+  print(f"Missing non-linear cases: {sorted([int(case) for case in missing_non_linear_cases])}")
+
+  print(f"Running linear cases: {sorted([int(case) for case in running_linear_cases])}")
+  print(f"Running non-linear cases: {sorted([int(case) for case in running_non_linear_cases])}")
 
   # Now we have the data, we can calculate the plots
   for metric in metrics:

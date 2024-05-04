@@ -18,7 +18,7 @@ with JOB_TEMPLATE_PATH.open() as f:
 def build_commands():
   # training_methods = ["linear-compression", "non-linear-compression", "natural-compression", "autoencoder"]
   training_methods = ["linear-compression", "non-linear-compression"]
-  case_instances = get_cases(indices=None)
+  case_instances = get_cases(indices=["2", "5", "6", "9", "12", "15", "16", "17", "22", "25", "39"])
 
   cases = []
   compression_sizes_by_case = {}
@@ -167,7 +167,7 @@ def create_jobs() -> List[str]:
   priority = "cpu-normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
   cpu = 8
-  memory = "3Gi"
+  memory = "6Gi"
   gpu = 0
 
   commands = build_commands()
