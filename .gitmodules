@@ -8,5 +8,5 @@
 	ignore = untracked
 [submodule "submodules/iit"]
 	path = submodules/iit
-	url = git@github.com:tkwa/iit.git
+	url = git@github.com:cybershiptrooper/iit.git
 	ignore = untracked
