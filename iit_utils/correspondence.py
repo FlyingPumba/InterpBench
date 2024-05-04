@@ -6,6 +6,8 @@ from iit_utils.tracr_ll_corrs import get_tracr_ll_corr
 from iit_utils._corr_utils import TracrHLCorr
 from collections import namedtuple
 import pickle
+from iit.utils.correspondence import Correspondence
+
 
 class TracrHLNode(mp.HLNode):
     def __init__(self, name, label, num_classes, idx=None):
@@ -45,11 +47,14 @@ class TracrHLNode(mp.HLNode):
         return f"TracrHLNode(name: {self.name},\n label: {self.label},\n classes: {self.num_classes},\n index: {self.index}\n)"
 
 
-class TracrCorrespondence(dict[TracrHLNode, set[mp.LLNode]]):
+class TracrCorrespondence(Correspondence):
     def __setattr__(self, __name: TracrHLNode, __value: set[mp.LLNode]) -> None:
-        assert isinstance(__name, TracrHLNode), ValueError(f"__name is not a TracrHLNode, but {type(__name)}")
-        assert isinstance(__value, set), ValueError(f"__value is not a set, but {type(__value)}")
-        assert all(isinstance(v, mp.LLNode) for v in __value), ValueError(f"__value contains non-LLNode elements")
+        if __name == "suffixes":
+            assert isinstance(__value, dict), ValueError(f"__value is not a dict, but {type(__value)}")
+        else:
+            assert isinstance(__name, TracrHLNode), ValueError(f"__name is not a TracrHLNode, but {type(__name)}")
+            assert isinstance(__value, set), ValueError(f"__value is not a set, but {type(__value)}")
+            assert all(isinstance(v, mp.LLNode) for v in __value), ValueError(f"__value contains non-LLNode elements")
         super().__setattr__(__name, __value)
 
     @classmethod
@@ -110,10 +115,10 @@ class TracrCorrespondence(dict[TracrHLNode, set[mp.LLNode]]):
         tracr_hl_corr = TracrHLCorr.from_output(tracr_output)
         tracr_ll_corr = get_tracr_ll_corr(case)
         return cls.make_hl_ll_corr(tracr_hl_corr, tracr_ll_corr)
-    
+
     def save(self, filename: str):
         pickle.dump(self, open(filename, "wb"))
-    
+
     @classmethod
     def load(cls, filename: str):
         return cls(pickle.load(open(filename, "rb")))

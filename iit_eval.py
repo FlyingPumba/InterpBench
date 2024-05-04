@@ -83,8 +83,7 @@ metric_collection = model_pair._run_eval_epoch(test_set.make_loader(256, 0), mod
 # zero/mean ablation
 uni_test_set = TracrUniqueDataset(unique_test_data, unique_test_data, hl_model, every_combination=True)
 
-za_result_not_in_circuit = check_causal_effect_on_ablation(model_pair, uni_test_set, node_type="n", verbose=False,  use_mean_cache=use_mean_cache)
-za_result_in_circuit = check_causal_effect_on_ablation(model_pair, uni_test_set, node_type="c", verbose=False,  use_mean_cache=use_mean_cache)
+za_result_not_in_circuit, za_result_in_circuit = get_causal_effects_for_all_nodes(model_pair, uni_test_set, batch_size=len(uni_test_set), use_mean_cache=use_mean_cache)
 
 df = make_combined_dataframe_of_results(result_not_in_circuit, result_in_circuit, za_result_not_in_circuit, za_result_in_circuit, use_mean_cache=use_mean_cache)
 

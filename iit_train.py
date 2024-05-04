@@ -14,6 +14,7 @@ import os
 import json
 from iit_utils import train_model
 
+
 def config_is_bad(config):
     iit_weight = config.iit_weight
     behavior_weight = config.behavior_weight
@@ -35,13 +36,15 @@ def config_is_bad(config):
         return True
 
     return False
+
+
 DEVICE = t.device("cuda" if t.cuda.is_available() else "cpu")
 WANDB_ENTITY = "cybershiptrooper"  # TODO make this an env var
 parser = argparse.ArgumentParser()
-parser.add_argument('-t', '--task', type=int, default=3, help="Task number")
-parser.add_argument('-iit', '--iit_weight', type=float, default=1.0, help="IIT weight")
-parser.add_argument('-b', '--behavior_weight', type=float, default=1.0, help="Behavior weight")
-parser.add_argument('-s', '--strict_weight', type=float, default=0.0, help="Strict weight")
+parser.add_argument("-t", "--task", type=int, default=3, help="Task number")
+parser.add_argument("-iit", "--iit_weight", type=float, default=1.0, help="IIT weight")
+parser.add_argument("-b", "--behavior_weight", type=float, default=1.0, help="Behavior weight")
+parser.add_argument("-s", "--strict_weight", type=float, default=0.4, help="Strict weight")
 
 args, _ = build_main_parser().parse_known_args(
     [
@@ -64,11 +67,9 @@ def main():
     wandb.init()
     if config_is_bad(wandb.config):
         return
-    train_model(wandb.config, 
-                case,
-                tracr_output,
-                hl_model,
-                use_wandb=True)
+    train_model(wandb.config, case, tracr_output, hl_model, use_wandb=True)
+
+
 use_wandb = False
 
 if use_wandb:
@@ -103,19 +104,19 @@ else:
     import argparse
 
     args = argparse.Namespace(**config)
-    model_pair = train_model(config=args, use_wandb=False)
+    model_pair = train_model(args, case, tracr_output, hl_model, use_wandb=False)
 
     # save the model
     save_dir = f"ll_models/{case.get_index()}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-        
+
     weight_int = int(args.iit_weight * 10 + args.behavior_weight * 100 + args.strict_weight * 1000)
     t.save(model_pair.ll_model.state_dict(), f"{save_dir}/ll_model_{weight_int}.pth")
     # save training args, config
     with open(f"{save_dir}/meta_{weight_int}.json", "w") as f:
         json.dump(config, f)
-    # TODO: save the config 
+    # TODO: save the config
     # ll_model_cfg = model_pair.ll_model.cfg
     # ll_model_cfg_dict = ll_model_cfg.to_dict()
 
