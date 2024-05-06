@@ -8,7 +8,8 @@ from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit import make_iit_hl_model
 from circuits_benchmark.utils.iit.dataset import get_unique_data, TracrIITDataset, TracrUniqueDataset
-from iit.utils.eval_ablations import *
+from iit.utils.eval_ablations import check_causal_effect, get_causal_effects_for_all_nodes, \
+    make_combined_dataframe_of_results, save_result
 
 
 def setup_args_parser(subparsers):
