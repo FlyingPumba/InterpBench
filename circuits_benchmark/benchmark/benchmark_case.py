@@ -64,10 +64,17 @@ class BenchmarkCase(object):
     """
     return True
 
-  def get_clean_data(self, count: Optional[int] = 10, seed: Optional[int] = 42) -> CaseDataset:
+  def get_clean_data(self,
+                     count: Optional[int] = 10,
+                     seed: Optional[int] = 42,
+                     variable_length_seqs: Optional[bool] = False) -> CaseDataset:
     """Returns the clean data for the benchmark case."""
-    min_seq_len = self.get_min_seq_len()
     max_seq_len = self.get_max_seq_len()
+
+    if variable_length_seqs:
+      min_seq_len = self.get_min_seq_len()
+    else:
+      min_seq_len = max_seq_len
 
     # assert min_seq_len is at least 2 elementsto account for BOS
     assert min_seq_len >= 2, "min_seq_len must be at least 2 to account for BOS"
@@ -169,7 +176,7 @@ class BenchmarkCase(object):
   def get_min_seq_len(self) -> int:
     """Returns the minimum sequence length for the benchmark case (including BOS).
     Default implementation: 4."""
-    return self.get_max_seq_len()
+    return 4
 
   def get_index(self) -> str:
     class_name = self.__class__.__name__  # Looks like "CaseN"
