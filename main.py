@@ -9,6 +9,7 @@ from circuits_benchmark.commands.algorithms import run_algorithm
 from circuits_benchmark.commands.compilation import compile_benchmark
 from circuits_benchmark.commands.analysis import perform_analysis
 from circuits_benchmark.commands.train import train
+from circuits_benchmark.commands.evaluation import evaluation
 
 # The default of float16 can lead to discrepancies between outputs of
 # the compiled model and the RASP program.
@@ -27,3 +28,5 @@ if __name__ == "__main__":
     train.run(args)
   elif args.command == "analysis":
     perform_analysis.run(args)
+  elif args.command == "eval":
+    evaluation.run(args)

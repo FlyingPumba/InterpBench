@@ -4,7 +4,7 @@ from torch.nn import init
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.commands.train.auto_compression import run_auto_compression_training
+from circuits_benchmark.commands.train.compression.auto_compression import run_auto_compression_training
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
 from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options

@@ -3,3 +3,12 @@ __pycache__
 .idea
 *.pkl
 results
+*.pth
+.ipynb_checkpoints
+rough_*
+*.json
+*.png
+*.log
+*.csv
+.DS_Store
+wandb
