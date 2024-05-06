@@ -1,3 +1,4 @@
+from iit.utils.correspondence import Correspondence
 from tracr.compiler.compiling import TracrOutput
 import iit.model_pairs as mp
 from iit.utils import index
