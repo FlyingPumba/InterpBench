@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch as t
 
-from circuits_benchmark.commands.evaluation.iit import iit_eval
+from circuits_benchmark.commands.evaluation.iit import iit_eval, iit_acdc_eval
 from circuits_benchmark.utils.get_cases import get_cases
 
 
@@ -14,6 +14,7 @@ def setup_args_parser(subparsers):
 
   # Setup arguments for each evaluation type
   iit_eval.setup_args_parser(run_subparsers)
+  iit_acdc_eval.setup_args_parser(run_subparsers)
 
 
 def run(args):
@@ -30,5 +31,7 @@ def run(args):
 
     if evaluation_type == "iit":
       iit_eval.run_iit_eval(case, args)
+    elif evaluation_type == "iit_acdc":
+      iit_acdc_eval.run_acdc_eval(case, args)
     else:
       raise ValueError(f"Unknown evaluation: {evaluation_type}")
