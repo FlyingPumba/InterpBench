@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from iit_utils.acdc_eval import run_acdc_eval
+from circuits_benchmark.utils.iit import run_acdc_eval
 
 if __name__ == "__main__":
     parser = ArgumentParser()

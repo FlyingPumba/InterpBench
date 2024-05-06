@@ -2,11 +2,10 @@ from tracr.compiler.compiling import TracrOutput
 import iit.model_pairs as mp
 from iit.utils import index
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from iit_utils.tracr_ll_corrs import get_tracr_ll_corr
-from iit_utils._corr_utils import TracrHLCorr
+from circuits_benchmark.utils.iit.tracr_ll_corrs import get_tracr_ll_corr
+from circuits_benchmark.utils.iit._corr_utils import TracrHLCorr
 from collections import namedtuple
 import pickle
-from iit.utils.correspondence import Correspondence
 
 
 class TracrHLNode(mp.HLNode):

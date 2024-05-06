@@ -3,16 +3,14 @@ import numpy as np
 import wandb
 from transformer_lens import HookedTransformer
 import iit.model_pairs as mp
-import iit.utils.index as index
 from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.commands.build_main_parser import build_main_parser
-from iit_utils import make_iit_hl_model, create_dataset
-import iit_utils.correspondence as correspondence
+from circuits_benchmark.utils.iit import make_iit_hl_model, create_dataset
+import circuits_benchmark.utils.iit.correspondence as correspondence
 import random
-from iit_utils.tracr_ll_corrs import get_tracr_ll_corr
+from circuits_benchmark.utils.iit import get_tracr_ll_corr
 import argparse
 import os
-import json
 
 # seed everything
 t.manual_seed(0)

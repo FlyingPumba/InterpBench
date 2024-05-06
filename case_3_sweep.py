@@ -6,8 +6,8 @@ import iit.model_pairs as mp
 import iit.utils.index as index
 from utils.get_cases import get_cases
 from commands.build_main_parser import build_main_parser
-from iit_utils import make_iit_hl_model, create_dataset
-import iit_utils.correspondence as correspondence
+from circuits_benchmark.utils.iit import make_iit_hl_model, create_dataset
+import circuits_benchmark.utils.iit.correspondence as correspondence
 import random
 
 # seed everything

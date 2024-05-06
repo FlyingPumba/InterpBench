@@ -8,7 +8,7 @@ import wandb
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from iit_utils import train_model
+from circuits_benchmark.utils.iit import train_model
 
 
 def setup_args_parser(subparsers):

@@ -1,15 +1,10 @@
-import iit.model_pairs as mp
 from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.transformers.circuit import Circuit
-import iit.model_pairs as mp
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
-from ._acdc_utils import get_circuit_nodes_from_ll_node, get_gt_circuit
+from ._acdc_utils import get_gt_circuit
 from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
-import iit_utils.correspondence as correspondence
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.commands.build_main_parser import build_main_parser
-import iit_utils.correspondence as correspondence
+import circuits_benchmark.utils.iit.correspondence as correspondence
 from argparse import Namespace
 import os
 import shutil

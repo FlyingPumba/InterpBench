@@ -2,8 +2,8 @@ import torch as t
 import numpy as np
 from transformer_lens import HookedTransformer
 import iit.model_pairs as mp
-from iit_utils import make_iit_hl_model, create_dataset
-import iit_utils.correspondence as correspondence
+from circuits_benchmark.utils.iit import make_iit_hl_model, create_dataset
+import circuits_benchmark.utils.iit.correspondence as correspondence
 import random
 
 

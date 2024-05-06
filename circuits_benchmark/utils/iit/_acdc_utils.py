@@ -1,7 +1,7 @@
 from circuits_benchmark.transformers.circuit import Circuit, CircuitNode
 import iit.model_pairs as mp
 from iit.utils import index
-import iit_utils.correspondence as correspondence
+import circuits_benchmark.utils.iit.correspondence as correspondence
 
 
 def get_circuit_nodes_from_ll_node(ll_node: mp.LLNode,
