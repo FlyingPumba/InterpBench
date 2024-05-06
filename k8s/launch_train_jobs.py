@@ -18,13 +18,13 @@ with JOB_TEMPLATE_PATH.open() as f:
 def build_commands():
   # training_methods = ["linear-compression", "non-linear-compression", "natural-compression", "autoencoder"]
   training_methods = ["linear-compression", "non-linear-compression"]
-  case_instances = get_cases(indices=["2", "5", "6", "9", "12", "15", "16", "17", "22", "25", "39"])
+  case_instances = get_cases(indices=["1", "6", "7", "8", "10", "11", "12", "13", "14", "15", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38"])
 
   cases = []
   compression_sizes_by_case = {}
   for case in case_instances:
     original_resid_size = case.get_tl_model().cfg.d_model
-    compression_sizes_by_case[case.get_index()] = [ceil(original_resid_size / 3)]
+    compression_sizes_by_case[case.get_index()] = [ceil(original_resid_size * 2 / 3)]
     cases.append(case.get_index())
 
   seeds = [68]
@@ -167,7 +167,7 @@ def create_jobs() -> List[str]:
   priority = "cpu-normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
   cpu = 8
-  memory = "6Gi"
+  memory = "4Gi"
   gpu = 0
 
   commands = build_commands()
