@@ -3,7 +3,7 @@ from argparse import Namespace
 from argparse_dataclass import ArgumentParser
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.commands.train.compression_training_utils import parse_compression_size
+from circuits_benchmark.commands.train.compression.compression_training_utils import parse_compression_size
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 

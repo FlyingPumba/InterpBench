@@ -2,7 +2,7 @@ from argparse import Namespace
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.commands.train.auto_compression import run_auto_compression_training
+from circuits_benchmark.commands.train.compression.auto_compression import run_auto_compression_training
 from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import \
   LinearCompressedTracrTransformer, \

@@ -4,7 +4,7 @@ from argparse_dataclass import ArgumentParser
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.commands.train.compression_training_utils import parse_compression_size
+from circuits_benchmark.commands.train.compression.compression_training_utils import parse_compression_size
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
 from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
