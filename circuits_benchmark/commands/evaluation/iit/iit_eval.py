@@ -1,8 +1,10 @@
-from argparse import Namespace, ArgumentParser
+from argparse import Namespace
 
 import numpy as np
+import torch as t
 
 import circuits_benchmark.utils.iit.correspondence as correspondence
+import iit.model_pairs as mp
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
@@ -16,17 +18,15 @@ def setup_args_parser(subparsers):
     parser = subparsers.add_parser("iit")
     add_common_args(parser)
 
+    parser.add_argument("-w", "--weights", type=str, default="510", help="IIT, behavior, strict weights")
+    parser.add_argument("-m", "--mean", type=bool, default=True, help="Use mean cache")
+
     # model_pair_class_map = {
     #     "strict": mp.StrictIITModelPair,
     #     "behavior": mp.IITBehaviorModelPair,
     #     "iit": mp.FreezedModelPair,
     #     "stop_grad": mp.StopGradModelPair
     # }
-
-    parser = ArgumentParser()
-    parser.add_argument("-t", "--task", type=int, default=3, help="Task number")
-    parser.add_argument("-w", "--weights", type=str, default="510", help="IIT, behavior, strict weights")
-    parser.add_argument("-m", "--mean", type=bool, default=True, help="Use mean cache")
     # parser.add_argument('-mp', '--model_pair', type=str, default="strict", help="Model pair class to use")
 
 
