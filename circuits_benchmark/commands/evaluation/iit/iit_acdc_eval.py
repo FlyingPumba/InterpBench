@@ -6,7 +6,6 @@ from argparse import Namespace
 import circuits_benchmark.commands.algorithms.acdc as acdc
 import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.commands.build_main_parser import build_main_parser
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
 from circuits_benchmark.transformers.circuit import Circuit
@@ -51,10 +50,11 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     # this is the graph node -> hl node correspondence
     # tracr_hl_corr = correspondence.TracrCorrespondence.from_output(tracr_output)
     output_suffix = f"weight_{weight}/threshold_{threshold}"
-    clean_dirname = f"results/acdc_{case.get_index()}/{output_suffix}"
+    clean_dirname = f"{args.output_dir}/acdc_{case.get_index()}/{output_suffix}"
     # remove everything in the directory
     if os.path.exists(clean_dirname):
         shutil.rmtree(clean_dirname)
+
     cfg_dict = {
         "n_layers": 2,
         "n_heads": 4,
@@ -81,6 +81,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         break
 
     wandb_str = f"--using-wandb" if using_wandb else ""
+    from circuits_benchmark.commands.build_main_parser import build_main_parser
     acdc_args, _ = build_main_parser().parse_known_args(
         [
             "run",
