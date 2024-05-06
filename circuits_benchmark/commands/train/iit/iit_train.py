@@ -56,13 +56,14 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
     tracr_output = case.build_tracr_model()
     hl_model = case.build_transformer_lens_model()
 
+    use_wandb = args.wandb_entity is not None
+    output_dir = args.output_dir
+
     def main():
         wandb.init()
         if config_is_bad(wandb.config):
             return
         train_model(wandb.config, case, tracr_output, hl_model, use_wandb=True)
-
-    use_wandb = False
 
     if use_wandb:
         sweep_config = {
@@ -98,7 +99,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         model_pair = train_model(args, case, tracr_output, hl_model, use_wandb=False)
 
         # save the model
-        save_dir = f"{args.output_dir}/ll_models/{case.get_index()}"
+        save_dir = f"{output_dir}/ll_models/{case.get_index()}"
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
