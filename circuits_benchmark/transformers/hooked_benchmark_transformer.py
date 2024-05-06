@@ -113,7 +113,7 @@ class HookedBenchmarkTransformer(HookedTransformer):
     """Rewrites the forward methods in all TransformerBlocks to avoid the unnecessary cloning of tensors."""
     for block in self.blocks:
       funcType = type(block.forward)
-      # block.forward = funcType(transformer_block_forward_without_clones, block) # TODO: This causes acdc to fail on multiple heads. Either fix this or remove entirely.
+      block.forward = funcType(transformer_block_forward_without_clones, block)
 
 
 def transformer_block_forward_without_clones(

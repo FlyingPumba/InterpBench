@@ -65,7 +65,8 @@ ll_cfg = hl_model.cfg.to_dict().copy()
 ll_cfg.update(cfg_dict)
 
 ll_model = HookedTracrTransformer(
-    ll_cfg, hl_model.tracr_input_encoder, hl_model.tracr_output_encoder, hl_model.residual_stream_labels
+    ll_cfg, hl_model.tracr_input_encoder, hl_model.tracr_output_encoder, hl_model.residual_stream_labels,
+    remove_extra_tensor_cloning=True
 )
 ll_model.load_weights_from_file(f"ll_models/{case_num}/ll_model_{weight}.pth")
 

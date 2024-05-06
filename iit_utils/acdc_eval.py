@@ -161,7 +161,8 @@ def run_acdc_eval(case_num, weight, threshold, using_wandb=False):
     ll_cfg.update(cfg_dict)
 
     ll_model = HookedTracrTransformer(
-        ll_cfg, hl_model.tracr_input_encoder, hl_model.tracr_output_encoder, hl_model.residual_stream_labels
+        ll_cfg, hl_model.tracr_input_encoder, hl_model.tracr_output_encoder, hl_model.residual_stream_labels,
+        remove_extra_tensor_cloning=True
     )
     if weight != "tracr":
         ll_model.load_weights_from_file(f"ll_models/{case_num}/ll_model_{weight}.pth")
