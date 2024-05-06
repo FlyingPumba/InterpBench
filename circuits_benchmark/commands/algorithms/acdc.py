@@ -19,7 +19,6 @@ from circuits_benchmark.training.compression.linear_compressed_tracr_transformer
 from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.wandb_artifact_download import download_artifact
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 
 def setup_args_parser(subparsers):
@@ -104,6 +103,7 @@ def run_acdc(
         tl_model = case.get_tl_model(device=args.device, remove_extra_tensor_cloning=False)
     else:
         tl_model = model
+
     tags = [f"case{case.get_index()}", "acdc"]
     notes = f"Command: {' '.join(sys.argv)}"
 
@@ -211,7 +211,7 @@ def run_acdc(
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    images_output_dir = os.path.join(output_dir, "images")
+    images_output_dir = os.path.join(output_dir, f"acdc_{case.get_index()}", "images")
     if not os.path.exists(images_output_dir):
         os.makedirs(images_output_dir)
 
@@ -300,6 +300,7 @@ def run_acdc(
         result = calculate_fpr_and_tpr(acdc_circuit, case, verbose=True)
     else:
         result = {}
+
     result["current_metric"] = exp.cur_metric
 
     if using_wandb:
@@ -328,6 +329,5 @@ def run_acdc(
 
         os.remove(edges_fname)
         wandb.finish()
-    if model is None:
-        return acdc_circuit, result
+
     return acdc_circuit, result
