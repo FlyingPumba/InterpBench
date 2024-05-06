@@ -11,3 +11,4 @@ rough_*
 *.log
 *.csv
 .DS_Store
+wandb
