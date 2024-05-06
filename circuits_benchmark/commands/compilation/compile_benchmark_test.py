@@ -27,6 +27,11 @@ class CompileBenchmarkTest(unittest.TestCase):
       tl_model = case.build_transformer_lens_model(tracr_model=tracr_output.model, device=args.device)
       case.run_case_tests_on_tl_model(tl_model=tl_model)
 
+      # print some stats about the model
+      print(f"Number of layers: {len(tl_model.blocks)}")
+      max_heads = max([len(b.attn.W_Q) for b in tl_model.blocks])
+      print(f"Max number of attention heads: {max_heads}")
+
   def test_cases_can_be_instantiated_directly(self):
     case = Case3()
     assert case.get_index() == "3"
