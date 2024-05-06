@@ -22,6 +22,7 @@ def setup_args_parser(subparsers):
   non_linear_compression.setup_args_parser(run_subparsers)
   autoencoder.setup_args_parser(run_subparsers)
   natural_compression.setup_args_parser(run_subparsers)
+  iit_train.setup_args_parser(run_subparsers)
 
 
 def run(args):
