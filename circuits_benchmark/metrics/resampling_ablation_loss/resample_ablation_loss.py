@@ -11,7 +11,8 @@ from transformer_lens import HookedTransformer
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import InterventionData
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_interventions import get_interventions
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_activation_mapper import MultiActivationMapper
 
 
 @dataclass
@@ -25,7 +26,7 @@ def get_resample_ablation_loss_from_inputs(
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
-    residual_stream_mapper: ResidualStreamMapper | None = None,
+    activation_mapper: MultiActivationMapper | ActivationMapper | None = None,
     hook_filters: List[str] | None = None,
     batch_size: int = 2048,
     max_interventions: int = 10
@@ -40,17 +41,17 @@ def get_resample_ablation_loss_from_inputs(
                                                             corrupted_inputs,
                                                             base_model,
                                                             hypothesis_model,
-                                                            residual_stream_mapper,
+                                                            activation_mapper,
                                                             batch_size)
 
-  return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, residual_stream_mapper,
+  return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, activation_mapper,
                                     hook_filters, max_interventions)
 
 
 def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
                                base_model: HookedTransformer,
                                hypothesis_model: HookedTransformer,
-                               residual_stream_mapper: ResidualStreamMapper | None,
+                               activation_mapper: MultiActivationMapper | ActivationMapper | None,
                                hook_filters: List[str] | None = None,
                                max_interventions: int = 10):
   # This is a memory intensive operation, so we will garbage collect before starting.
@@ -58,9 +59,13 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
   t.cuda.empty_cache()
 
   if hook_filters is None:
-    # by default, we use the following hooks for the intervention points.
-    # This will give 2 + n_layers * 2 intervention points.
-    hook_filters = ["hook_embed", "hook_pos_embed", "hook_attn_out", "hook_mlp_out"]
+    if activation_mapper is None or isinstance(activation_mapper, ActivationMapper):
+      # by default, we use the following hooks for the intervention points.
+      # This will give 2 + n_layers * 2 intervention points.
+      hook_filters = ["hook_embed", "hook_pos_embed", "hook_attn_out", "hook_mlp_out"]
+    else:
+      # We use all hook names that can be processed by the multi activation mapper.
+      hook_filters = [k for k in base_model.hook_dict.keys() if activation_mapper.supports_hook(k)]
 
   # we assume that both models have the same architecture. Otherwise, the comparison is flawed since they have different
   # intervention points.
@@ -85,7 +90,7 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
   for intervention in get_interventions(base_model,
                                         hypothesis_model,
                                         hook_filters,
-                                        residual_stream_mapper,
+                                        activation_mapper,
                                         max_interventions):
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
     intervention_losses = []
@@ -114,7 +119,7 @@ def get_batched_intervention_data(
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
-    residual_stream_mapper: ResidualStreamMapper | None = None,
+    activation_mapper: MultiActivationMapper | ActivationMapper | None = None,
     batch_size: int = 2048,
 ) -> List[InterventionData]:
   data = []
@@ -130,7 +135,7 @@ def get_batched_intervention_data(
 
     base_model_clean_cache = None
     hypothesis_model_clean_cache = None
-    if residual_stream_mapper is not None:
+    if activation_mapper is not None:
       # Run the clean inputs on both models and save the activation caches.
       _, base_model_clean_cache = base_model.run_with_cache(clean_inputs_batch)
       _, hypothesis_model_clean_cache = hypothesis_model.run_with_cache(clean_inputs_batch)

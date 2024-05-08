@@ -93,10 +93,14 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     print(final_metrics)
 
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compression_size}.")
+  autoencoders_dict = {}
+  autoencoders_dict["blocks.*.hook_mlp_out"] = autoencoder
+  for layer in range(tl_model.cfg.n_layers):
+    autoencoders_dict[f"blocks.{layer}.attn.hook_result"] = autoencoder
   trainer = NonLinearCompressedTracrTransformerTrainer(case,
                                                        tl_model,
                                                        new_tl_model,
-                                                       autoencoder,
+                                                       autoencoders_dict,
                                                        training_args,
                                                        train_loss_level=args.train_loss,
                                                        output_dir=args.output_dir,

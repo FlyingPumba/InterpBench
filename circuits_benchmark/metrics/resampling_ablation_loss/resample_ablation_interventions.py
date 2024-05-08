@@ -6,14 +6,15 @@ from transformer_lens import HookedTransformer
 
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Intervention
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_activation_mapper import MultiActivationMapper
 
 
 def get_interventions(
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     hook_filters: List[str],
-    residual_stream_mapper: ResidualStreamMapper | None = None,
+    activation_mapper: MultiActivationMapper | ActivationMapper | None = None,
     max_interventions: int = 10) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
@@ -25,7 +26,7 @@ def get_interventions(
     "All hook names for patching should be present in the hypothesis model."
 
   # For each hook name we need to decide what type of intervention we want to apply.
-  options = InterventionType.get_available_interventions(residual_stream_mapper)
+  options = InterventionType.get_available_interventions(activation_mapper)
 
   # If max_interventions is greater than the total number of possible combinations, we will use all of them.
   # Otherwise, we will use a random sample of max_interventions.
@@ -40,7 +41,7 @@ def get_interventions(
     # build intervention for index
     intervention_types = np.base_repr(index, base=len(options)).zfill(len(hook_names_for_patching))
     intervention_types = [options[int(digit)] for digit in intervention_types]
-    intervention = Intervention(hook_names_for_patching, intervention_types, residual_stream_mapper)
+    intervention = Intervention(hook_names_for_patching, intervention_types, activation_mapper)
     yield intervention
 
 

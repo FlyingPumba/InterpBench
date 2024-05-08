@@ -2,10 +2,10 @@ from jaxtyping import Float
 from torch import Tensor
 
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 
 
-class AutoEncoderMapper(ResidualStreamMapper):
+class AutoEncoderMapper(ActivationMapper):
   """Maps the residual stream to/from a lower dimensional space using an autoencoder."""
 
   def __init__(self, autoencoder: AutoEncoder):

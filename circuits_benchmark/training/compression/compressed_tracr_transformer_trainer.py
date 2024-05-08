@@ -13,7 +13,7 @@ from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
   get_resample_ablation_loss_from_inputs
 from circuits_benchmark.metrics.sparsity import get_zero_weights_pct
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
@@ -63,7 +63,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
   def get_compressed_model(self) -> HookedTransformer:
     raise NotImplementedError
 
-  def get_residual_stream_mapper(self) -> ResidualStreamMapper | None:
+  def get_activation_mapper(self) -> ActivationMapper | None:
     return None
 
   def compute_test_metrics(self):
@@ -117,9 +117,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
           "batch_size": self.args.resample_ablation_batch_size,
         }
 
-        residual_stream_mapper = self.get_residual_stream_mapper()
-        if residual_stream_mapper is not None:
-          resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
+        activation_mapper = self.get_activation_mapper()
+        if activation_mapper is not None:
+          resample_ablation_loss_args["activation_mapper"] = activation_mapper
 
         resample_ablation_output = get_resample_ablation_loss_from_inputs(**resample_ablation_loss_args)
         self.test_metrics["test_resample_ablation_loss"] = resample_ablation_output.loss

@@ -143,9 +143,9 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       "max_interventions": self.args.resample_ablation_max_interventions,
     }
 
-    residual_stream_mapper = self.get_residual_stream_mapper()
-    if residual_stream_mapper is not None:
-      resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
+    activation_mapper = self.get_activation_mapper()
+    if activation_mapper is not None:
+      resample_ablation_loss_args["activation_mapper"] = activation_mapper
 
     resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
 
