@@ -1,4 +1,5 @@
 from argparse import Namespace
+from math import ceil
 
 from torch.nn import init
 
@@ -56,47 +57,36 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                args: Namespace,
                                                training_args: TrainingArgs,
                                                compression_size: int):
-  original_residual_stream_size = tl_model.cfg.d_model
+  original_d_model_size = tl_model.cfg.d_model
+  original_d_head_size = tl_model.cfg.d_head
+
+  compressed_d_model_size = ceil(original_d_model_size / 2) # compression_size
+  compressed_d_head_size = ceil(original_d_head_size / 2)
 
   new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
     tl_model,
-    overwrite_cfg_dict={"d_model": compression_size},
+    overwrite_cfg_dict={
+      "d_model": compressed_d_model_size,
+      "d_head": compressed_d_head_size,
+    },
     init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
   )
 
-  autoencoder = AutoEncoder(original_residual_stream_size,
-                            compression_size,
-                            args.ae_layers,
-                            args.ae_first_hidden_layer_shape)
-  if args.ae_path is not None:
-    # Load AutoEncoder model weights
-    autoencoder.load_weights_from_file(args.ae_path)
-  else:
-    # Train an AutoEncoder model
-    ae_training_args = TrainingArgs()
-    ae_training_args.seed = args.seed
-    ae_training_args.epochs = args.ae_epochs
-    ae_training_args.lr_start = args.ae_lr_start
-    ae_training_args.batch_size = args.ae_batch_size
-    ae_training_args.test_data_ratio = training_args.test_data_ratio
-    ae_training_args.train_data_size = training_args.train_data_size
-    ae_training_args.early_stop_test_accuracy = training_args.early_stop_test_accuracy if training_args.early_stop_test_accuracy is not None else 0.97
-    ae_training_args.lr_patience = 15
-
-    print(
-      f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
-    trainer = AutoEncoderTrainer(case, autoencoder, tl_model, ae_training_args,
-                                 train_loss_level=args.train_loss,
-                                 output_dir=args.output_dir)
-    final_metrics = trainer.train()
-    print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
-    print(final_metrics)
-
-  print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compression_size}.")
+  # Set up autoencoders for compression training
   autoencoders_dict = {}
-  autoencoders_dict["blocks.*.hook_mlp_out"] = autoencoder
+  autoencoders_dict["blocks.*.hook_mlp_out"] = AutoEncoder(original_d_model_size,
+                                                           compressed_d_model_size,
+                                                           args.ae_layers,
+                                                           args.ae_first_hidden_layer_shape)
   for layer in range(tl_model.cfg.n_layers):
-    autoencoders_dict[f"blocks.{layer}.attn.hook_result"] = autoencoder
+    for head in range(tl_model.cfg.n_heads):
+      autoencoders_dict[f"blocks.{layer}.attn.hook_z[{head}]"] = AutoEncoder(original_d_head_size,
+                                                                             compressed_d_head_size,
+                                                                             args.ae_layers,
+                                                                             args.ae_first_hidden_layer_shape)
+
+  print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
+        f"compressed head size {compressed_d_head_size}.")
   trainer = NonLinearCompressedTracrTransformerTrainer(case,
                                                        tl_model,
                                                        new_tl_model,
@@ -109,7 +99,8 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
                                                        ae_max_training_epochs=args.ae_max_training_epochs)
   final_metrics = trainer.train()
-  print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compression_size}: ")
+  print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
+        f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
 
   return final_metrics

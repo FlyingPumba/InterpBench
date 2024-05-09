@@ -12,7 +12,7 @@ from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import InterventionData
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_interventions import get_interventions
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
-from circuits_benchmark.training.compression.activation_mapper.multi_activation_mapper import MultiActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import MultiHookActivationMapper
 
 
 @dataclass
@@ -26,7 +26,7 @@ def get_resample_ablation_loss_from_inputs(
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
-    activation_mapper: MultiActivationMapper | ActivationMapper | None = None,
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
     hook_filters: List[str] | None = None,
     batch_size: int = 2048,
     max_interventions: int = 10
@@ -51,7 +51,7 @@ def get_resample_ablation_loss_from_inputs(
 def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
                                base_model: HookedTransformer,
                                hypothesis_model: HookedTransformer,
-                               activation_mapper: MultiActivationMapper | ActivationMapper | None,
+                               activation_mapper: MultiHookActivationMapper | ActivationMapper | None,
                                hook_filters: List[str] | None = None,
                                max_interventions: int = 10):
   # This is a memory intensive operation, so we will garbage collect before starting.
@@ -119,7 +119,7 @@ def get_batched_intervention_data(
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
-    activation_mapper: MultiActivationMapper | ActivationMapper | None = None,
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
     batch_size: int = 2048,
 ) -> List[InterventionData]:
   data = []

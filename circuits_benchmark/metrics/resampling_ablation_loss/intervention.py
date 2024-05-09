@@ -10,7 +10,7 @@ from transformer_lens.hook_points import HookPoint
 
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
-from circuits_benchmark.training.compression.activation_mapper.multi_activation_mapper import MultiActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import MultiHookActivationMapper
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
 
@@ -27,7 +27,7 @@ def compression_intervention_hook_fn(
     activation: Float[Tensor, "batch seq_len d_model"],
     hook: HookPoint,
     corrupted_cache: ActivationCache = None,
-    activation_mapper: MultiActivationMapper | ActivationMapper | None = None
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None
 ):
   """This hook replaces the output with a corrupted output passed through the compressor."""
   if activation_mapper is None:
@@ -42,7 +42,7 @@ def decompression_intervention_hook_fn(
     activation: Float[Tensor, "batch seq_len d_model"],
     hook: HookPoint,
     corrupted_cache: ActivationCache = None,
-    activation_mapper: MultiActivationMapper | ActivationMapper | None = None
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None
 ):
   """This hook replaces the output with a corrupted output passed through the decompressor."""
   if activation_mapper is None:
@@ -66,7 +66,7 @@ class Intervention(object):
   def __init__(self,
                hook_names: List[str],
                hook_intervention_types: List[InterventionType],
-               activation_mapper: MultiActivationMapper | ActivationMapper | None = None):
+               activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None):
     self.hook_names = hook_names
     self.hook_intervention_types = hook_intervention_types
     self.activation_mapper = activation_mapper

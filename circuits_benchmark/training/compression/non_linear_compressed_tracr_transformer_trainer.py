@@ -12,7 +12,7 @@ from transformer_lens import ActivationCache, HookedTransformer
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.compression.activation_mapper.autoencoder_mapper import AutoEncoderMapper
-from circuits_benchmark.training.compression.activation_mapper.multi_activation_mapper import MultiActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import MultiHookActivationMapper
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
 from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
@@ -161,9 +161,9 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
   def get_compressed_model(self) -> HookedTransformer:
     return self.new_tl_model
 
-  def get_activation_mapper(self) -> MultiActivationMapper | ActivationMapper | None:
+  def get_activation_mapper(self) -> MultiHookActivationMapper | ActivationMapper | None:
     mappers_dict = {k: AutoEncoderMapper(v) for k, v in self.autoencoders_dict.items()}
-    return MultiActivationMapper(mappers_dict)
+    return MultiHookActivationMapper(mappers_dict)
 
   def build_wandb_name(self):
     if len(self.autoencoders_dict) > 1:
