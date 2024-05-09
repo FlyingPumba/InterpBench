@@ -67,6 +67,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                                                                  self.old_tl_model,
                                                                  self.ae_training_args,
                                                                  train_loss_level=train_loss_level,
+                                                                 hook_name_filter_for_input_activations=ae_key,
                                                                  output_dir=output_dir)
 
     super().__init__(case,
@@ -228,5 +229,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     if not self.freeze_ae_weights:
       # The autoencoders have changed during the non-linear compression training, so we will save it.
       for ae_key, ae in self.autoencoders_dict.items():
-        prefix = f"case-{self.case.get_index()}-ae-{ae_key}-size-{ae.compression_size}-final"
+        safe_ae_key = ae_key.replace('*', '.').replace('[', '.').replace(']', '.')
+        prefix = f"case-{self.case.get_index()}-ae-{safe_ae_key}-size-{ae.compression_size}-final"
         ae.save(self.output_dir, prefix, self.wandb_run)
