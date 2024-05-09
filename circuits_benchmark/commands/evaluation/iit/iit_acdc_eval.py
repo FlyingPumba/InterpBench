@@ -43,7 +43,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     using_wandb = args.using_wandb
 
     tracr_output = case.build_tracr_model()
-    hl_model = case.build_transformer_lens_model()
+    hl_model = case.build_transformer_lens_model(remove_extra_tensor_cloning=False)
 
     metric = "l2" if not hl_model.is_categorical() else "kl"
 
@@ -69,10 +69,10 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
 
     ll_model = HookedTracrTransformer(
         ll_cfg, hl_model.tracr_input_encoder, hl_model.tracr_output_encoder, hl_model.residual_stream_labels,
-        remove_extra_tensor_cloning=True
+        remove_extra_tensor_cloning=False
     )
     if weight != "tracr":
-        ll_model.load_weights_from_file(f"ll_models/{case_num}/ll_model_{weight}.pth")
+        ll_model.load_weights_from_file(f"{args.output_dir}/ll_models/{case_num}/ll_model_{weight}.pth")
 
     print(ll_model.device)
     ll_model.to(ll_model.device)

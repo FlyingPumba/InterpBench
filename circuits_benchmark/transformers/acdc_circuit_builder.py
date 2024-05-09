@@ -6,7 +6,7 @@ from circuits_benchmark.transformers.circuit_node import CircuitNode
 def build_acdc_circuit(corr: TLACDCCorrespondence) -> Circuit:
   circuit = Circuit()
 
-  for (child_name, child_index, parent_name, parent_index), edge in corr.all_edges().items():
+  for (child_name, child_index, parent_name, parent_index), edge in corr.edge_dict().items():
     if edge.present:
       parent_head_index = None
       if (parent_index is not None and
