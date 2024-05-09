@@ -7,14 +7,14 @@ from transformer_lens import HookedTransformer
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Intervention
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
-from circuits_benchmark.training.compression.activation_mapper.multi_activation_mapper import MultiActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import MultiHookActivationMapper
 
 
 def get_interventions(
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     hook_filters: List[str],
-    activation_mapper: MultiActivationMapper | ActivationMapper | None = None,
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
     max_interventions: int = 10) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
