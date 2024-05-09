@@ -55,7 +55,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       self.ae_training_epochs_gap = ae_training_epochs_gap
       self.ae_max_training_epochs = ae_max_training_epochs
       self.ae_desired_test_mse = ae_desired_test_mse
-      self.epochs_since_last_ae_training = 0
+      self.epochs_since_last_ae_training = ae_training_epochs_gap  # This forces the autoencoders to be trained at the start
 
       # make a copy of the training args for non-linear compression if AE specific training args were not provided
       self.ae_training_args = ae_training_args
