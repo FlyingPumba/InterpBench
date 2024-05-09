@@ -272,7 +272,7 @@ def run_acdc(
         )
 
         print(i, "-" * 50)
-        print(exp.count_no_edges())
+        print(exp.count_num_edges())
 
         if i == 0:
             exp.save_edges(os.path.join(output_dir, "edges.pkl"))
