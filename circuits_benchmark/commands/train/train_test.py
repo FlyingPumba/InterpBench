@@ -128,7 +128,7 @@ class TrainTest(unittest.TestCase):
   def test_non_linear_compression_with_intervention_level_train_loss_works_for_case_3(self):
     args, _ = build_main_parser().parse_known_args(["train",
                                                     "non-linear-compression",
-                                                    "-i=3",
+                                                    "-i=5",
                                                     "--residual-stream-compression-size=8",
                                                     "--train-data-size=10",
                                                     "--test-data-ratio=0.3",
