@@ -89,10 +89,10 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     # Sum the L2 of output vectors for all layers in both compressed and original model
     for layer in range(self.n_layers):
-      compressed_model_output = compressed_model_cache["resid_post", layer]
-      original_model_output = original_model_cache["resid_post", layer]
+      compressed_model_activations = compressed_model_cache["resid_post", layer]
+      original_model_activations = original_model_cache["resid_post", layer]
 
-      layer_loss = t.nn.functional.mse_loss(compressed_model_output, original_model_output)
+      layer_loss = t.nn.functional.mse_loss(compressed_model_activations, original_model_activations)
       if self.use_wandb:
         wandb.log({f"layer_{str(layer)}_loss": layer_loss}, step=self.step)
 
@@ -107,20 +107,20 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     for layer in range(self.n_layers):
       for component in ["attn", "mlp"]:
         hook_name = f"{component}_out"
-        compressed_model_output = compressed_model_cache[hook_name, layer]
-        original_model_output = original_model_cache[hook_name, layer]
+        compressed_model_activations = compressed_model_cache[hook_name, layer]
+        original_model_activations = original_model_cache[hook_name, layer]
 
-        component_loss = t.nn.functional.mse_loss(original_model_output, compressed_model_output)
+        component_loss = t.nn.functional.mse_loss(original_model_activations, compressed_model_activations)
         if self.use_wandb:
           wandb.log({f"layer_{str(layer)}_{component}_loss": component_loss}, step=self.step)
 
     # Sum the L2 output vectors for the embeddings in both compressed and original model
     for component in ["embed", "pos_embed"]:
       hook_name = f"hook_{component}"
-      compressed_model_output = compressed_model_cache[hook_name]
-      original_model_output = original_model_cache[hook_name]
+      compressed_model_activations = compressed_model_cache[hook_name]
+      original_model_activations = original_model_cache[hook_name]
 
-      component_loss = t.nn.functional.mse_loss(original_model_output, compressed_model_output)
+      component_loss = t.nn.functional.mse_loss(original_model_activations, compressed_model_activations)
       if self.use_wandb:
         wandb.log({f"{hook_name}_loss": component_loss}, step=self.step)
 
@@ -141,6 +141,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       "base_model": self.get_original_model(),
       "hypothesis_model": self.get_compressed_model(),
       "max_interventions": self.args.resample_ablation_max_interventions,
+      "is_categorical": self.is_categorical,
     }
 
     activation_mapper = self.get_activation_mapper()

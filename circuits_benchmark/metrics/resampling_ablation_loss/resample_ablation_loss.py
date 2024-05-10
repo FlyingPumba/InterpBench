@@ -29,7 +29,8 @@ def get_resample_ablation_loss_from_inputs(
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
     hook_filters: List[str] | None = None,
     batch_size: int = 2048,
-    max_interventions: int = 10
+    max_interventions: int = 10,
+    is_categorical: bool = False,
 ) -> ResampleAblationLossOutput:
   # assert that clean_input and corrupted_input have the same length
   assert len(clean_inputs) == len(corrupted_inputs), "clean and corrupted inputs should have same length."
@@ -45,7 +46,7 @@ def get_resample_ablation_loss_from_inputs(
                                                             batch_size)
 
   return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, activation_mapper,
-                                    hook_filters, max_interventions)
+                                    hook_filters, max_interventions, is_categorical)
 
 
 def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
@@ -53,7 +54,8 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                hypothesis_model: HookedTransformer,
                                activation_mapper: MultiHookActivationMapper | ActivationMapper | None,
                                hook_filters: List[str] | None = None,
-                               max_interventions: int = 10):
+                               max_interventions: int = 10,
+                               is_categorical: bool = False) -> ResampleAblationLossOutput:
   # This is a memory intensive operation, so we will garbage collect before starting.
   gc.collect()
   t.cuda.empty_cache()
@@ -102,7 +104,14 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
         base_model_logits = base_model(clean_inputs_batch)
         hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
 
-        loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits)
+        if is_categorical:
+          # use cross entropy loss for categorical outputs.
+          loss = t.nn.functional.cross_entropy(hypothesis_model_logits.flatten(end_dim=-2),
+                                               base_model_logits.flatten(end_dim=-2))
+        else:
+          # Use MSE loss for numerical outputs.
+          loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits)
+
         var_explained = 1 - loss / base_model_logits_variance
 
         intervention_losses.append(loss.reshape(1))

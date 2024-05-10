@@ -115,6 +115,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
           "hypothesis_model": self.get_compressed_model(),
           "max_interventions": self.args.resample_ablation_max_interventions,
           "batch_size": self.args.resample_ablation_batch_size,
+          "is_categorical": self.is_categorical,
         }
 
         activation_mapper = self.get_activation_mapper()
