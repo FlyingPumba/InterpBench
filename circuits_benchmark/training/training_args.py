@@ -22,6 +22,7 @@ class TrainingArgs():
   weight_decay: Optional[float] = 0.1
   beta_1: Optional[float] = 0.9
   beta_2: Optional[float] = 0.99
+  gradient_clip: Optional[float] = 1.0
 
   # lr scheduler config
   lr_start: Optional[float] = 1e-3
