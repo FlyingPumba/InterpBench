@@ -88,49 +88,11 @@ class BenchmarkCase(object):
       np.random.seed(seed)
       random.seed(seed)
 
-    vals = sorted(list(self.get_vocab()))
-
     if count is None:
       # produce all possible sequences for this vocab
-      for seq_len in range(min_seq_len, max_seq_len + 1):
-        pad_len = max_seq_len - seq_len
-        pad = [TRACR_PAD] * pad_len
-
-        count = len(vals) ** (seq_len - 1)
-        for index in range(count):
-          # we want to produce all possible sequences for this lengths, so we convert the index to base len(vals) and
-          # then convert each digit to the corresponding value in vals
-          sample = []
-          base = len(vals)
-          num = index
-          while num:
-            sample.append(vals[num % base])
-            num //= base
-
-          if len(sample) < seq_len - 1:
-            # extend with the first value in vocab to fill the sequence
-            sample.extend([vals[0]] * (seq_len - 1 - len(sample)))
-
-          # reverse the list to produce the sequence in the correct order
-          sample = sample[::-1]
-
-          output = self.get_correct_output_for_input(sample)
-
-          input_data.append([TRACR_BOS] + sample + pad)
-          output_data.append([TRACR_BOS] + output + pad)
-
+      input_data, output_data = self.gen_all_data(min_seq_len, max_seq_len)
     else:
-      for _ in range(count):
-        seq_len = random.randint(min_seq_len, max_seq_len)
-        pad_len = max_seq_len - seq_len
-        pad = [TRACR_PAD] * pad_len
-
-        sample = np.random.choice(vals, size=seq_len - 1).tolist()  # sample with replacement
-
-        output = self.get_correct_output_for_input(sample)
-
-        input_data.append([TRACR_BOS] + sample + pad)
-        output_data.append([TRACR_BOS] + output + pad)
+      input_data, output_data = self.sample_data(count, min_seq_len, max_seq_len)
 
     # shuffle input_data and output_data maintaining the correspondence between input and output
     indices = np.arange(len(input_data))
@@ -139,6 +101,71 @@ class BenchmarkCase(object):
     output_data = [output_data[i] for i in indices]
 
     return CaseDataset(input_data, output_data)
+
+  def sample_data(self, count, min_seq_len, max_seq_len):
+    """Samples random data for the benchmark case."""
+    vals = sorted(list(self.get_vocab()))
+
+    input_data: HookedTracrTransformerBatchInput = []
+    output_data: HookedTracrTransformerBatchInput = []
+
+    for _ in range(count):
+      input, output = self.gen_random_input_output(vals, min_seq_len, max_seq_len)
+      input_data.append(input)
+      output_data.append(output)
+
+    return input_data, output_data
+
+  def gen_random_input_output(self, vals, min_seq_len, max_seq_len) -> (Sequence, Sequence):
+    seq_len = random.randint(min_seq_len, max_seq_len)
+
+    # figure out padding
+    pad_len = max_seq_len - seq_len
+    pad = [TRACR_PAD] * pad_len
+
+    sample = np.random.choice(vals, size=seq_len - 1).tolist()  # sample with replacement
+    output = self.get_correct_output_for_input(sample)
+
+    input = [TRACR_BOS] + sample + pad
+    output = [TRACR_BOS] + output + pad
+
+    return input, output
+
+  def gen_all_data(self, min_seq_len, max_seq_len) -> (HookedTracrTransformerBatchInput, HookedTracrTransformerBatchInput):
+    """Generates all possible sequences for the vocab on this case."""
+    vals = sorted(list(self.get_vocab()))
+
+    input_data: HookedTracrTransformerBatchInput = []
+    output_data: HookedTracrTransformerBatchInput = []
+
+    for seq_len in range(min_seq_len, max_seq_len + 1):
+      pad_len = max_seq_len - seq_len
+      pad = [TRACR_PAD] * pad_len
+
+      count = len(vals) ** (seq_len - 1)
+      for index in range(count):
+        # we want to produce all possible sequences for these lengths, so we convert the index to base len(vals) and
+        # then convert each digit to the corresponding value in vals
+        sample = []
+        base = len(vals)
+        num = index
+        while num:
+          sample.append(vals[num % base])
+          num //= base
+
+        if len(sample) < seq_len - 1:
+          # extend with the first value in vocab to fill the sequence
+          sample.extend([vals[0]] * (seq_len - 1 - len(sample)))
+
+        # reverse the list to produce the sequence in the correct order
+        sample = sample[::-1]
+
+        output = self.get_correct_output_for_input(sample)
+
+        input_data.append([TRACR_BOS] + sample + pad)
+        output_data.append([TRACR_BOS] + output + pad)
+
+    return input_data, output_data
 
   def get_correct_output_for_input(self, input: Sequence) -> Sequence:
     """Returns the correct output for the given input.
