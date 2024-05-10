@@ -73,7 +73,7 @@ class Case5(BenchmarkCase):
     # generate balanced data: equal number of open and close parentheses/brakets in each sample
     for _ in range(balanced_data_count):
       seq_len = random.randint(min_seq_len, max_seq_len)
-      balanced_input = self.gen_balanced_input(seq_len)
+      balanced_input = self.gen_balanced_input(seq_len-1)
 
       pad_len = max_seq_len - seq_len
       pad = [TRACR_PAD] * pad_len
