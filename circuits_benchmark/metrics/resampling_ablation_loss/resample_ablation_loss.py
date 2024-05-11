@@ -101,15 +101,25 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
       clean_inputs_batch = intervention_data.clean_inputs
 
       with intervention.hooks(base_model, hypothesis_model, intervention_data):
-        base_model_logits = base_model(clean_inputs_batch)
-        hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
-
         if is_categorical:
           # use cross entropy loss for categorical outputs.
-          loss = t.nn.functional.cross_entropy(hypothesis_model_logits.flatten(end_dim=-2),
-                                               base_model_logits.flatten(end_dim=-2))
+          base_model_logits = base_model(clean_inputs_batch)
+          hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
+
+          # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
+          base_model_logits = base_model_logits[:, 1:]
+          hypothesis_model_logits = hypothesis_model_logits[:, 1:]
+
+          # flatten token positions for all inputs
+          base_model_logits = base_model_logits.flatten(end_dim=-2)
+          hypothesis_model_logits = hypothesis_model_logits.flatten(end_dim=-2)
+
+          loss = t.nn.functional.cross_entropy(hypothesis_model_logits,
+                                               base_model_logits)
         else:
           # Use MSE loss for numerical outputs.
+          base_model_logits = base_model(clean_inputs_batch)
+          hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
           loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits)
 
         var_explained = 1 - loss / base_model_logits_variance
