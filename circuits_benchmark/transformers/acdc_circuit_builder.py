@@ -83,3 +83,24 @@ def get_full_acdc_circuit(n_layers: int, n_heads: int) -> Circuit:
       circuit.add_edge(from_node, last_resid_post_node)
 
   return circuit
+
+
+def replace_inputs_and_qkvs_with_outputs(circuit: Circuit) -> Circuit:
+  new_circuit = Circuit()
+
+  for node in circuit.nodes:
+    node_name_prefix = node.name.split(".")[:-1]
+    node_name_prefix = ".".join(node_name_prefix)
+    if node.name.endswith("hook_q_input") or node.name.endswith("hook_k_input") or node.name.endswith("hook_v_input"):
+      new_node = CircuitNode(f"{node_name_prefix}.hook_result", node.index)
+    elif node.name.endswith("hook_embed") or node.name.endswith("hook_pos_embed") or node.name.endswith("hook_resid_pre"):
+      continue
+    elif node.name.endswith("hook_mlp_in"):
+      new_node = CircuitNode(f"{node_name_prefix}.hook_mlp_out")
+    elif node.name.endswith("hook_q") or node.name.endswith("hook_k") or node.name.endswith("hook_v"):
+      new_node = CircuitNode(f"{node_name_prefix}.hook_result", node.index)
+    else:
+      new_node = node
+    new_circuit.add_node(new_node)
+
+  return new_circuit

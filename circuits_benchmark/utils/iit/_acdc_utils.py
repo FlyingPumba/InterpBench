@@ -12,7 +12,6 @@ def get_circuit_nodes_from_ll_node(ll_node: mp.LLNode,
             return [None]
         id = ll_idx.as_index[2]
         if isinstance(id, slice):
-            print(f"Slice: {id}")
             if id.start is None:
                 return list(range(id.stop))
             elif id.stop is None:

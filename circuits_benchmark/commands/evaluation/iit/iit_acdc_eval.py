@@ -26,11 +26,11 @@ def evaluate_acdc_circuit(
     acdc_circuit: Circuit,
     ll_model: HookedTracrTransformer,
     hl_ll_corr: correspondence.TracrCorrespondence,
-    verbose: bool = False
+    **kwargs
 ):
     full_circuit = get_full_acdc_circuit(ll_model.cfg.n_layers, ll_model.cfg.n_heads)
     gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads)
-    return calculate_fpr_and_tpr(acdc_circuit, gt_circuit, full_circuit, verbose=verbose)
+    return calculate_fpr_and_tpr(acdc_circuit, gt_circuit, full_circuit, **kwargs)
 
 def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     if not case.supports_causal_masking():
