@@ -110,12 +110,13 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
           base_model_logits = base_model_logits[:, 1:]
           hypothesis_model_logits = hypothesis_model_logits[:, 1:]
 
-          # flatten token positions for all inputs
-          base_model_logits = base_model_logits.flatten(end_dim=-2)
-          hypothesis_model_logits = hypothesis_model_logits.flatten(end_dim=-2)
+          log_probs = hypothesis_model_logits.log_softmax(dim=-1)
+          expected_tokens = base_model_logits.argmax(dim=-1)
 
-          loss = t.nn.functional.cross_entropy(hypothesis_model_logits,
-                                               base_model_logits)
+          # Get logprobs the first seq_len-1 predictions (so we can compare them with the actual next tokens)
+          log_probs_for_tokens = log_probs.gather(dim=-1, index=expected_tokens.unsqueeze(-1)).squeeze(-1)
+
+          loss = -log_probs_for_tokens.mean()
         else:
           # Use MSE loss for numerical outputs.
           base_model_logits = base_model(clean_inputs_batch)
