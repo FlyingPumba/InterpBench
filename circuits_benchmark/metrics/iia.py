@@ -120,11 +120,14 @@ def evaluate_iia(case: BenchmarkCase,
     # compare the outputs of the two models
     if base_model.is_categorical():
       # use KL divergence
-      base_model_logits = t.nn.functional.softmax(base_model_logits, dim=-1)
-      hypothesis_model_logits = t.nn.functional.softmax(hypothesis_model_logits, dim=-1)
+      base_model_logits = t.nn.functional.log_softmax(base_model_logits, dim=-1)
+      hypothesis_model_logits = t.nn.functional.log_softmax(hypothesis_model_logits, dim=-1)
 
       node_kl_div = t.nn.functional.kl_div(
-        base_model_logits.log(), hypothesis_model_logits, reduction="none", log_target=False
+        hypothesis_model_logits,  # the output of our model
+        base_model_logits,  # the target distribution
+        reduction="none",
+        log_target=True  # because we already applied log_softmax to
       ).sum(dim=-1).mean().item()
 
       results_by_node[node_str] = node_kl_div
