@@ -67,7 +67,8 @@ class BenchmarkCase(object):
   def get_clean_data(self,
                      count: Optional[int] = 10,
                      seed: Optional[int] = 42,
-                     variable_length_seqs: Optional[bool] = False) -> CaseDataset:
+                     variable_length_seqs: Optional[bool] = False,
+                     remove_duplicates: Optional[bool] = False) -> CaseDataset:
     """Returns the clean data for the benchmark case."""
     max_seq_len = self.get_max_seq_len()
 
@@ -78,9 +79,6 @@ class BenchmarkCase(object):
 
     # assert min_seq_len is at least 2 elementsto account for BOS
     assert min_seq_len >= 2, "min_seq_len must be at least 2 to account for BOS"
-
-    input_data: HookedTracrTransformerBatchInput = []
-    output_data: HookedTracrTransformerBatchInput = []
 
     # set numpy seed and sort vocab to ensure reproducibility
     if seed is not None:
@@ -93,6 +91,21 @@ class BenchmarkCase(object):
       input_data, output_data = self.gen_all_data(min_seq_len, max_seq_len)
     else:
       input_data, output_data = self.sample_data(count, min_seq_len, max_seq_len)
+
+    unique_inputs = set()
+    if remove_duplicates:
+      # remove duplicates from input_data
+      unique_input_data = []
+      unique_output_data = []
+      for i in range(len(input_data)):
+        input = input_data[i]
+        if str(input) not in unique_inputs:
+          unique_inputs.add(tuple(input))
+          unique_input_data.append(input)
+          unique_output_data.append(output_data[i])
+      input_data = unique_input_data
+      output_data = unique_output_data
+
 
     # shuffle input_data and output_data maintaining the correspondence between input and output
     indices = np.arange(len(input_data))

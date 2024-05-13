@@ -1,17 +1,20 @@
 from argparse import Namespace
 from math import ceil
 
+import pandas as pd
+import wandb
 from torch.nn import init
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.compression.auto_compression import run_auto_compression_training
+from circuits_benchmark.metrics.iia import evaluate_iia, ablation_types, evaluate_iia_on_all_ablation_types
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
-from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
 from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
 from circuits_benchmark.training.compression.non_linear_compressed_tracr_transformer_trainer import \
   NonLinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
+from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 
@@ -102,6 +105,23 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
   print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
+
+  iia_eval_results = evaluate_iia_on_all_ablation_types(case, tl_model, new_tl_model)
+  print(f" >>> IIA evaluation results:")
+  for node_str, result in iia_eval_results.items():
+    print(result)
+
+  # Save iia_eval_results as csv
+  iia_eval_results_df = pd.DataFrame(iia_eval_results)
+  iia_eval_results_csv_path = f"{args.output_dir}/iia_eval_results.csv"
+  iia_eval_results_df.to_csv(iia_eval_results_csv_path)
+
+  if trainer.wandb_run is not None:
+    # save the files as artifacts to wandb
+    prefix = f"case-{case.get_index()}-multi-aes"
+    artifact = wandb.Artifact(f"{prefix}-iia-evaluation", type="csv")
+    artifact.add_file(iia_eval_results_csv_path)
+    trainer.wandb_run.log_artifact(artifact)
 
   return final_metrics
 
