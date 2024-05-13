@@ -60,8 +60,8 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
   original_d_model_size = tl_model.cfg.d_model
   original_d_head_size = tl_model.cfg.d_head
 
-  compressed_d_model_size = ceil(original_d_model_size / 2) # compression_size
-  compressed_d_head_size = ceil(original_d_head_size / 2)
+  compressed_d_model_size = ceil(original_d_model_size / 3) # compression_size
+  compressed_d_head_size = ceil(original_d_head_size / 3)
 
   new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
     tl_model,

@@ -19,7 +19,7 @@ class TrainingArgs():
   early_stop_test_accuracy: Optional[float] = None
 
   # AdamW optimizer config
-  weight_decay: Optional[float] = 0.1
+  weight_decay: Optional[float] = 0.5
   beta_1: Optional[float] = 0.9
   beta_2: Optional[float] = 0.99
   gradient_clip: Optional[float] = 0.01
