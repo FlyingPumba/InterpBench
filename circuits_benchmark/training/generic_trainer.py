@@ -1,6 +1,6 @@
 import dataclasses
 import sys
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import numpy as np
 import torch as t
@@ -86,7 +86,7 @@ class GenericTrainer:
     """Prepare the dataset and split it into train and test sets."""
     raise NotImplementedError
 
-  def train(self):
+  def train(self, finish_wandb_run: Optional[bool] = True):
     """
     Trains the model, for `self.args.epochs` epochs.
     """
@@ -123,7 +123,7 @@ class GenericTrainer:
     if self.output_dir is not None:
       self.save_artifacts()
 
-    if self.use_wandb:
+    if self.use_wandb and finish_wandb_run:
       wandb.finish()
 
     return {**self.test_metrics, "train_loss": self.train_loss.item()}

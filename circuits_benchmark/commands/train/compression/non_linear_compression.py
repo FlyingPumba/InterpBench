@@ -101,7 +101,7 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                        ae_training_epochs_gap=args.ae_training_epochs_gap,
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
                                                        ae_max_training_epochs=args.ae_max_training_epochs)
-  final_metrics = trainer.train()
+  final_metrics = trainer.train(finish_wandb_run=False)
   print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
@@ -122,6 +122,8 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     artifact = wandb.Artifact(f"{prefix}-iia-evaluation", type="csv")
     artifact.add_file(iia_eval_results_csv_path)
     trainer.wandb_run.log_artifact(artifact)
+
+    wandb.finish()
 
   return final_metrics
 
