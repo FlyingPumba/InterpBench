@@ -39,3 +39,4 @@ class TrainingArgs():
   resample_ablation_max_interventions: Optional[int] = 10
   resample_ablation_data_size: Optional[int] = 100
   resample_ablation_batch_size: Optional[int] = 20000
+  resample_ablation_loss_weight: Optional[float] = 1

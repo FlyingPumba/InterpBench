@@ -57,8 +57,12 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
         _, compressed_model_corrupted_cache = self.get_logits_and_cache_from_compressed_model(corruped_inputs)
         _, base_model_corrupted_cache = self.get_logits_and_cache_from_original_model(corruped_inputs)
 
-        loss = loss + self.get_intervention_level_loss(inputs, compressed_model_cache, original_model_cache,
-                                                       compressed_model_corrupted_cache, base_model_corrupted_cache)
+        intervention_loss = self.get_intervention_level_loss(inputs,
+                                                             compressed_model_cache,
+                                                             original_model_cache,
+                                                             compressed_model_corrupted_cache,
+                                                             base_model_corrupted_cache)
+        loss = loss + self.args.resample_ablation_loss_weight * intervention_loss
 
       self.epochs_since_last_train_resample_ablation_loss += 1
 
