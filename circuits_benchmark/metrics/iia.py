@@ -3,7 +3,7 @@ from functools import partial
 from typing import Set, Optional, Literal, Dict
 
 import torch as t
-from jaxtyping import Float
+from jaxtyping import Float, Bool
 from torch import Tensor
 from tqdm import tqdm
 from transformer_lens import ActivationCache
@@ -70,6 +70,7 @@ def evaluate_iia_on_all_ablation_types(
       base_model,
       hypothesis_model,
       clean_data,
+      corrupted_data,
       base_model_corrupted_cache,
       hypothesis_model_corrupted_cache,
       base_model_clean_cache,
@@ -79,7 +80,7 @@ def evaluate_iia_on_all_ablation_types(
 
     for node_str, result_dict in results_by_node.items():
       for key, result in result_dict.items():
-        iia_evaluation_results[node_str][f"{key}_{ablation_type}"] = result
+        iia_evaluation_results[node_str][f"{key}_{ablation_type}_ablation"] = result
 
   return iia_evaluation_results
 
@@ -87,6 +88,7 @@ def evaluate_iia(case: BenchmarkCase,
                  base_model: HookedTracrTransformer,
                  hypothesis_model: HookedTracrTransformer,
                  clean_data: CaseDataset,
+                 corrupted_data: CaseDataset,
                  base_model_corrupted_cache: ActivationCache,
                  hypothesis_model_corrupted_cache: ActivationCache,
                  base_model_clean_cache: ActivationCache,
@@ -124,7 +126,7 @@ def evaluate_iia(case: BenchmarkCase,
       base_model_logits = t.nn.functional.log_softmax(base_model_logits, dim=-1)
       hypothesis_model_logits = t.nn.functional.log_softmax(hypothesis_model_logits, dim=-1)
 
-      node_kl_div = t.nn.functional.kl_div(
+      kl_div = t.nn.functional.kl_div(
         hypothesis_model_logits,  # the output of our model
         base_model_logits,  # the target distribution
         reduction="none",
@@ -134,11 +136,19 @@ def evaluate_iia(case: BenchmarkCase,
       # calculate accuracy
       base_labels = t.argmax(base_model_logits, dim=-1)
       hypothesis_labels = t.argmax(hypothesis_model_logits, dim=-1)
-      node_accuracy = (base_labels == hypothesis_labels).float().mean().item()
+      same_output_labels: Float[Tensor, "batch pos vocab"] = (base_labels == hypothesis_labels).float()
+      accuracy = same_output_labels.mean().item()
+
+      # calculate effective accuracy. This is regular accuracy but removing the labels that don't change across
+      # datasets. This is a measure of how much the model is actually changing its predictions.
+      # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
+      inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_correct_outputs() != corrupted_data.get_correct_outputs()).bool()
+      effective_accuracy = same_output_labels[inputs_with_different_output, :].mean().item()
 
       results_by_node[node_str] = {
-        "kl_div": node_kl_div,
-        "accuracy": node_accuracy
+        "kl_div": kl_div,
+        "accuracy": accuracy,
+        "effective_accuracy": effective_accuracy
       }
 
     else:

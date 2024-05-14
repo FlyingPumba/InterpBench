@@ -114,7 +114,7 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
   # Save iia_eval_results as csv
   iia_eval_results_df = pd.DataFrame(iia_eval_results).T
   iia_eval_results_csv_path = f"{args.output_dir}/iia_eval_results.csv"
-  iia_eval_results_df.to_csv(iia_eval_results_csv_path)
+  iia_eval_results_df.to_csv(iia_eval_results_csv_path, index=False)
 
   if trainer.wandb_run is not None:
     # save the files as artifacts to wandb
