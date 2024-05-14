@@ -1,6 +1,6 @@
 import typing
 from functools import partial
-from typing import Set, Optional, Literal
+from typing import Set, Optional, Literal, Dict
 
 import torch as t
 from jaxtyping import Float
@@ -77,8 +77,9 @@ def evaluate_iia_on_all_ablation_types(
       ablation_type=ablation_type
     )
 
-    for node_str, result in results_by_node.items():
-      iia_evaluation_results[node_str][f"iia_{ablation_type}"] = result
+    for node_str, result_dict in results_by_node.items():
+      for key, result in result_dict.items():
+        iia_evaluation_results[node_str][f"{key}_{ablation_type}"] = result
 
   return iia_evaluation_results
 
@@ -90,7 +91,7 @@ def evaluate_iia(case: BenchmarkCase,
                  hypothesis_model_corrupted_cache: ActivationCache,
                  base_model_clean_cache: ActivationCache,
                  hypothesis_model_clean_cache: ActivationCache,
-                 ablation_type: Optional[AblationType] = "resample"):
+                 ablation_type: Optional[AblationType] = "resample") -> Dict[str, Dict[str, float]]:
   """Run Interchange Intervention Accuracy to measure if a hypothesis model has the same circuit as a base model."""
   print(f"Running IIA evaluation for case {case.get_index()} using ablation type \"{ablation_type}\".")
   full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
@@ -119,7 +120,7 @@ def evaluate_iia(case: BenchmarkCase,
 
     # compare the outputs of the two models
     if base_model.is_categorical():
-      # use KL divergence
+      # calculate KL divergence
       base_model_logits = t.nn.functional.log_softmax(base_model_logits, dim=-1)
       hypothesis_model_logits = t.nn.functional.log_softmax(hypothesis_model_logits, dim=-1)
 
@@ -127,10 +128,18 @@ def evaluate_iia(case: BenchmarkCase,
         hypothesis_model_logits,  # the output of our model
         base_model_logits,  # the target distribution
         reduction="none",
-        log_target=True  # because we already applied log_softmax to
+        log_target=True  # because we already applied log_softmax to the base_model_logits
       ).sum(dim=-1).mean().item()
 
-      results_by_node[node_str] = node_kl_div
+      # calculate accuracy
+      base_labels = t.argmax(base_model_logits, dim=-1)
+      hypothesis_labels = t.argmax(hypothesis_model_logits, dim=-1)
+      node_accuracy = (base_labels == hypothesis_labels).float().mean().item()
+
+      results_by_node[node_str] = {
+        "kl_div": node_kl_div,
+        "accuracy": node_accuracy
+      }
 
     else:
       raise NotImplementedError("Only categorical models are supported for now")
