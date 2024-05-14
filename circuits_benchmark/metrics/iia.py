@@ -3,7 +3,7 @@ from functools import partial
 from typing import Set, Optional, Literal, Dict
 
 import torch as t
-from jaxtyping import Float, Bool
+from jaxtyping import Float, Bool, Int
 from torch import Tensor
 from tqdm import tqdm
 from transformer_lens import ActivationCache
@@ -18,6 +18,10 @@ from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracr
 
 AblationType = Literal["zero", "mean", "resample"]
 ablation_types = list(typing.get_args(AblationType))
+
+IIAGranularity = Literal["qkv", "head"]
+iia_granularity_options = list(typing.get_args(IIAGranularity))
+
 
 
 def regular_intervention_hook_fn(
@@ -38,6 +42,7 @@ def evaluate_iia_on_all_ablation_types(
     case: BenchmarkCase,
     base_model: HookedTracrTransformer,
     hypothesis_model: HookedTracrTransformer,
+    iia_granularity: Optional[IIAGranularity] = "head",
     data_size: Optional[int] = 1_000):
   iia_evaluation_results = {}
 
@@ -57,6 +62,13 @@ def evaluate_iia_on_all_ablation_types(
 
   for node in set(full_circuit.nodes):
     node_str = str(node)
+
+    if "mlp_in" in node.name:
+      continue
+
+    if iia_granularity != "qkv" and is_qkv_granularity_hook(node.name):
+      continue
+
     iia_evaluation_results[node_str] = {
       "node": node_str,
       "hook_name": node.name,
@@ -75,6 +87,7 @@ def evaluate_iia_on_all_ablation_types(
       hypothesis_model_corrupted_cache,
       base_model_clean_cache,
       hypothesis_model_clean_cache,
+      iia_granularity=iia_granularity,
       ablation_type=ablation_type
     )
 
@@ -83,6 +96,11 @@ def evaluate_iia_on_all_ablation_types(
         iia_evaluation_results[node_str][f"{key}_{ablation_type}_ablation"] = result
 
   return iia_evaluation_results
+
+
+def is_qkv_granularity_hook(hook_name):
+  return "_q" in hook_name or "_k" in hook_name or "_v" in hook_name
+
 
 def evaluate_iia(case: BenchmarkCase,
                  base_model: HookedTracrTransformer,
@@ -93,6 +111,7 @@ def evaluate_iia(case: BenchmarkCase,
                  hypothesis_model_corrupted_cache: ActivationCache,
                  base_model_clean_cache: ActivationCache,
                  hypothesis_model_clean_cache: ActivationCache,
+                 iia_granularity: Optional[IIAGranularity] = "head",
                  ablation_type: Optional[AblationType] = "resample") -> Dict[str, Dict[str, float]]:
   """Run Interchange Intervention Accuracy to measure if a hypothesis model has the same circuit as a base model."""
   print(f"Running IIA evaluation for case {case.get_index()} using ablation type \"{ablation_type}\".")
@@ -105,6 +124,12 @@ def evaluate_iia(case: BenchmarkCase,
     node_str = str(node)
     hook_name = node.name
     head_index = node.index
+
+    if "mlp_in" in hook_name:
+      continue
+
+    if iia_granularity != "qkv" and is_qkv_granularity_hook(hook_name):
+      continue
 
     # run clean data on both models, patching corrupted data where necessary
     base_model_hook_fn, hypothesis_model_hook_fn = build_hook_fns(hook_name, head_index,
@@ -120,11 +145,15 @@ def evaluate_iia(case: BenchmarkCase,
     with hypothesis_model.hooks([(hook_name, hypothesis_model_hook_fn)]):
       hypothesis_model_logits = hypothesis_model(clean_data.get_inputs())
 
+    # Remove BOS from logits
+    base_model_logits = base_model_logits[:, 1:]
+    hypothesis_model_logits = hypothesis_model_logits[:, 1:]
+
     # compare the outputs of the two models
     if base_model.is_categorical():
       # calculate KL divergence
-      base_model_logits = t.nn.functional.log_softmax(base_model_logits, dim=-1)
-      hypothesis_model_logits = t.nn.functional.log_softmax(hypothesis_model_logits, dim=-1)
+      base_model_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(base_model_logits, dim=-1)
+      hypothesis_model_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(hypothesis_model_logits, dim=-1)
 
       kl_div = t.nn.functional.kl_div(
         hypothesis_model_logits,  # the output of our model
@@ -134,16 +163,18 @@ def evaluate_iia(case: BenchmarkCase,
       ).sum(dim=-1).mean().item()
 
       # calculate accuracy
-      base_labels = t.argmax(base_model_logits, dim=-1)
-      hypothesis_labels = t.argmax(hypothesis_model_logits, dim=-1)
-      same_output_labels: Float[Tensor, "batch pos vocab"] = (base_labels == hypothesis_labels).float()
-      accuracy = same_output_labels.mean().item()
+      base_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_logits, dim=-1)
+      hypothesis_labels: Int[Tensor, "batch pos"] = t.argmax(hypothesis_model_logits, dim=-1)
+
+      # check for each input in batch dimension if all labels are the same across positions
+      same_outputs = (base_labels == hypothesis_labels).all(dim=-1).float()
+      accuracy = same_outputs.mean().item()
 
       # calculate effective accuracy. This is regular accuracy but removing the labels that don't change across
       # datasets. This is a measure of how much the model is actually changing its predictions.
       # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
       inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_correct_outputs() != corrupted_data.get_correct_outputs()).bool()
-      effective_accuracy = same_output_labels[inputs_with_different_output, :].mean().item()
+      effective_accuracy = same_outputs[inputs_with_different_output].mean().item()
 
       results_by_node[node_str] = {
         "kl_div": kl_div,
