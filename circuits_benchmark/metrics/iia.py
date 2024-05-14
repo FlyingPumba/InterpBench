@@ -170,17 +170,18 @@ def evaluate_iia(case: BenchmarkCase,
       same_outputs = (base_labels == hypothesis_labels).all(dim=-1).float()
       accuracy = same_outputs.mean().item()
 
-      # calculate effective accuracy. This is regular accuracy but removing the labels that don't change across
-      # datasets. This is a measure of how much the model is actually changing its predictions.
-      # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
-      inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_correct_outputs() != corrupted_data.get_correct_outputs()).bool()
-      effective_accuracy = same_outputs[inputs_with_different_output].mean().item()
-
       results_by_node[node_str] = {
         "kl_div": kl_div,
         "accuracy": accuracy,
-        "effective_accuracy": effective_accuracy
       }
+
+      if ablation_type == "resample":
+        # calculate effective accuracy. This is regular accuracy but removing the labels that don't change across
+        # datasets. This is a measure of how much the model is actually changing its predictions.
+        # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
+        inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_correct_outputs() != corrupted_data.get_correct_outputs()).bool()
+        effective_accuracy = same_outputs[inputs_with_different_output].mean().item()
+        results_by_node[node_str]["effective_accuracy"] = effective_accuracy
 
     else:
       raise NotImplementedError("Only categorical models are supported for now")
