@@ -112,7 +112,7 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     print(result)
 
   # Save iia_eval_results as csv
-  iia_eval_results_df = pd.DataFrame(iia_eval_results)
+  iia_eval_results_df = pd.DataFrame(iia_eval_results).T
   iia_eval_results_csv_path = f"{args.output_dir}/iia_eval_results.csv"
   iia_eval_results_df.to_csv(iia_eval_results_csv_path)
 
