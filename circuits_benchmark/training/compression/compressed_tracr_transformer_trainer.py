@@ -1,3 +1,4 @@
+import random
 from typing import List, Dict
 
 import numpy as np
@@ -109,8 +110,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
         # Compute the resampling ablation loss
         resample_ablation_loss_args = {
-          "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size),
-          "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size),
+          "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size,
+                                                   seed=random.randint(-100000, 100000)),
+          "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size,
+                                                           seed=random.randint(-100000, 100000)),
           "base_model": self.get_original_model(),
           "hypothesis_model": self.get_compressed_model(),
           "max_interventions": self.args.resample_ablation_max_interventions,

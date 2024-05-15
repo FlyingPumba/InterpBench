@@ -1,3 +1,4 @@
+import random
 from typing import List, Dict
 
 import torch as t
@@ -8,8 +9,8 @@ from torch.nn import Parameter
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
-from circuits_benchmark.metrics.resampling_ablation_loss.intervention import InterventionData
-from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss
+from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
+  get_resample_ablation_loss_from_inputs
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
   CompressedTracrTransformerTrainer
 from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
@@ -53,15 +54,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       if self.epochs_since_last_train_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_train_resample_ablation_loss = 0
 
-        corruped_inputs = self.case.get_corrupted_data(count=len(inputs)).get_inputs()
-        _, compressed_model_corrupted_cache = self.get_logits_and_cache_from_compressed_model(corruped_inputs)
-        _, base_model_corrupted_cache = self.get_logits_and_cache_from_original_model(corruped_inputs)
-
-        intervention_loss = self.get_intervention_level_loss(inputs,
-                                                             compressed_model_cache,
-                                                             original_model_cache,
-                                                             compressed_model_corrupted_cache,
-                                                             base_model_corrupted_cache)
+        intervention_loss = self.get_intervention_level_loss()
         loss = loss + self.args.resample_ablation_loss_weight * intervention_loss
 
       self.epochs_since_last_train_resample_ablation_loss += 1
@@ -132,27 +125,24 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     return loss
 
-  def get_intervention_level_loss(self, clean_inputs, compressed_model_clean_cache, base_model_clean_cache,
-                                  compressed_model_corrupted_cache, base_model_corrupted_cache):
-    intervention_data = InterventionData(clean_inputs,
-                                         base_model_corrupted_cache,
-                                         compressed_model_corrupted_cache,
-                                         base_model_clean_cache,
-                                         compressed_model_clean_cache)
-    batched_intervention_data = [intervention_data]
+  def get_intervention_level_loss(self):
     resample_ablation_loss_args = {
-      "batched_intervention_data": batched_intervention_data,
+      "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size,
+                                               seed=random.randint(-100000, 100000)),
+      "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size,
+                                                       seed=random.randint(-100000, 100000)),
       "base_model": self.get_original_model(),
       "hypothesis_model": self.get_compressed_model(),
       "max_interventions": self.args.resample_ablation_max_interventions,
       "is_categorical": self.is_categorical,
+      "batch_size": self.args.resample_ablation_batch_size,
     }
 
     activation_mapper = self.get_activation_mapper()
     if activation_mapper is not None:
       resample_ablation_loss_args["activation_mapper"] = activation_mapper
 
-    resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
+    resample_ablation_output = get_resample_ablation_loss_from_inputs(**resample_ablation_loss_args)
 
     if self.use_wandb:
       wandb.log({"train_resample_ablation_loss": resample_ablation_output.loss,
