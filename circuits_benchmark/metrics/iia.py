@@ -131,6 +131,9 @@ def evaluate_iia(case: BenchmarkCase,
     if iia_granularity != "qkv" and is_qkv_granularity_hook(hook_name):
       continue
 
+    base_model_original_logits = base_model(clean_data.get_inputs())
+    hypothesis_model_original_logits = hypothesis_model(clean_data.get_inputs())
+
     # run clean data on both models, patching corrupted data where necessary
     base_model_hook_fn, hypothesis_model_hook_fn = build_hook_fns(hook_name, head_index,
                                                                   base_model_clean_cache,
@@ -140,39 +143,52 @@ def evaluate_iia(case: BenchmarkCase,
                                                                   ablation_type=ablation_type)
 
     with base_model.hooks([(hook_name, base_model_hook_fn)]):
-      base_model_logits = base_model(clean_data.get_inputs())
+      base_model_intervened_logits = base_model(clean_data.get_inputs())
 
     with hypothesis_model.hooks([(hook_name, hypothesis_model_hook_fn)]):
-      hypothesis_model_logits = hypothesis_model(clean_data.get_inputs())
+      hypothesis_model_intervened_logits = hypothesis_model(clean_data.get_inputs())
 
     # Remove BOS from logits
-    base_model_logits = base_model_logits[:, 1:]
-    hypothesis_model_logits = hypothesis_model_logits[:, 1:]
+    base_model_original_logits = base_model_original_logits[:, 1:]
+    hypothesis_model_original_logits = hypothesis_model_original_logits[:, 1:]
+    base_model_intervened_logits = base_model_intervened_logits[:, 1:]
+    hypothesis_model_intervened_logits = hypothesis_model_intervened_logits[:, 1:]
 
     # compare the outputs of the two models
     if base_model.is_categorical():
-      # calculate KL divergence
-      base_model_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(base_model_logits, dim=-1)
-      hypothesis_model_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(hypothesis_model_logits, dim=-1)
+      # apply log softmax to the logits
+      base_model_original_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(base_model_original_logits, dim=-1)
+      hypothesis_model_original_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(hypothesis_model_original_logits, dim=-1)
+      base_model_intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(base_model_intervened_logits, dim=-1)
+      hypothesis_model_intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(hypothesis_model_intervened_logits, dim=-1)
 
+      # calculate labels for each position
+      base_original_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_original_logits, dim=-1)
+      hypothesis_original_labels: Int[Tensor, "batch pos"] = t.argmax(hypothesis_model_original_logits, dim=-1)
+      base_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_intervened_logits, dim=-1)
+      hypothesis_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(hypothesis_model_intervened_logits, dim=-1)
+
+      # calculate kl divergence between intervened logits
       kl_div = t.nn.functional.kl_div(
-        hypothesis_model_logits,  # the output of our model
-        base_model_logits,  # the target distribution
+        hypothesis_model_intervened_logits,  # the output of our model
+        base_model_intervened_logits,  # the target distribution
         reduction="none",
         log_target=True  # because we already applied log_softmax to the base_model_logits
       ).sum(dim=-1).mean().item()
 
-      # calculate accuracy
-      base_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_logits, dim=-1)
-      hypothesis_labels: Int[Tensor, "batch pos"] = t.argmax(hypothesis_model_logits, dim=-1)
+      # calculate accuracy, checking for each input in batch dimension if all labels are the same across positions
+      same_outputs_between_both_models_after_intervention = (base_intervened_labels == hypothesis_intervened_labels).all(dim=-1).float()
+      accuracy = same_outputs_between_both_models_after_intervention.mean().item()
 
-      # check for each input in batch dimension if all labels are the same across positions
-      same_outputs = (base_labels == hypothesis_labels).all(dim=-1).float()
-      accuracy = same_outputs.mean().item()
+      # calculate effect of node on the output: how many labels change between the intervened and non-intervened models
+      base_model_effect = (base_original_labels != base_intervened_labels).float().mean().item()
+      hypothesis_model_effect = (hypothesis_original_labels != hypothesis_intervened_labels).float().mean().item()
 
       results_by_node[node_str] = {
         "kl_div": kl_div,
         "accuracy": accuracy,
+        "base_model_effect": base_model_effect,
+        "hypothesis_model_effect": hypothesis_model_effect
       }
 
       if ablation_type == "resample":
@@ -180,7 +196,7 @@ def evaluate_iia(case: BenchmarkCase,
         # datasets. This is a measure of how much the model is actually changing its predictions.
         # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
         inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_correct_outputs() != corrupted_data.get_correct_outputs()).bool()
-        effective_accuracy = same_outputs[inputs_with_different_output].mean().item()
+        effective_accuracy = same_outputs_between_both_models_after_intervention[inputs_with_different_output].mean().item()
         results_by_node[node_str]["effective_accuracy"] = effective_accuracy
 
     else:
