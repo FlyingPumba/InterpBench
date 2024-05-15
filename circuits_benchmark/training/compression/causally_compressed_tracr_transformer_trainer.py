@@ -158,6 +158,12 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       wandb.log({"train_resample_ablation_loss": resample_ablation_output.loss,
                  "train_resample_ablation_var_exp": resample_ablation_output.variance_explained}, step=self.step)
 
+      for hook_name, loss in resample_ablation_output.max_loss_per_hook.items():
+        wandb.log({f"train_{hook_name}_max_cp_loss": loss}, step=self.step)
+
+      for hook_name, loss in resample_ablation_output.mean_loss_per_hook.items():
+        wandb.log({f"train_{hook_name}_mean_cp_loss": loss}, step=self.step)
+
     return resample_ablation_output.loss
 
   def define_wandb_metrics(self):

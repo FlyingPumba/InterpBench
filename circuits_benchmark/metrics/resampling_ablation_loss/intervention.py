@@ -87,6 +87,11 @@ class Intervention(object):
                                                               InterventionType.CLEAN_DECOMPRESSION]
                                         for intervention_type in hook_intervention_types])
 
+  def get_intervened_hooks(self):
+    """Returns the hook names that will be intervened."""
+    return [hook_name for hook_name, intervention_type in zip(self.hook_names, self.hook_intervention_types)
+            if intervention_type != InterventionType.NO_INTERVENTION]
+
   @contextmanager
   def hooks(self,
             base_model: HookedTransformer,

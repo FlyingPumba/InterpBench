@@ -1,6 +1,6 @@
 import gc
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 import torch as t
@@ -19,6 +19,9 @@ from circuits_benchmark.training.compression.activation_mapper.multi_hook_activa
 class ResampleAblationLossOutput:
   loss: Float[Tensor, ""]
   variance_explained: Float[Tensor, ""]
+  max_loss_per_hook: Dict[str, Float[Tensor, ""]]
+  mean_loss_per_hook: Dict[str, Float[Tensor, ""]]
+  intervened_hooks: List[str]
 
 
 def get_resample_ablation_loss_from_inputs(
@@ -89,14 +92,17 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
   # for each intervention, run both models, calculate MSE and add it to the losses.
   losses = []
   variance_explained = []
+  max_loss_per_hook = {}
+  mean_loss_per_hook = {}
+  intervened_hooks = set()
   for intervention in get_interventions(base_model,
                                         hypothesis_model,
                                         hook_filters,
                                         activation_mapper,
                                         max_interventions):
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
-    intervention_losses = []
-    intervention_variance_explained = []
+    batched_data_intervention_losses = []
+    batched_data_intervention_variance_explained = []
     for intervention_data in batched_intervention_data:
       clean_inputs_batch = intervention_data.clean_inputs
 
@@ -125,13 +131,39 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
 
         var_explained = 1 - loss / base_model_logits_variance
 
-        intervention_losses.append(loss.reshape(1))
-        intervention_variance_explained.append(var_explained.reshape(1))
+        batched_data_intervention_losses.append(loss.reshape(1))
+        batched_data_intervention_variance_explained.append(var_explained.reshape(1))
 
-    losses.append(t.cat(intervention_losses).mean().reshape(1))
-    variance_explained.append(t.cat(intervention_variance_explained).mean().reshape(1))
+    intervention_loss = t.cat(batched_data_intervention_losses).mean().reshape(1)
+    losses.append(intervention_loss)
 
-  return ResampleAblationLossOutput(loss=t.cat(losses).mean(), variance_explained=t.cat(variance_explained).mean())
+    intervention_var_exp = t.cat(batched_data_intervention_variance_explained).mean().reshape(1)
+    variance_explained.append(intervention_var_exp)
+
+    intervened_hooks.update(intervention.get_intervened_hooks())
+
+    # store the max and mean loss per hook for the intervention.
+    for hook_name in intervention.get_intervened_hooks():
+      if hook_name in max_loss_per_hook:
+        max_loss_per_hook[hook_name] = max(max_loss_per_hook[hook_name], intervention_loss)
+      else:
+        max_loss_per_hook[hook_name] = intervention_loss
+
+      if hook_name in mean_loss_per_hook:
+        mean_loss_per_hook[hook_name] = t.cat([mean_loss_per_hook[hook_name], intervention_loss])
+      else:
+        mean_loss_per_hook[hook_name] = intervention_loss
+
+  for hook_name in mean_loss_per_hook:
+    mean_loss_per_hook[hook_name] = mean_loss_per_hook[hook_name].mean()
+
+  return ResampleAblationLossOutput(
+    loss=t.cat(losses).mean(),
+    variance_explained=t.cat(variance_explained).mean(),
+    max_loss_per_hook=max_loss_per_hook,
+    mean_loss_per_hook=mean_loss_per_hook,
+    intervened_hooks=list(intervened_hooks)
+  )
 
 
 def get_batched_intervention_data(
