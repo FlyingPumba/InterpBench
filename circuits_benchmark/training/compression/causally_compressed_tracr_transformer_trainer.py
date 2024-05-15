@@ -128,9 +128,9 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
   def get_intervention_level_loss(self):
     resample_ablation_loss_args = {
       "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size,
-                                               seed=random.randint(-100000, 100000)),
+                                               seed=random.randint(0, 1000000)),
       "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size,
-                                                       seed=random.randint(-100000, 100000)),
+                                                       seed=random.randint(0, 1000000)),
       "base_model": self.get_original_model(),
       "hypothesis_model": self.get_compressed_model(),
       "max_interventions": self.args.resample_ablation_max_interventions,
