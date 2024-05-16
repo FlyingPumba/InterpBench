@@ -35,7 +35,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     self.is_categorical = is_categorical
     self.n_layers = n_layers
 
-    if self.args.resample_ablation_loss:
+    if self.args.resample_ablation_test_loss:
       self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def setup_dataset(self):
@@ -104,7 +104,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
 
-    if self.args.resample_ablation_loss:
+    if self.args.resample_ablation_test_loss:
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_test_resample_ablation_loss = 0
 
@@ -145,7 +145,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
   def get_lr_validation_metric(self):
     metric = super().get_lr_validation_metric()
-    if self.args.resample_ablation_loss:
+    if self.args.resample_ablation_test_loss:
       # our LR scheduler is maximizing, so we need to subtract the resample ablation loss from the metric
       metric = metric - self.test_metrics["test_resample_ablation_loss"]
     return metric
@@ -154,7 +154,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     super().define_wandb_metrics()
     if not self.is_categorical:
       wandb.define_metric("test_mse", summary="min")
-    if self.args.resample_ablation_loss:
+    if self.args.resample_ablation_test_loss:
       wandb.define_metric("test_resample_ablation_loss", summary="min")
       wandb.define_metric("test_resample_ablation_var_exp", summary="max")
 
