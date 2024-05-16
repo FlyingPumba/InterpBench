@@ -1,6 +1,6 @@
 import random
 from functools import partial
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 
 import numpy as np
 import torch as t
@@ -117,6 +117,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     for node_str, result in node_effect_results.items():
       self.test_metrics[f"{node_str}_node_effect"] = result
 
+    self.test_metrics["iia"] = self.sample_iia(self.clean_dataset, self.corrupted_dataset)
+
     if self.args.resample_ablation_test_loss:
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_test_resample_ablation_loss = 0
@@ -156,6 +158,63 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
+
+  def sample_iia(self, clean_data, corrupted_data, percentage_nodes_to_sample: Optional[float] = 0.2):
+    iia = 0.0
+
+    base_model = self.get_original_model()
+    compressed_model = self.get_compressed_model()
+
+    full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
+    relevant_nodes: Set[CircuitNode] = set([node for node in full_circuit.nodes
+                                       if "mlp_in" not in str(node) and not is_qkv_granularity_hook(str(node))])
+    nodes_to_sample = random.sample(list(relevant_nodes), int(len(relevant_nodes) * percentage_nodes_to_sample))
+
+    _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_data.get_inputs())
+    _, compressed_model_corrupted_cache = compressed_model.run_with_cache(corrupted_data.get_inputs())
+
+    for node in nodes_to_sample:
+      hook_name = node.name
+      head_index = node.index
+
+      # run clean data on both models, patching corrupted data where necessary
+      base_model_patching_data = {}
+      base_model_patching_data[hook_name] = base_model_corrupted_cache[hook_name]
+      base_model_hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=base_model_patching_data,
+                                    head_index=head_index)
+
+      compressed_model_patching_data = {}
+      compressed_model_patching_data[hook_name] = compressed_model_corrupted_cache[hook_name]
+      compressed_model_hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=compressed_model_patching_data,
+                                         head_index=head_index)
+
+      with base_model.hooks([(hook_name, base_model_hook_fn)]):
+        base_model_intervened_logits = base_model(clean_data.get_inputs())
+
+      with compressed_model.hooks([(hook_name, compressed_model_hook_fn)]):
+        compressed_model_intervened_logits = compressed_model(clean_data.get_inputs())
+
+      # Remove BOS from logits
+      base_model_intervened_logits = base_model_intervened_logits[:, 1:]
+      compressed_model_intervened_logits = compressed_model_intervened_logits[:, 1:]
+
+      if base_model.is_categorical():
+        # apply log softmax to the logits
+        base_model_intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(base_model_intervened_logits, dim=-1)
+        compressed_model_intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(compressed_model_intervened_logits, dim=-1)
+
+        # calculate labels for each position
+        base_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_intervened_logits, dim=-1)
+        compressed_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(compressed_model_intervened_logits, dim=-1)
+
+        same_outputs_between_both_models_after_intervention = (
+              base_intervened_labels == compressed_intervened_labels).all(dim=-1).float()
+        iia = iia + same_outputs_between_both_models_after_intervention.mean().item()
+      else:
+        raise NotImplementedError("IIA is only implemented for categorical models.")
+
+    # return average over sampled nodes
+    return iia / len(nodes_to_sample)
 
   def evaluate_node_effect(self, clean_data, corrupted_data):
     effect_by_node = {}
