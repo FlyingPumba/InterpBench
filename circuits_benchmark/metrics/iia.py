@@ -43,7 +43,8 @@ def evaluate_iia_on_all_ablation_types(
     base_model: HookedTracrTransformer,
     hypothesis_model: HookedTracrTransformer,
     iia_granularity: Optional[IIAGranularity] = "head",
-    data_size: Optional[int] = 1_000):
+    data_size: Optional[int] = 1_000,
+    accuracy_atol: Optional[float] = 1e-2):
   iia_evaluation_results = {}
 
   clean_data = case.get_clean_data(count=data_size)
@@ -88,7 +89,8 @@ def evaluate_iia_on_all_ablation_types(
       base_model_clean_cache,
       hypothesis_model_clean_cache,
       iia_granularity=iia_granularity,
-      ablation_type=ablation_type
+      ablation_type=ablation_type,
+      accuracy_atol=accuracy_atol
     )
 
     for node_str, result_dict in results_by_node.items():
@@ -112,7 +114,8 @@ def evaluate_iia(case: BenchmarkCase,
                  base_model_clean_cache: ActivationCache,
                  hypothesis_model_clean_cache: ActivationCache,
                  iia_granularity: Optional[IIAGranularity] = "head",
-                 ablation_type: Optional[AblationType] = "resample") -> Dict[str, Dict[str, float]]:
+                 ablation_type: Optional[AblationType] = "resample",
+                 accuracy_atol: Optional[float] = 1e-2) -> Dict[str, Dict[str, float]]:
   """Run Interchange Intervention Accuracy to measure if a hypothesis model has the same circuit as a base model."""
   print(f"Running IIA evaluation for case {case.get_index()} using ablation type \"{ablation_type}\".")
   full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
@@ -200,7 +203,32 @@ def evaluate_iia(case: BenchmarkCase,
         results_by_node[node_str]["effective_accuracy"] = effective_accuracy
 
     else:
-      raise NotImplementedError("Only categorical models are supported for now")
+      # calculate accuracy
+      same_outputs_between_both_models_after_intervention = t.isclose(base_model_intervened_logits,
+                                                                      hypothesis_model_intervened_logits,
+                                                                      atol=accuracy_atol).float()
+      accuracy = same_outputs_between_both_models_after_intervention.mean().item()
+
+      # calculate effect of node on the output: how much change there is between the intervened and non-intervened models
+      base_model_effect = t.abs(base_model_original_logits - base_model_intervened_logits).mean().item()
+      hypothesis_model_effect = t.abs(hypothesis_model_original_logits - hypothesis_model_intervened_logits).mean().item()
+
+      results_by_node[node_str] = {
+        "accuracy": accuracy,
+        "base_model_effect": base_model_effect,
+        "hypothesis_model_effect": hypothesis_model_effect
+      }
+
+      # if ablation_type == "resample":
+      #   # calculate effective accuracy. This is regular accuracy but removing the labels that don't change across
+      #   # datasets. This is a measure of how much the model is actually changing its predictions.
+      #   # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
+
+      # TODO: remove the "BOS" from correct outputs, convert to tensors, and use t.isclose for deciding wether they have same output or not.
+      #   inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_correct_outputs() !=
+      #                                                                  corrupted_data.get_correct_outputs()).bool()
+      #   effective_accuracy = same_outputs_between_both_models_after_intervention[inputs_with_different_output].mean().item()
+      #   results_by_node[node_str]["effective_accuracy"] = effective_accuracy
 
   return results_by_node
 

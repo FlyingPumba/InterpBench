@@ -211,7 +211,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
               base_intervened_labels == compressed_intervened_labels).all(dim=-1).float()
         iia = iia + same_outputs_between_both_models_after_intervention.mean().item()
       else:
-        raise NotImplementedError("IIA is only implemented for categorical models.")
+        same_outputs_between_both_models_after_intervention = t.isclose(base_model_intervened_logits,
+                                                                        compressed_model_intervened_logits,
+                                                                        atol=self.args.test_accuracy_atol).float()
+        iia = iia + same_outputs_between_both_models_after_intervention.mean().item()
 
     # return average over sampled nodes
     return iia / len(nodes_to_sample)
