@@ -265,11 +265,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     return effect_by_node
 
   def get_lr_validation_metric(self):
-    metric = super().get_lr_validation_metric()
-    if self.args.resample_ablation_test_loss:
-      # our LR scheduler is maximizing, so we need to subtract the resample ablation loss from the metric
-      metric = metric - self.test_metrics["test_resample_ablation_loss"]
-    return metric
+    return self.test_metrics["iia"]
 
   def define_wandb_metrics(self):
     super().define_wandb_metrics()
