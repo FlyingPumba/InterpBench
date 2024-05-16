@@ -1,22 +1,26 @@
 import random
-from typing import List, Dict
+from functools import partial
+from typing import List, Dict, Set
 
 import numpy as np
 import torch as t
 import wandb
-from jaxtyping import Float
+from jaxtyping import Float, Int
 from torch import Tensor
 from torch.nn import Parameter
 from transformer_lens import ActivationCache, HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.metrics.iia import is_qkv_granularity_hook, regular_intervention_hook_fn
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
   get_resample_ablation_loss_from_inputs
 from circuits_benchmark.metrics.sparsity import get_zero_weights_pct
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
+from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
+from circuits_benchmark.transformers.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from circuits_benchmark.utils.compare_tracr_output import replace_invalid_positions, compare_positions
 
@@ -104,6 +108,15 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
                                                                expected_outputs_tensor).item()
 
+    # measure the effect of each node on the compressed model's output
+    node_effect_results = self.evaluate_node_effect(
+      self.case.get_clean_data(count=500, seed=random.randint(0, 1000000)),
+      self.case.get_corrupted_data(count=500, seed=random.randint(0, 1000000)),
+    )
+
+    for node_str, result in node_effect_results.items():
+      self.test_metrics[f"{node_str}_node_effect"] = result
+
     if self.args.resample_ablation_test_loss:
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_test_resample_ablation_loss = 0
@@ -142,6 +155,51 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
+
+  def evaluate_node_effect(self, clean_data, corrupted_data):
+    effect_by_node = {}
+
+    full_circuit = get_full_acdc_circuit(self.get_original_model().cfg.n_layers, self.get_original_model().cfg.n_heads)
+    all_nodes: Set[CircuitNode] = set(full_circuit.nodes)
+    for node in all_nodes:
+      hook_name = node.name
+      head_index = node.index
+
+      if "mlp_in" in hook_name:
+        continue
+
+      if is_qkv_granularity_hook(hook_name):
+        continue
+
+      compressed_model = self.get_compressed_model()
+      compressed_model_original_logits = compressed_model(clean_data.get_inputs())
+      _, compressed_model_corrupted_cache = compressed_model.run_with_cache(corrupted_data.get_inputs())
+
+      compressed_model_patching_data = {}
+      compressed_model_patching_data[hook_name] = compressed_model_corrupted_cache[hook_name]
+      compressed_model_hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=compressed_model_patching_data,
+                                         head_index=head_index)
+      with compressed_model.hooks([(hook_name, compressed_model_hook_fn)]):
+        compressed_model_intervened_logits = compressed_model(clean_data.get_inputs())
+
+      # Remove BOS from logits
+      compressed_model_original_logits = compressed_model_original_logits[:, 1:]
+      compressed_model_intervened_logits = compressed_model_intervened_logits[:, 1:]
+
+      # apply log softmax to the logits
+      compressed_model_original_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(
+        compressed_model_original_logits, dim=-1)
+      compressed_model_intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(
+        compressed_model_intervened_logits, dim=-1)
+
+      # calculate labels for each position
+      compressed_original_labels: Int[Tensor, "batch pos"] = t.argmax(compressed_model_original_logits, dim=-1)
+      compressed_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(compressed_model_intervened_logits, dim=-1)
+
+      compressed_model_effect = (compressed_original_labels != compressed_intervened_labels).float().mean().item()
+      effect_by_node[str(node)] = compressed_model_effect
+
+    return effect_by_node
 
   def get_lr_validation_metric(self):
     metric = super().get_lr_validation_metric()
