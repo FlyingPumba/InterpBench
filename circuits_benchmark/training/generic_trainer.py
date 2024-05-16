@@ -166,7 +166,7 @@ class GenericTrainer:
     if len(self.test_metrics.items()) == 0:
       return ""
     else:
-      return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in self.test_metrics.items()]))[:-2]
+      return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in list(self.test_metrics.items())[:3]]))[:-2]
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-generic-training"
