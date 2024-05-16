@@ -33,6 +33,7 @@ def get_resample_ablation_loss_from_inputs(
     hook_filters: List[str] | None = None,
     batch_size: int = 2048,
     max_interventions: int = 10,
+    max_components: int = 1,
     is_categorical: bool = False,
 ) -> ResampleAblationLossOutput:
   # assert that clean_input and corrupted_input have the same length
@@ -49,7 +50,7 @@ def get_resample_ablation_loss_from_inputs(
                                                             batch_size)
 
   return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, activation_mapper,
-                                    hook_filters, max_interventions, is_categorical)
+                                    hook_filters, max_interventions, max_components, is_categorical)
 
 
 def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
@@ -58,6 +59,7 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                activation_mapper: MultiHookActivationMapper | ActivationMapper | None,
                                hook_filters: List[str] | None = None,
                                max_interventions: int = 10,
+                               max_components: int = 1,
                                is_categorical: bool = False) -> ResampleAblationLossOutput:
   # This is a memory intensive operation, so we will garbage collect before starting.
   gc.collect()
@@ -99,7 +101,8 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                         hypothesis_model,
                                         hook_filters,
                                         activation_mapper,
-                                        max_interventions):
+                                        max_interventions,
+                                        max_components):
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
     batched_data_intervention_losses = []
     batched_data_intervention_variance_explained = []

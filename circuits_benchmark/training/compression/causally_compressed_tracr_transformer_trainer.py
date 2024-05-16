@@ -134,6 +134,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       "base_model": self.get_original_model(),
       "hypothesis_model": self.get_compressed_model(),
       "max_interventions": self.args.resample_ablation_max_interventions,
+      "max_components": self.args.resample_ablation_max_components,
       "is_categorical": self.is_categorical,
       "batch_size": self.args.resample_ablation_batch_size,
     }

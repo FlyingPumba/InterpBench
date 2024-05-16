@@ -1,13 +1,13 @@
 import random
 from typing import List, Generator
 
-import numpy as np
 from transformer_lens import HookedTransformer
 
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Intervention
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
-from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import MultiHookActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import \
+  MultiHookActivationMapper
 
 
 def get_interventions(
@@ -15,7 +15,8 @@ def get_interventions(
     hypothesis_model: HookedTransformer,
     hook_filters: List[str],
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
-    max_interventions: int = 10) -> Generator[Intervention, None, None]:
+    max_interventions: int = 10,
+    max_components: int = 1) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
   hook_names_for_patching = [name for name in hook_names
@@ -27,21 +28,16 @@ def get_interventions(
 
   # For each hook name we need to decide what type of intervention we want to apply.
   options = InterventionType.get_available_interventions(activation_mapper)
+  options.remove(InterventionType.NO_INTERVENTION)
 
-  # If max_interventions is greater than the total number of possible combinations, we will use all of them.
-  # Otherwise, we will use a random sample of max_interventions.
-  total_number_combinations = len(options) ** len(hook_names_for_patching)
+  for _ in range(max_interventions):
+    # choose max_components_to_intervene (no replacement) out of the hook_names_for_patching
+    hook_names_to_intervene = random.sample(hook_names_for_patching, max_components)
 
-  if max_interventions < total_number_combinations:
-    indices = random.sample(range(total_number_combinations), max_interventions)
-  else:
-    indices = range(total_number_combinations)
+    # randomly choose the intervention type for each hook name
+    intervention_types = [random.choice(options) for _ in range(len(hook_names_to_intervene))]
 
-  for index in indices:
-    # build intervention for index
-    intervention_types = np.base_repr(index, base=len(options)).zfill(len(hook_names_for_patching))
-    intervention_types = [options[int(digit)] for digit in intervention_types]
-    intervention = Intervention(hook_names_for_patching, intervention_types, activation_mapper)
+    intervention = Intervention(hook_names_to_intervene, intervention_types, activation_mapper)
     yield intervention
 
 
