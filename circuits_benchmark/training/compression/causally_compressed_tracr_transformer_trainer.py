@@ -30,6 +30,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
                output_dir: str | None = None):
     super().__init__(case, parameters, training_args, is_categorical, n_layers, output_dir=output_dir)
     self.train_loss_level = train_loss_level
+    self.last_resample_ablation_loss = None
 
     if self.train_loss_level == "intervention":
       self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
@@ -155,7 +156,16 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       for hook_name, loss in resample_ablation_output.mean_loss_per_hook.items():
         wandb.log({f"train_{hook_name}_mean_cp_loss": loss}, step=self.step)
 
+    self.last_resample_ablation_loss = resample_ablation_output.loss.item()
+
     return resample_ablation_output.loss
+
+  def get_lr_validation_metric(self):
+    validation_metric = super().get_lr_validation_metric()
+    if self.last_resample_ablation_loss is not None:
+      # We want to maximize the validation metric, so we subtract the resample ablation loss
+      validation_metric = validation_metric - self.last_resample_ablation_loss
+    return validation_metric
 
   def define_wandb_metrics(self):
     super().define_wandb_metrics()
