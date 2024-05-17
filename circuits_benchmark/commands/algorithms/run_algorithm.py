@@ -2,7 +2,7 @@ import traceback
 
 from circuits_benchmark.commands.algorithms import acdc
 from circuits_benchmark.utils.get_cases import get_cases
-
+from circuits_benchmark.commands.algorithms import sp
 
 def setup_args_parser(subparsers):
   run_parser = subparsers.add_parser("run")
@@ -11,6 +11,7 @@ def setup_args_parser(subparsers):
 
   # Setup arguments for each algorithm
   acdc.setup_args_parser(run_subparsers)
+  sp.setup_args_parser(run_subparsers)
 
 
 def run(args):
@@ -20,7 +21,8 @@ def run(args):
     try:
       if args.algorithm == "acdc":
         acdc.run_acdc(case, args)
-
+      if args.algorithm == "sp":
+        sp.run_sp(case, args)
     except Exception as e:
       print(f" >>> Failed to run {args.algorithm} on {case}:")
       traceback.print_exc()

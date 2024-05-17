@@ -53,7 +53,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
     if not case.supports_causal_masking():
         raise NotImplementedError(f"Case {case.get_index()} does not support causal masking")
 
-    tracr_output = case.build_tracr_model()
+    tracr_output = case.get_tracr_output()
     hl_model = case.build_transformer_lens_model()
 
     use_wandb = args.wandb_entity is not None
