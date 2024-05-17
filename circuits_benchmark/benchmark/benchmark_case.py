@@ -295,7 +295,7 @@ class BenchmarkCase(object):
 
     return tracr_output
 
-  def get_tracr_circuit(self, granularity: CircuitGranularity = "component") -> (Circuit, Circuit, Alignment):
+  def get_tracr_circuit(self, granularity: CircuitGranularity = "component") -> tuple[Circuit, Circuit, Alignment]:
     """Returns the tracr circuit for the benchmark case."""
     tracr_graph = self.get_tracr_graph()
     craft_model = self.get_craft_model()
