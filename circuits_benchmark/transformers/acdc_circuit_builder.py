@@ -33,6 +33,11 @@ def build_acdc_circuit(corr: TLACDCCorrespondence) -> Circuit:
 
 
 def get_full_acdc_circuit(n_layers: int, n_heads: int) -> Circuit:
+
+    raise NotImplementedError("This function is not correct.")
+
+    # full_corr = TLACDCCorrespondence.setup_from_model(tl_model, use_pos_embed=use_pos_embed)
+    # full_circuit = build_acdc_circuit(full_corr)
     circuit = Circuit()
 
     circuit.add_node(CircuitNode("hook_embed"))

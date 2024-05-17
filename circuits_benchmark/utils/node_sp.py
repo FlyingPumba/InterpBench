@@ -8,7 +8,6 @@ def train_sp(
     masked_model: NodeLevelMaskedTransformer,
     all_task_things: AllDataThings,
 ):
-    # raise NotImplementedError("This function is not implemented yet. Use train_edge_sp instead.")
     return train_node_sp(
         args=args,
         masked_model=masked_model,

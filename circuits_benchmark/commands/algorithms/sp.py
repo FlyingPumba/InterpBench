@@ -78,6 +78,7 @@ def setup_args_parser(subparsers):
     parser.add_argument("--print-every", type=int, default=1, required=False)
     parser.add_argument("--atol", type=float, default=1e-2, required=False)
     parser.add_argument("--compressed-model", action="store_true")
+    parser.add_argument("--tracr", action="store_true")
 
 
 def eval_fn(
@@ -130,6 +131,8 @@ def run_sp(
 ):
     print(args)
     if args.compressed_model:
+        raise NotImplementedError("Compressed model not implemented")
+    if args.tracr:
         tl_model = case.get_tl_model(
             device=args.device, remove_extra_tensor_cloning=False
         )

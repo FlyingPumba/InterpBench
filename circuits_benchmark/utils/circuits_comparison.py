@@ -26,8 +26,8 @@ def calculate_fpr_and_tpr(
   hypothesis_nodes = set(hypothesis_nodes)
   true_nodes = set(true_nodes)
 
-  # assert hypothesis_nodes.issubset(all_nodes), f"hypothesis nodes contain the following nodes that are not in the full circuit: {hypothesis_nodes - all_nodes}"
-  # assert true_nodes.issubset(all_nodes), f"true nodes contain the following nodes that are not in the full circuit: {true_nodes - all_nodes}"
+  assert hypothesis_nodes.issubset(all_nodes), f"hypothesis nodes contain the following nodes that are not in the full circuit: {hypothesis_nodes - all_nodes}"
+  assert true_nodes.issubset(all_nodes), f"true nodes contain the following nodes that are not in the full circuit: {true_nodes - all_nodes}"
 
   false_positive_nodes = hypothesis_nodes - true_nodes
   false_negative_nodes = true_nodes - hypothesis_nodes
@@ -55,7 +55,6 @@ def calculate_fpr_and_tpr(
   true_edges = set(true_edges)
   all_edges = set(all_edges)
 
-  # TODO: fix edge comparison
   assert hypothesis_edges.issubset(all_edges), f"hypothesis edges contain the following edges that are not in the full circuit: {hypothesis_edges - all_edges}, hypothesis edges: {hypothesis_edges}, all edges: {all_edges}"
   assert true_edges.issubset(all_edges), f"true edges contain the following edges that are not in the full circuit: {true_edges - all_edges}"
 
@@ -73,7 +72,7 @@ def calculate_fpr_and_tpr(
 
   # print FP and TP rates for nodes and edges as summary
   make_summary = lambda *args, **kwargs: print(*args, **kwargs) if print_summary else None
-  if True:
+  if verbose:
     make_summary("\n\n-------------------\n\nhypothesis_edges", hypothesis_edges, "\n-----------\n")
     make_summary("true_edges", true_edges, "\n-----------\n")
     make_summary("all_edges", all_edges, "\n\n-------------------\n\n")
