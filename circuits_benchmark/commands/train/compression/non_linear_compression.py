@@ -83,10 +83,10 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                            args.ae_first_hidden_layer_shape)
   for layer in range(tl_model.cfg.n_layers):
     for head in range(tl_model.cfg.n_heads):
-      autoencoders_dict[f"blocks.{layer}.attn.hook_z[{head}]"] = AutoEncoder(original_d_head_size,
-                                                                             compressed_d_head_size,
-                                                                             args.ae_layers,
-                                                                             args.ae_first_hidden_layer_shape)
+      autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
+                                                                                  compressed_d_model_size,
+                                                                                  args.ae_layers,
+                                                                                  args.ae_first_hidden_layer_shape)
 
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}.")
