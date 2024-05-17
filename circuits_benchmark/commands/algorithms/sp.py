@@ -1,13 +1,18 @@
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from circuits_benchmark.transformers.hooked_tracr_transformer import (
+    HookedTracrTransformer,
+)
 from typing import Optional
 import sys
 import torch
 import shutil
 from acdc.docstring.utils import AllDataThings
 import os
-from subnetwork_probing.masked_transformer import EdgeLevelMaskedTransformer
+from subnetwork_probing.masked_transformer import (
+    EdgeLevelMaskedTransformer,
+    CircuitStartingPointType,
+)
 from subnetwork_probing.train import NodeLevelMaskedTransformer
 
 # from acdc.acdc_utils import kl_divergence
@@ -15,37 +20,49 @@ from functools import partial
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.node_sp import train_sp
 from circuits_benchmark.metrics.validation_metrics import l2_metric
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit, get_full_acdc_circuit
+from circuits_benchmark.transformers.acdc_circuit_builder import (
+    build_acdc_circuit,
+)
 import wandb
 from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
-from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from circuits_benchmark.transformers.circuit import Circuit
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from subnetwork_probing.train import iterative_correspondence_from_mask
-from circuits_benchmark.commands.evaluation.iit.iit_acdc_eval import evaluate_acdc_circuit
+from circuits_benchmark.commands.evaluation.iit.iit_acdc_eval import (
+    evaluate_acdc_circuit,
+)
 
 
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("sp")
     add_common_args(parser)
 
-    parser.add_argument("--using-wandb", type=bool, default=False)
-    parser.add_argument("--wandb-project", type=str, default="subnetwork-probing")
+    parser.add_argument("--using-wandb", action="store_true")
+    parser.add_argument(
+        "--wandb-project", type=str, default="subnetwork-probing"
+    )
     parser.add_argument("--wandb-entity", type=str, required=False)
     parser.add_argument("--wandb-group", type=str, required=False)
     parser.add_argument("--wandb-dir", type=str, default="/tmp/wandb")
     parser.add_argument("--wandb-mode", type=str, default="online")
-    parser.add_argument("--wandb-run-name", type=str, required=False, default=None, help="Value for wandb_run_name")
+    parser.add_argument(
+        "--wandb-run-name",
+        type=str,
+        required=False,
+        default=None,
+        help="Value for wandb_run_name",
+    )
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--loss-type", type=str, required=True)
-    parser.add_argument("--epochs", type=int, default=3000)
+    parser.add_argument("--epochs", type=int, default=300)
     parser.add_argument("--verbose", type=int, default=1)
     parser.add_argument("--lambda-reg", type=float, default=1)
     parser.add_argument("--zero-ablation", type=int, default=0)
-    parser.add_argument("--data-size", type=int, default=10)
-    parser.add_argument("--metric", type=str, choices=["l2", "kl"], default="l2")
-    parser.add_argument("--edgewise", type=bool, default=False)
+    parser.add_argument("--data-size", type=int, default=1000)
+    parser.add_argument(
+        "--metric", type=str, choices=["l2", "kl"], default="l2"
+    )
+    parser.add_argument("--edgewise", action="store_true")
     parser.add_argument("--num-examples", type=int, default=50)
     parser.add_argument("--seq-len", type=int, default=300)
     parser.add_argument("--n-loss-average-runs", type=int, default=4)
@@ -59,15 +76,51 @@ def setup_args_parser(subparsers):
     # parser.add_argument("--torch-num-threads", type=int, default=0)
     parser.add_argument("--print-stats", type=int, default=1, required=False)
     parser.add_argument("--print-every", type=int, default=1, required=False)
+    parser.add_argument("--atol", type=float, default=1e-2, required=False)
+    parser.add_argument("--compressed-model", action="store_true")
 
 
 def eval_fn(
-        corr: TLACDCCorrespondence,
-        ll_model: HookedTracrTransformer,
-        hl_ll_corr: TracrCorrespondence,
+    corr: TLACDCCorrespondence,
+    ll_model: HookedTracrTransformer,
+    hl_ll_corr: TracrCorrespondence,
+    case: BenchmarkCase,
+):
+    full_corr = TLACDCCorrespondence.setup_from_model(
+        ll_model, use_pos_embed=True
+    )
+    full_circuit = build_acdc_circuit(corr=full_corr)
+    sp_circuit = build_acdc_circuit(corr=corr)
+    return evaluate_acdc_circuit(
+        sp_circuit,
+        ll_model,
+        hl_ll_corr,
+        case=case,
+        full_circuit=full_circuit,
+        verbose=False,
+        print_summary=False,
+    )
+
+
+def eval_fn_compression(
+    corr: TLACDCCorrespondence,
+    tl_model: HookedTracrTransformer,
+    case: BenchmarkCase,
 ):
     sp_circuit = build_acdc_circuit(corr=corr)
-    return evaluate_acdc_circuit(sp_circuit, ll_model, hl_ll_corr, verbose=False, print_summary=False)
+    full_corr = TLACDCCorrespondence.setup_from_model(
+        tl_model, use_pos_embed=True
+    )
+    full_circuit = build_acdc_circuit(corr=full_corr)
+    _, tracr_ll_circuit, _ = case.get_tracr_circuit(granularity="acdc_hooks")
+    return calculate_fpr_and_tpr(
+        sp_circuit,
+        tracr_ll_circuit,
+        full_circuit,
+        verbose=False,
+        print_summary=False,
+    )
+
 
 def run_sp(
     case: BenchmarkCase,
@@ -76,65 +129,65 @@ def run_sp(
     output_suffix: str = "",
 ):
     print(args)
-    hl_model = case.build_transformer_lens_model(remove_extra_tensor_cloning=False)
-    hl_ll_corr = TracrCorrespondence.from_output(case, tracr_output=case.build_tracr_model())
+    if args.compressed_model:
+        tl_model = case.get_tl_model(
+            device=args.device, remove_extra_tensor_cloning=False
+        )
+    else:
+        hl_model = case.build_transformer_lens_model(
+            remove_extra_tensor_cloning=False
+        )
+        hl_ll_corr = TracrCorrespondence.from_output(
+            case, tracr_output=case.get_tracr_output()
+        )
 
-    cfg_dict = {
-        "n_layers": 2,
-        "n_heads": 4,
-        "d_head": 4,
-        "d_model": 8,
-        "d_mlp": 16,
-        "seed": 0,
-        "act_fn": "gelu",
-    }
-    ll_cfg = hl_model.cfg.to_dict().copy()
-    ll_cfg.update(cfg_dict)
+        cfg_dict = {
+            "n_layers": 2,
+            "n_heads": 4,
+            "d_head": 4,
+            "d_model": 8,
+            "d_mlp": 16,
+            "seed": 0,
+            "act_fn": "gelu",
+        }
+        ll_cfg = hl_model.cfg.to_dict().copy()
+        ll_cfg.update(cfg_dict)
 
-    tl_model = HookedTracrTransformer(
-        ll_cfg,
-        hl_model.tracr_input_encoder,
-        hl_model.tracr_output_encoder,
-        hl_model.residual_stream_labels,
-        remove_extra_tensor_cloning=False,
-    )
-    tl_model.to(args.device)
-    tl_model.load_weights_from_file(f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_510.pth")
-
-    tags = [f"case{case.get_index()}", "acdc"]
-    notes = f"Command: {' '.join(sys.argv)}"
+        tl_model = HookedTracrTransformer(
+            ll_cfg,
+            hl_model.tracr_input_encoder,
+            hl_model.tracr_output_encoder,
+            hl_model.residual_stream_labels,
+            remove_extra_tensor_cloning=False,
+        )
+        tl_model.to(args.device)
+        tl_model.load_weights_from_file(
+            f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_510.pth"
+        )
 
     # Check that dot program is in path
     if not shutil.which("dot"):
-        raise ValueError("dot program not in path, cannot generate graphs for ACDC.")
+        raise ValueError(
+            "dot program not in path, cannot generate graphs for ACDC."
+        )
 
     if args.torch_num_threads > 0:
         torch.set_num_threads(args.torch_num_threads)
 
     metric_name = args.metric
     zero_ablation = True if args.zero_ablation else False
-    using_wandb = True if args.using_wandb else False
-    # wandb_entity_name = args.wandb_entity_name
-    # wandb_project_name = args.wandb_project_name
-    wandb_run_name = args.wandb_run_name
-    # wandb_group_name = args.wandb_group_name
-    # indices_mode = args.indices_mode
-    # names_mode = args.names_mode
+    using_wandb = args.using_wandb == 1
     device = args.device
-    edgewise = True  # args.edgewise
-    # single_step = True if args.single_step else False
-
-    # second_metric = None  # some tasks only have one metric
-    # use_pos_embed = True  # Always true for all tracr models.
+    edgewise = args.edgewise
+    use_pos_embed = True
 
     data_size = args.data_size
-    # data_size = 100
     base = case.get_clean_data(count=int(1.2 * data_size))
     source = case.get_corrupted_data(count=int(1.2 * data_size))
     toks_int_values = base.get_inputs()
     toks_int_labels = base.get_correct_outputs()
     toks_int_values_other = source.get_inputs()
-    toks_int_labels_other = source.get_correct_outputs()
+    # toks_int_labels_other = source.get_correct_outputs() # sp doesn't need this
 
     with torch.no_grad():
         baseline_output = tl_model(toks_int_values[:data_size])
@@ -142,11 +195,23 @@ def run_sp(
 
     if metric_name == "l2":
         validation_metric = partial(
-            l2_metric, baseline_output=baseline_output, is_categorical=tl_model.is_categorical()
+            l2_metric,
+            baseline_output=baseline_output,
+            is_categorical=tl_model.is_categorical(),
         )
-        test_metric = partial(l2_metric, baseline_output=test_baseline_output, is_categorical=tl_model.is_categorical())
+        test_loss_metric = partial(
+            l2_metric,
+            baseline_output=test_baseline_output,
+            is_categorical=tl_model.is_categorical(),
+        )
+        test_accuracy_fn = (
+            lambda x, y: torch.isclose(x, y, atol=args.atol).float().mean()
+        )
+        test_accuracy_metric = partial(test_accuracy_fn, test_baseline_output)
+
     else:
         raise NotImplementedError(f"Metric {metric_name} not implemented")
+    test_metrics = {"loss": test_loss_metric, "accuracy": test_accuracy_metric}
 
     all_task_things = AllDataThings(
         tl_model=tl_model,
@@ -155,28 +220,41 @@ def run_sp(
         validation_labels=toks_int_labels[:data_size],
         validation_mask=None,
         validation_patch_data=toks_int_values_other[:data_size],
-        test_metrics={"loss": test_metric} if not edgewise else test_metric,
+        test_metrics=test_metrics,
         test_data=toks_int_values[data_size:],
         test_labels=toks_int_labels[data_size:],
         test_mask=None,
         test_patch_data=toks_int_values_other[data_size:],
     )
 
-    output_dir = os.path.join(args.output_dir, f"results/sp_{case.get_index()}", output_suffix)
+    output_dir = os.path.join(
+        args.output_dir, f"results/sp_{case.get_index()}", output_suffix
+    )
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    images_output_dir = os.path.join(output_dir, f"results/sp_{case.get_index()}", "images")
+    images_output_dir = os.path.join(
+        output_dir, f"results/sp_{case.get_index()}", "images"
+    )
     if not os.path.exists(images_output_dir):
         os.makedirs(images_output_dir)
 
     # Setup wandb if needed
-    if wandb_run_name is None:
-        args.wandb_run_name = f"SP_{'edge' if edgewise else 'node'}_{case.get_index()}_{args.lambda_reg}{'_zero' if zero_ablation else ''}"
+    if args.wandb_run_name is None:
+        args.wandb_run_name = f"SP_{'edge' if edgewise else 'node'}_{case.get_index()}_reg_{args.lambda_reg}{'_zero' if zero_ablation else ''}{'_compressed' if args.compressed_model else ''}"
+
+    args.wandb_name = args.wandb_run_name
 
     tl_model.reset_hooks()
     if edgewise:
-        masked_model = EdgeLevelMaskedTransformer(tl_model)
+        masked_model = EdgeLevelMaskedTransformer(
+            tl_model,
+            starting_point_type=(
+                CircuitStartingPointType.RESID_PRE
+                if not use_pos_embed
+                else CircuitStartingPointType.POS_EMBED
+            ),
+        )
     else:
         masked_model = NodeLevelMaskedTransformer(tl_model)
     masked_model = masked_model.to(args.device)
@@ -184,15 +262,25 @@ def run_sp(
     masked_model.freeze_weights()
     print("Finding subnetwork...")
     if edgewise:
+        if args.compressed_model:
+            eval_fn_to_use = partial(
+                eval_fn_compression, tl_model=tl_model, case=case
+            )
+        else:
+            eval_fn_to_use = partial(
+                eval_fn, ll_model=tl_model, hl_ll_corr=hl_ll_corr, case=case
+            )
         masked_model, log_dict = train_edge_sp(
             args=args,
             masked_model=masked_model,
             all_task_things=all_task_things,
             print_every=args.print_every,
-            eval_fn=partial(eval_fn, ll_model=tl_model, hl_ll_corr=hl_ll_corr),
+            eval_fn=eval_fn_to_use,
         )
         percentage_binary = masked_model.proportion_of_binary_scores()
-        sp_circuit = build_acdc_circuit(corr=masked_model.get_edge_level_correspondence_from_masks())
+        sp_circuit = build_acdc_circuit(
+            corr=masked_model.get_edge_level_correspondence_from_masks(use_pos_embed=use_pos_embed)
+        )
     else:
         masked_model, log_dict = train_sp(
             args=args,
@@ -202,9 +290,11 @@ def run_sp(
         from subnetwork_probing.train import proportion_of_binary_scores
 
         percentage_binary = proportion_of_binary_scores(masked_model)
-        corr, _ = iterative_correspondence_from_mask(masked_model.model, log_dict["nodes_to_mask"])
+        corr, _ = iterative_correspondence_from_mask(
+            masked_model.model, log_dict["nodes_to_mask"],
+            use_pos_embed=use_pos_embed
+        )
         sp_circuit = build_acdc_circuit(corr=corr)
-        print(corr)
 
     # Update dict with some different things
     # log_dict["nodes_to_mask"] = list(map(str, log_dict["nodes_to_mask"]))
@@ -213,7 +303,30 @@ def run_sp(
 
     if calculate_fpr_tpr:
         print("Calculating FPR and TPR for regularizer", args.lambda_reg)
-        result = evaluate_acdc_circuit(sp_circuit, tl_model, hl_ll_corr, verbose=False)
+        if args.compressed_model:
+            full_corr = TLACDCCorrespondence.setup_from_model(
+                tl_model, use_pos_embed=True
+            )
+            full_circuit = build_acdc_circuit(corr=full_corr)
+            _, tracr_ll_circuit, _ = case.get_tracr_circuit(
+                granularity="acdc_hooks"
+            )
+            result = calculate_fpr_and_tpr(
+                sp_circuit, tracr_ll_circuit, full_circuit, verbose=False
+            )
+        else:
+            full_corr = TLACDCCorrespondence.setup_from_model(
+                tl_model, use_pos_embed=True
+            )
+            full_circuit = build_acdc_circuit(corr=full_corr)
+            result = evaluate_acdc_circuit(
+                sp_circuit,
+                tl_model,
+                hl_ll_corr,
+                case=case,
+                full_circuit=full_circuit,
+                verbose=False,
+            )
     else:
         result = {}
 
@@ -233,8 +346,13 @@ def run_sp(
                 }
             )
     if using_wandb:
-        wandb.log({"regularizer": args.lambda_reg, "percentage_binary": percentage_binary})
+        wandb.log(
+            {
+                "regularizer": args.lambda_reg,
+                "percentage_binary": percentage_binary,
+            }
+        )
         wandb.finish()
     # print("Done running sp: ")
-    # print(result['nodes'])
+    # print(result["edges"])
     return sp_circuit, result

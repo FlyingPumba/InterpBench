@@ -59,8 +59,8 @@ def train_edge_sp(
     # one parameter per thing that is masked
     mask_params = list(p for p in masked_model.mask_parameter_list if p.requires_grad)
     # parameters for the probe (we don't use a probe)
-    model_params = list(p for p in masked_model.model.parameters() if p.requires_grad)
-    assert len(model_params) == 0, ("MODEL should be empty", model_params)
+    # model_params = list(p for p in masked_model.model.parameters() if p.requires_grad)
+    # assert len(model_params) == 0, ("MODEL should be empty", model_params)
     trainer = torch.optim.Adam(mask_params, lr=args.lr)
 
     print(f"Using memory {torch.cuda.memory_allocated():_} bytes after optimizer init")
@@ -86,7 +86,8 @@ def train_edge_sp(
         if epoch % print_every == 0 and args.print_stats:
             with torch.no_grad():
                 with masked_model.with_fwd_hooks_and_new_ablation_cache(test_patch_data) as hooked_model:
-                    test_metric_loss = all_task_things.test_metrics(hooked_model(all_task_things.test_data))
+                    test_metric_loss = test_metric_fns["loss"](hooked_model(all_task_things.test_data))
+                    test_metrc_acc = test_metric_fns["accuracy"](hooked_model(all_task_things.test_data))
             test_loss = test_metric_loss + regularizer_term * lambda_reg
             corr = masked_model.get_edge_level_correspondence_from_masks()
             result = eval_fn(corr)
@@ -98,6 +99,7 @@ def train_edge_sp(
                         "regularization_loss": regularizer_term.item(),
                         "validation_metric_loss": metric_loss.item(),
                         "test_metric_loss": test_metric_loss.item(),
+                        "test_metric_accuracy": test_metrc_acc,
                         "total_loss": loss.item(),
                         "test_total_loss": test_loss,
                         "nodes_fpr": result["nodes"]["fpr"],
@@ -142,14 +144,14 @@ def train_edge_sp(
         )
 
         test_specific_metrics = {}
-        # for k, fn in test_metric_fns.items():
-        torch.random.set_rng_state(rng_state)
-        test_specific_metric_term = 0.0
-        # Test loss
-        for _ in range(args.n_loss_average_runs):
-            with masked_model.with_fwd_hooks_and_new_ablation_cache(test_patch_data) as hooked_model:
-                test_specific_metric_term += test_metric_fns(hooked_model(all_task_things.test_data)).item()
-        test_specific_metrics[f"loss"] = test_specific_metric_term
+        for k, fn in test_metric_fns.items():
+            torch.random.set_rng_state(rng_state)
+            test_specific_metric_term = 0.0
+            # Test loss
+            for _ in range(args.n_loss_average_runs):
+                with masked_model.with_fwd_hooks_and_new_ablation_cache(test_patch_data) as hooked_model:
+                    test_specific_metric_term += fn(hooked_model(all_task_things.test_data))
+                test_specific_metrics[f"test_{k}"] = test_specific_metric_term
 
         print(f"Final test metric: {test_specific_metrics}")
 

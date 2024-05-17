@@ -1,6 +1,6 @@
 from circuits_benchmark.transformers.circuit import Circuit
 from typing import Optional
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit, get_full_acdc_circuit, replace_inputs_and_qkvs_with_outputs
+from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit, get_full_acdc_circuit, replace_inputs_and_qkv_nodes_with_outputs, replace_inputs_and_qkv_edges_with_outputs
 
 
 def calculate_fpr_and_tpr(
@@ -12,23 +12,22 @@ def calculate_fpr_and_tpr(
     print_summary: bool = True,
 ):
   if promote_to_heads:
-    all_nodes = replace_inputs_and_qkvs_with_outputs(full_circuit)
-    true_nodes = replace_inputs_and_qkvs_with_outputs(true_circuit)
-    hypothesis_nodes = replace_inputs_and_qkvs_with_outputs(hypothesis_circuit)
+    all_nodes = replace_inputs_and_qkv_nodes_with_outputs(full_circuit)
+    true_nodes = replace_inputs_and_qkv_nodes_with_outputs(true_circuit)
+    hypothesis_nodes = replace_inputs_and_qkv_nodes_with_outputs(hypothesis_circuit)
   else:
-    all_nodes = full_circuit
-    true_nodes = true_circuit
-    hypothesis_nodes = hypothesis_circuit
+    all_nodes = full_circuit.nodes
+    true_nodes = true_circuit.nodes
+    hypothesis_nodes = hypothesis_circuit.nodes
   
-  all_nodes = set(all_nodes.nodes)
-  all_edges = set(full_circuit.edges)
+  all_nodes = set(all_nodes)
 
   # calculate nodes false positives and false negatives
-  hypothesis_nodes = set(hypothesis_nodes.nodes)
-  true_nodes = set(true_nodes.nodes)
+  hypothesis_nodes = set(hypothesis_nodes)
+  true_nodes = set(true_nodes)
 
-  assert hypothesis_nodes.issubset(all_nodes), f"hypothesis nodes contain the following nodes that are not in the full circuit: {hypothesis_nodes - all_nodes}"
-  assert true_nodes.issubset(all_nodes), f"true nodes contain the following nodes that are not in the full circuit: {true_nodes - all_nodes}"
+  # assert hypothesis_nodes.issubset(all_nodes), f"hypothesis nodes contain the following nodes that are not in the full circuit: {hypothesis_nodes - all_nodes}"
+  # assert true_nodes.issubset(all_nodes), f"true nodes contain the following nodes that are not in the full circuit: {true_nodes - all_nodes}"
 
   false_positive_nodes = hypothesis_nodes - true_nodes
   false_negative_nodes = true_nodes - hypothesis_nodes
@@ -43,13 +42,24 @@ def calculate_fpr_and_tpr(
     print(f" - True Negatives: {sorted(true_negative_nodes)}")
 
   # calculate edges false positives and false negatives
-  hypothesis_edges = set(hypothesis_circuit.edges)
-  true_edges = set(true_circuit.edges)
-  # TODO: fix edge comparison
-  # assert hypothesis_edges.issubset(all_edges), f"hypothesis edges contain the following edges that are not in the full circuit: {hypothesis_edges - all_edges}"
-  # assert true_edges.issubset(all_edges), f"true edges contain the following edges that are not in the full circuit: {true_edges - all_edges}"
+  if promote_to_heads:
+    hypothesis_edges = replace_inputs_and_qkv_edges_with_outputs(hypothesis_circuit)
+    true_edges = replace_inputs_and_qkv_edges_with_outputs(true_circuit)
+    all_edges = replace_inputs_and_qkv_edges_with_outputs(full_circuit)
+  else:
+    hypothesis_edges = hypothesis_circuit.edges
+    true_edges = true_circuit.edges
+    all_edges = full_circuit.edges
 
-  false_positive_edges = hypothesis_edges - true_edges
+  hypothesis_edges = set(hypothesis_edges)
+  true_edges = set(true_edges)
+  all_edges = set(all_edges)
+
+  # TODO: fix edge comparison
+  assert hypothesis_edges.issubset(all_edges), f"hypothesis edges contain the following edges that are not in the full circuit: {hypothesis_edges - all_edges}, hypothesis edges: {hypothesis_edges}, all edges: {all_edges}"
+  assert true_edges.issubset(all_edges), f"true edges contain the following edges that are not in the full circuit: {true_edges - all_edges}"
+
+  false_positive_edges = (hypothesis_edges - true_edges) & all_edges 
   false_negative_edges = true_edges - hypothesis_edges
   true_positive_edges = hypothesis_edges & true_edges
   true_negative_edges = all_edges - (hypothesis_edges | true_edges) # == (all_edges - hypothesis_edges) & (all_edges - true_edges)
@@ -62,7 +72,11 @@ def calculate_fpr_and_tpr(
     print(f" - True Negatives: {sorted(true_negative_edges)}")
 
   # print FP and TP rates for nodes and edges as summary
-  make_summary = lambda x: print(x) if print_summary else None
+  make_summary = lambda *args, **kwargs: print(*args, **kwargs) if print_summary else None
+  if True:
+    make_summary("\n\n-------------------\n\nhypothesis_edges", hypothesis_edges, "\n-----------\n")
+    make_summary("true_edges", true_edges, "\n-----------\n")
+    make_summary("all_edges", all_edges, "\n\n-------------------\n\n")
   make_summary(f"\nSummary:")
 
   if len(true_positive_nodes | false_negative_nodes) == 0:

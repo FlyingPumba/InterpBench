@@ -34,6 +34,7 @@ class BenchmarkCase(object):
   def __init__(self):
     self.case_file_absolute_path = os.path.join(detect_project_root(), self.get_relative_path_from_root())
     self.data_size_for_tests = 100
+    self.tracr_output: TracrOutput | None = None
 
   @staticmethod
   def get_instance_for_file_path(file_path_from_root: str):
@@ -185,6 +186,12 @@ class BenchmarkCase(object):
   def __str__(self):
     return self.case_file_absolute_path
 
+  def get_tracr_output(self) -> TracrOutput:
+    """Returns the tracr output for the benchmark case."""
+    if self.tracr_output is None:
+      return self.build_tracr_model()
+    return self.tracr_output
+
   def get_tracr_model_pickle_path(self) -> str:
     return self.case_file_absolute_path.replace(".py", "_tracr_model.pkl")
 
@@ -264,6 +271,8 @@ class BenchmarkCase(object):
 
   def build_tracr_model(self) -> TracrOutput:
     """Compiles a single case to a tracr model."""
+    if self.tracr_output is not None:
+      return self.tracr_output
     program = self.get_program()
     max_seq_len_without_BOS = self.get_max_seq_len() - 1
     vocab = self.get_vocab()
@@ -277,6 +286,7 @@ class BenchmarkCase(object):
       compiler_pad=TRACR_PAD,
       causal=self.supports_causal_masking(),
     )
+    self.tracr_output = tracr_output
 
     # write tracr model and graph to disk
     self.dump_tracr_model(tracr_output.model)
