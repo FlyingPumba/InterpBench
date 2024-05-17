@@ -145,10 +145,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         self.test_metrics["test_resample_ablation_loss"] = resample_ablation_output.loss
         self.test_metrics["test_resample_ablation_var_exp"] = resample_ablation_output.variance_explained
 
-        for hook_name, loss in resample_ablation_output.max_loss_per_hook.items():
+        for hook_name, loss in resample_ablation_output.max_loss_per_node.items():
           self.test_metrics[f"test_{hook_name}_max_cp_loss"] = loss.squeeze(-1)
 
-        for hook_name, loss in resample_ablation_output.mean_loss_per_hook.items():
+        for hook_name, loss in resample_ablation_output.mean_loss_per_node.items():
           self.test_metrics[f"test_{hook_name}_mean_cp_loss"] = loss
 
       self.epochs_since_last_test_resample_ablation_loss += 1

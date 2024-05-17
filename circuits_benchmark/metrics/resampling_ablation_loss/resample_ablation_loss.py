@@ -19,9 +19,9 @@ from circuits_benchmark.training.compression.activation_mapper.multi_hook_activa
 class ResampleAblationLossOutput:
   loss: Float[Tensor, ""]
   variance_explained: Float[Tensor, ""]
-  max_loss_per_hook: Dict[str, Float[Tensor, ""]]
-  mean_loss_per_hook: Dict[str, Float[Tensor, ""]]
-  intervened_hooks: List[str]
+  max_loss_per_node: Dict[str, Float[Tensor, ""]]
+  mean_loss_per_node: Dict[str, Float[Tensor, ""]]
+  intervened_nodes: List[str]
 
 
 def get_resample_ablation_loss_from_inputs(
@@ -94,9 +94,9 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
   # for each intervention, run both models, calculate MSE and add it to the losses.
   losses = []
   variance_explained = []
-  max_loss_per_hook = {}
-  mean_loss_per_hook = {}
-  intervened_hooks = set()
+  max_loss_per_node = {}
+  mean_loss_per_node = {}
+  intervened_nodes = set()
   for intervention in get_interventions(base_model,
                                         hypothesis_model,
                                         hook_filters,
@@ -143,29 +143,29 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
     intervention_var_exp = t.cat(batched_data_intervention_variance_explained).mean().reshape(1)
     variance_explained.append(intervention_var_exp)
 
-    intervened_hooks.update(intervention.get_intervened_hooks())
+    intervened_nodes.update(intervention.get_intervened_nodes())
 
     # store the max and mean loss per hook for the intervention.
-    for hook_name in intervention.get_intervened_hooks():
-      if hook_name in max_loss_per_hook:
-        max_loss_per_hook[hook_name] = max(max_loss_per_hook[hook_name], intervention_loss)
+    for node_name in intervention.get_intervened_nodes():
+      if node_name in max_loss_per_node:
+        max_loss_per_node[node_name] = max(max_loss_per_node[node_name], intervention_loss)
       else:
-        max_loss_per_hook[hook_name] = intervention_loss
+        max_loss_per_node[node_name] = intervention_loss
 
-      if hook_name in mean_loss_per_hook:
-        mean_loss_per_hook[hook_name] = t.cat([mean_loss_per_hook[hook_name], intervention_loss])
+      if node_name in mean_loss_per_node:
+        mean_loss_per_node[node_name] = t.cat([mean_loss_per_node[node_name], intervention_loss])
       else:
-        mean_loss_per_hook[hook_name] = intervention_loss
+        mean_loss_per_node[node_name] = intervention_loss
 
-  for hook_name in mean_loss_per_hook:
-    mean_loss_per_hook[hook_name] = mean_loss_per_hook[hook_name].mean()
+  for node_name in mean_loss_per_node:
+    mean_loss_per_node[node_name] = mean_loss_per_node[node_name].mean()
 
   return ResampleAblationLossOutput(
     loss=t.cat(losses).mean(),
     variance_explained=t.cat(variance_explained).mean(),
-    max_loss_per_hook=max_loss_per_hook,
-    mean_loss_per_hook=mean_loss_per_hook,
-    intervened_hooks=list(intervened_hooks)
+    max_loss_per_node=max_loss_per_node,
+    mean_loss_per_node=mean_loss_per_node,
+    intervened_nodes=list(intervened_nodes)
   )
 
 

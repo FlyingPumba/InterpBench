@@ -26,18 +26,38 @@ def get_interventions(
   assert all([hook_name in hypothesis_model.hook_dict for hook_name in hook_names_for_patching]), \
     "All hook names for patching should be present in the hypothesis model."
 
+  # add attention heads to attention hook names that need it
+  node_names_for_patching = []
+  attn_head_hooks = [
+    "attn.hook_result",
+    "attn.hook_z",
+    "attn.hook_attn_scores",
+    "attn.hook_pattern",
+    "attn.hook_result",
+  ]
+  for letter in "qkv":
+    attn_head_hooks.append(f"attn.hook_{letter}")
+    attn_head_hooks.append(f"hook_{letter}_input")
+  for hook_name in hook_names_for_patching[:]:
+    if any([hook_name.endswith(attn_head_hook) for attn_head_hook in attn_head_hooks]):
+      # add attention head version of hook name
+      for head in range(base_model.cfg.n_heads):
+        node_names_for_patching.append(f"{hook_name}[{head}]")
+    else:
+      node_names_for_patching.append(hook_name)
+
   # For each hook name we need to decide what type of intervention we want to apply.
   options = InterventionType.get_available_interventions(activation_mapper)
   options.remove(InterventionType.NO_INTERVENTION)
 
   for _ in range(max_interventions):
-    # choose max_components_to_intervene (no replacement) out of the hook_names_for_patching
-    hook_names_to_intervene = random.sample(hook_names_for_patching, max_components)
+    # choose max_components_to_intervene (no replacement) out of the node_names_for_patching
+    node_names_to_intervene = random.sample(node_names_for_patching, max_components)
 
     # randomly choose the intervention type for each hook name
-    intervention_types = [random.choice(options) for _ in range(len(hook_names_to_intervene))]
+    intervention_types = [random.choice(options) for _ in range(len(node_names_to_intervene))]
 
-    intervention = Intervention(hook_names_to_intervene, intervention_types, activation_mapper)
+    intervention = Intervention(node_names_to_intervene, intervention_types, activation_mapper)
     yield intervention
 
 

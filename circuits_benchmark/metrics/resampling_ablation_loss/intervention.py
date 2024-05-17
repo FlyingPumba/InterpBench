@@ -17,40 +17,63 @@ from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracr
 def regular_intervention_hook_fn(
     activation: Float[Tensor, "batch seq_len d_model"],
     hook: HookPoint,
-    corrupted_cache: ActivationCache = None
+    corrupted_cache: ActivationCache = None,
+    head_index: int = None
 ):
   """This hook just replaces the output with a corrupted output."""
-  return corrupted_cache[hook.name]
+  if head_index is None:
+    return corrupted_cache[hook.name]
+  else:
+    activation[:, :, head_index] = corrupted_cache[hook.name][:, :, head_index]
+    return activation
 
 
 def compression_intervention_hook_fn(
     activation: Float[Tensor, "batch seq_len d_model"],
     hook: HookPoint,
     corrupted_cache: ActivationCache = None,
+    head_index: int = None,
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None
 ):
   """This hook replaces the output with a corrupted output passed through the compressor."""
   if activation_mapper is None:
     raise ValueError("Compression intervention requires an activation mapper.")
-  elif isinstance(activation_mapper, ActivationMapper):
-    return activation_mapper.compress(corrupted_cache[hook.name])
+
+  if head_index is None:
+    if isinstance(activation_mapper, ActivationMapper):
+      return activation_mapper.compress(corrupted_cache[hook.name])
+    else:
+      return activation_mapper.compress(corrupted_cache[hook.name], hook.name)
   else:
-    return activation_mapper.compress(corrupted_cache[hook.name], hook.name)
+    if isinstance(activation_mapper, ActivationMapper):
+      activation[:, :, head_index] = activation_mapper.compress(corrupted_cache[hook.name][:, :, head_index])
+    else:
+      activation[:, :, head_index] = activation_mapper.compress(corrupted_cache[hook.name][:, :, head_index], hook.name, head_index)
+    return activation
 
 
 def decompression_intervention_hook_fn(
     activation: Float[Tensor, "batch seq_len d_model"],
     hook: HookPoint,
     corrupted_cache: ActivationCache = None,
+    head_index: int = None,
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None
 ):
   """This hook replaces the output with a corrupted output passed through the decompressor."""
   if activation_mapper is None:
     raise ValueError("Decompression intervention requires an activation mapper.")
-  elif isinstance(activation_mapper, ActivationMapper):
-    return activation_mapper.decompress(corrupted_cache[hook.name])
+
+  if head_index is None:
+    if isinstance(activation_mapper, ActivationMapper):
+      return activation_mapper.decompress(corrupted_cache[hook.name])
+    else:
+      return activation_mapper.decompress(corrupted_cache[hook.name], hook.name)
   else:
-    return activation_mapper.decompress(corrupted_cache[hook.name], hook.name)
+    if isinstance(activation_mapper, ActivationMapper):
+      activation[:, :, head_index] = activation_mapper.decompress(corrupted_cache[hook.name][:, :, head_index])
+    else:
+      activation[:, :, head_index] = activation_mapper.decompress(corrupted_cache[hook.name][:, :, head_index], hook.name, head_index)
+    return activation
 
 
 @dataclass
@@ -64,19 +87,19 @@ class InterventionData:
 
 class Intervention(object):
   def __init__(self,
-               hook_names: List[str],
-               hook_intervention_types: List[InterventionType],
+               node_names: List[str],
+               node_intervention_types: List[InterventionType],
                activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None):
-    self.hook_names = hook_names
-    self.hook_intervention_types = hook_intervention_types
+    self.node_names = node_names
+    self.node_intervention_types = node_intervention_types
     self.activation_mapper = activation_mapper
 
-    assert len(hook_names) == len(hook_intervention_types), \
-      "hook_names and hook_intervention_types should have the same length."
+    assert len(node_names) == len(node_intervention_types), \
+      "node_names and node_intervention_types should have the same length."
 
     # Assert there are no interventions that require a residual stream mapper if it is not provided.
     if activation_mapper is None:
-      for intervention_type in hook_intervention_types:
+      for intervention_type in node_intervention_types:
         assert intervention_type not in [InterventionType.CORRUPTED_COMPRESSION,
                                          InterventionType.CORRUPTED_DECOMPRESSION,
                                          InterventionType.CLEAN_COMPRESSION,
@@ -85,11 +108,11 @@ class Intervention(object):
 
     self.has_clean_interventions = any([intervention_type in [InterventionType.CLEAN_COMPRESSION,
                                                               InterventionType.CLEAN_DECOMPRESSION]
-                                        for intervention_type in hook_intervention_types])
+                                        for intervention_type in node_intervention_types])
 
-  def get_intervened_hooks(self):
+  def get_intervened_nodes(self):
     """Returns the hook names that will be intervened."""
-    return [hook_name for hook_name, intervention_type in zip(self.hook_names, self.hook_intervention_types)
+    return [node_name for node_name, intervention_type in zip(self.node_names, self.node_intervention_types)
             if intervention_type != InterventionType.NO_INTERVENTION]
 
   @contextmanager
@@ -109,36 +132,51 @@ class Intervention(object):
     base_model_hooks = []
     hypothesis_model_hooks = []
 
-    for hook_name, intervention_type in zip(self.hook_names, self.hook_intervention_types):
+    for node_name, intervention_type in zip(self.node_names, self.node_intervention_types):
+      head_index = None
+      if "[" in node_name:
+        hook_name, head_index = node_name.split("[")
+        head_index = int(head_index[:-1])
+      else:
+        hook_name = node_name
+
       if intervention_type == InterventionType.REGULAR_CORRUPTED:
         base_model_hooks.append((hook_name, partial(regular_intervention_hook_fn,
-                                                    corrupted_cache=base_model_corrupted_cache)))
+                                                    corrupted_cache=base_model_corrupted_cache,
+                                                    head_index=head_index)))
         hypothesis_model_hooks.append((hook_name, partial(regular_intervention_hook_fn,
-                                                          corrupted_cache=hypothesis_model_corrupted_cache)))
+                                                          corrupted_cache=hypothesis_model_corrupted_cache,
+                                                          head_index=head_index)))
 
       elif intervention_type == InterventionType.CORRUPTED_COMPRESSION:
         base_model_hooks.append((hook_name, partial(regular_intervention_hook_fn,
-                                                    corrupted_cache=base_model_corrupted_cache)))
+                                                    corrupted_cache=base_model_corrupted_cache,
+                                                    head_index=head_index)))
         hypothesis_model_hooks.append((hook_name, partial(compression_intervention_hook_fn,
                                                           corrupted_cache=base_model_corrupted_cache,
-                                                          activation_mapper=self.activation_mapper)))
+                                                          activation_mapper=self.activation_mapper,
+                                                          head_index=head_index)))
 
       elif intervention_type == InterventionType.CORRUPTED_DECOMPRESSION:
         base_model_hooks.append((hook_name, partial(decompression_intervention_hook_fn,
                                                     corrupted_cache=hypothesis_model_corrupted_cache,
-                                                    activation_mapper=self.activation_mapper)))
+                                                    activation_mapper=self.activation_mapper,
+                                                    head_index=head_index)))
         hypothesis_model_hooks.append((hook_name, partial(regular_intervention_hook_fn,
-                                                          corrupted_cache=hypothesis_model_corrupted_cache)))
+                                                          corrupted_cache=hypothesis_model_corrupted_cache,
+                                                          head_index=head_index)))
 
       elif intervention_type == InterventionType.CLEAN_COMPRESSION:
         hypothesis_model_hooks.append((hook_name, partial(compression_intervention_hook_fn,
                                                           corrupted_cache=base_model_clean_cache,
-                                                          activation_mapper=self.activation_mapper)))
+                                                          activation_mapper=self.activation_mapper,
+                                                          head_index=head_index)))
 
       elif intervention_type == InterventionType.CLEAN_DECOMPRESSION:
         base_model_hooks.append((hook_name, partial(decompression_intervention_hook_fn,
                                                     corrupted_cache=hypothesis_model_clean_cache,
-                                                    activation_mapper=self.activation_mapper)))
+                                                    activation_mapper=self.activation_mapper,
+                                                    head_index=head_index)))
 
       elif intervention_type == InterventionType.NO_INTERVENTION:
         # No hooks to add

@@ -1,7 +1,5 @@
 import re
-from typing import List
 
-import torch as t
 from jaxtyping import Float
 from torch import Tensor
 
@@ -16,53 +14,45 @@ class MultiHookActivationMapper(object):
   def compress(
       self,
       activation: Float[Tensor, "batch pos d_model"] | Float[Tensor, "batch pos head_index d_head"],
-      hook_name: str
+      hook_name: str,
+      head_index: int = None,
   ) -> Float[Tensor, "batch pos d_model_compressed"] | Float[Tensor, "batch pos head_index d_head_compressed"]:
     """Compresses an activation."""
-    hook_mappers = self.find_mappers(hook_name)
-
-    if activation.ndim == 3:
-      assert len(hook_mappers) == 1, f"Number of mappers ({len(hook_mappers)}) for d_model activations must be equal to 1"
-      return hook_mappers[0].compress(activation)
-    elif activation.ndim == 4:
-      n_heads = activation.shape[-2]
-      assert len(hook_mappers) == n_heads, \
-        f"Number of mappers ({len(hook_mappers)}) must be equal to the number of heads ({n_heads})"
-      compressed_activations = [hook_mappers[i].compress(activation[:, :, i, :]) for i in range(n_heads)]
-      return t.stack(compressed_activations, dim=2)
+    hook_mapper = self.find_mapper(hook_name, head_index)
+    assert hook_mapper is not None, f"Could not find a mapper for hook name {hook_name} and head index {head_index}"
+    return hook_mapper.compress(activation)
 
   def decompress(
       self,
       compressed_activation: Float[Tensor, "batch pos d_model_compressed"] |
                              Float[Tensor, "batch pos head_index d_head_compressed"],
       hook_name: str,
+      head_index: int = None,
   ) -> Float[Tensor, "batch pos d_model"] | Float[Tensor, "batch pos head_index d_head"]:
     """Decompresses a compressed activation."""
-    hook_mappers = self.find_mappers(hook_name)
+    hook_mapper = self.find_mapper(hook_name, head_index)
+    assert hook_mapper is not None, f"Could not find a mapper for hook name {hook_name} and head index {head_index}"
+    return hook_mapper.decompress(compressed_activation)
 
-    if compressed_activation.ndim == 3:
-      assert len(hook_mappers) == 1, f"Number of mappers ({len(hook_mappers)}) for d_model activations must be equal to 1"
-      return hook_mappers[0].decompress(compressed_activation)
-    elif compressed_activation.ndim == 4:
-      n_heads = compressed_activation.shape[-2]
-      assert len(hook_mappers) == n_heads, \
-        f"Number of mappers ({len(hook_mappers)}) must be equal to the number of heads ({n_heads})"
-      decompressed_activations = [hook_mappers[i].decompress(compressed_activation[:, :, i, :]) for i in range(n_heads)]
-      return t.stack(decompressed_activations, dim=2)
-
-  def find_mappers(self, hook_name: str) -> List[ActivationMapper]:
+  def find_mapper(self, hook_name: str, head_index: int = None) -> ActivationMapper | None:
     """Finds the mapper for the given hook name."""
-    mappers = {}
+    full_node_name = f"{hook_name}[{head_index}]" if head_index is not None else hook_name
+
     for mapper_key, mapper in self.mappers_dict.items():
+      if "[" in mapper_key and head_index is None:
+        # remove the head index from the mapper_key
+        mapper_key = mapper_key.split("[")[0]
+
+      # escape special characters in the mapper_key
+      mapper_key = re.escape(mapper_key)
+
       # convert the mapper_key to a regex pattern
-      key_for_regex = mapper_key.split("[")[0]
-      regex = re.compile(f"^{key_for_regex}$")
-      if regex.match(hook_name):
-        mappers[mapper_key] = mapper
+      regex = re.compile(f"^{mapper_key}$")
+      if regex.match(full_node_name):
+        return mapper
 
-    # return values in mappers, ordered by key
-    return [mappers[key] for key in sorted(mappers.keys())]
+    return None
 
-  def supports_hook(self, hook_name: str):
+  def supports_hook(self, hook_name: str) -> bool:
     """Returns whether the multi activation mapper supports the given hook name."""
-    return len(self.find_mappers(hook_name)) > 0
+    return self.find_mapper(hook_name) is not None
