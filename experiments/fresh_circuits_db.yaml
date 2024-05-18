@@ -1,0 +1,51 @@
+# devbox.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: devbox
+  labels:
+    kueue.x-k8s.io/queue-name: farai
+spec:
+  suspend: true
+  ttlSecondsAfterFinished: 100
+  template:
+    metadata:
+      name: devbox
+    spec:
+      priorityClassName: interactive
+      volumes:
+      - name: working-storage
+        persistentVolumeClaim:
+          claimName: devbox-storage
+      containers:
+      - name: devbox-container
+        image: cybershiptrooper/db_fresh_circuits:latest 
+        env:
+        - name: WANDB_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: wandb
+              key: api_key
+        - name: HUGGINGFACE_HUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-hub
+              key: api_key
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github
+              key: api_key
+        args: ["sleep", "2d"]
+        resources:
+          # Request CPUs, Limit Memory and GPUs.
+          # these are about 1/8 of the resources of a node.
+          requests:
+            cpu: 1
+          limits:
+            memory: "24G"
+            nvidia.com/gpu: 1
+        volumeMounts:
+        - name: working-storage
+          mountPath: /home/dev
+      restartPolicy: Never
