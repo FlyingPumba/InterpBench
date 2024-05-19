@@ -6,7 +6,6 @@ from itertools import product
 from math import ceil
 from pathlib import Path
 from typing import List
-
 import numpy as np
 
 from circuits_benchmark.utils.get_cases import get_cases

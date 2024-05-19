@@ -2,11 +2,17 @@ from typing import List, Callable
 from pathlib import Path
 import subprocess
 import sys
+import numpy as np
 
 JOB_TEMPLATE_PATH = Path(__file__).parent.parent / "runner.yaml"
 with JOB_TEMPLATE_PATH.open() as f:
     JOB_TEMPLATE = f.read()
 
+def create_random_str(length: int = 7):
+  alphabet = list('abcdefghijklmnopqrstuvwxyz0123456789')
+  np_alphabet = np.array(alphabet)
+  np_codes = np.random.choice(np_alphabet, (length))
+  return ''.join(np_codes)
 
 def create_jobs(
     build_commands: Callable,
@@ -40,15 +46,10 @@ def build_wandb_name(command: List[str]):
     # Use a set of important arguments for our experiment to build the wandb name.
     # Each argument will be separated by a dash. We also define an alias for each argument so that the name is more readable.
     important_args_aliases = {
-        "threshold": "",
-        "-i": "case",
-        "wandb-checkpoint-type": "",
-        # "seed": "seed",
-        # "ae-epochs": "ae-epochs",
-        # "freeze-ae-weights": "frozen",
-        # "ae-training-epochs-gap": "ae-gap",
-        # "ae-desired-test-mse": "ae-mse",
-        # "lr-patience": "lr-patience",
+    "threshold": "",
+    "-i": "case",
+    "--wandb-suffix": "",
+    "random_suffix": create_random_str(),
     }
     important_args = important_args_aliases.keys()
     wandb_name = ""
@@ -56,24 +57,22 @@ def build_wandb_name(command: List[str]):
     wandb_name += command[3] + "-"  # training method
 
     for arg in important_args:
-        found = False
-        for part in command:
-            if arg in part:
-                found = True
+        for i, part in enumerate(command):
+            alias = important_args_aliases[arg]
+            if alias != "":
+                suffix = f"{alias}-"
+            else:
+                suffix = ""
 
-                alias = important_args_aliases[arg]
-                if alias != "":
-                    suffix = f"{alias}-"
-                else:
-                    suffix = ""
-
-                if "=" in part:
-                    arg_value = part.split("=")[1].replace(".", "-").replace("+", "--")
-                    wandb_name += f"{suffix}{arg_value}-"
-                else:
+            if "=" in part:
+                arg_value = part.split("=")[1].replace(".", "-").replace("+", "--")
+                wandb_name += f"{suffix}{arg_value}-"
+            else:
+                try:
+                    wandb_name += f"{suffix}{command[i + 1]}-"
+                except IndexError:
                     wandb_name += f"{suffix}"
-                break
-
+            break
     # remove last dash from wandb_name
     wandb_name = wandb_name[:-1]
 
