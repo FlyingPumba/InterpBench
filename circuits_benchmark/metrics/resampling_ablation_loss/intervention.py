@@ -115,6 +115,37 @@ class Intervention(object):
     return [node_name for node_name, intervention_type in zip(self.node_names, self.node_intervention_types)
             if intervention_type != InterventionType.NO_INTERVENTION]
 
+  def get_intervened_hook_names(self):
+    """Returns the hook names that will be intervened."""
+    return [node_name.split("[")[0] for node_name, intervention_type in zip(self.node_names, self.node_intervention_types)
+            if intervention_type != InterventionType.NO_INTERVENTION]
+
+  def get_params_affected_by_interventions(self):
+    affected_params = set()
+
+    for hook_name in self.get_intervened_hook_names():
+      if hook_name == "hook_embed":
+        affected_params.add("embed.W_E")
+      elif hook_name == "hook_pos_embed":
+        affected_params.add("pos_embed.W_pos")
+      elif hook_name.endswith("hook_result"):  # e.g., blocks.3.attn.hook_result
+        layer = int(hook_name.split(".")[1])
+        # add all params involved in attention head for this layer
+        for param_name in [f"blocks.{layer}.attn.W_{param}" for param in ["Q", "O", "K", "V"]] + \
+                          [f"blocks.{layer}.attn.b_{param}" for param in ["Q", "O", "K", "V"]]:
+          affected_params.add(param_name)
+      elif hook_name.endswith("hook_mlp_out"):  # e.g., blocks.1.hook_mlp_out
+        layer = int(hook_name.split(".")[1])
+        # add all params involved in MLP for this layer
+        for param_name in [f"blocks.{layer}.mlp.W_{param}" for param in ["in", "out"]] + \
+                          [f"blocks.{layer}.mlp.b_{param}" for param in ["in", "out"]]:
+          affected_params.add(param_name)
+      else:
+        raise NotImplementedError(f"Hook name {hook_name} is not supported.")
+
+    return affected_params
+
+
   @contextmanager
   def hooks(self,
             base_model: HookedTransformer,
@@ -187,4 +218,14 @@ class Intervention(object):
 
     with base_model.hooks(base_model_hooks):
       with hypothesis_model.hooks(hypothesis_model_hooks):
+        self.freeze_not_intervened_hooks(hypothesis_model)
+
         yield self
+
+  def freeze_not_intervened_hooks(self, model: HookedTransformer):
+    affected_params = self.get_params_affected_by_interventions()
+    for param_name, param in model.named_parameters():
+      if param_name in ["embed.W_E", "pos_embed.W_pos", "unembed.W_U", "unembed.b_U"]:
+        param.requires_grad = True
+      else:
+        param.requires_grad = param_name in affected_params
