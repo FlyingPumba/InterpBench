@@ -177,7 +177,7 @@ class BenchmarkCase(object):
   def get_min_seq_len(self) -> int:
     """Returns the minimum sequence length for the benchmark case (including BOS).
     Default implementation: 4."""
-    return 4
+    return self.get_max_seq_len()
 
   def get_index(self) -> str:
     class_name = self.__class__.__name__  # Looks like "CaseN"
