@@ -124,6 +124,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       for node_str, node_effect in compressed_model_node_effect_results.items():
         self.test_metrics[f"{node_str}_compressed_model_node_effect"] = node_effect
 
+      self.test_metrics["avg_compressed_model_node_effect"] = np.mean(list(compressed_model_node_effect_results.values()))
+
       original_model_node_effect_results = self.evaluate_node_effect(
         self.get_original_model(),
         clean_data,
@@ -133,10 +135,17 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       for node_str, node_effect in original_model_node_effect_results.items():
         self.test_metrics[f"{node_str}_original_model_node_effect"] = node_effect
 
+      self.test_metrics["avg_original_model_node_effect"] = np.mean(list(original_model_node_effect_results.values()))
+
       # log abs diff of node effects
+      avg_node_effect_diff = 0
       for node_str, original_model_node_effect in original_model_node_effect_results.items():
         compressed_model_node_effect = compressed_model_node_effect_results[node_str]
-        self.test_metrics[f"{node_str}_node_effect_diff"] = abs(original_model_node_effect - compressed_model_node_effect)
+        node_effect_diff = abs(original_model_node_effect - compressed_model_node_effect)
+        self.test_metrics[f"{node_str}_node_effect_diff"] = node_effect_diff
+        avg_node_effect_diff += node_effect_diff
+
+      self.test_metrics["avg_node_effect_diff"] = avg_node_effect_diff / len(original_model_node_effect_results)
 
       self.test_metrics["iia"] = self.sample_iia(self.clean_dataset, self.corrupted_dataset)
 
