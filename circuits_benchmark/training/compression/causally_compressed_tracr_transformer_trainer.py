@@ -3,7 +3,7 @@ from typing import List, Dict
 
 import torch as t
 import wandb
-from jaxtyping import Float
+from jaxtyping import Float, Int
 from torch import Tensor
 from torch.nn import Parameter
 
@@ -40,20 +40,29 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     # Run the input on both compressed and original model
     inputs = batch[CaseDataset.INPUT_FIELD]
-    compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
-    original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
 
-    # Independently of the train loss level, we always compute the output loss since we want the compressed model to
-    # have the same output as the original model.
-    loss = self.get_output_loss(compressed_model_logits, original_model_logits)
+    if self.train_loss_level == "layer" or self.train_loss_level == "component":
+      original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(inputs)
+      compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(inputs)
 
-    if self.train_loss_level == "layer":
-      loss = loss + self.get_layer_level_loss(compressed_model_cache, original_model_cache)
+      # Independently of the train loss level, we always compute the output loss since we want the compressed model to
+      # have the same output as the original model.
+      loss = self.get_output_loss(compressed_model_logits, original_model_logits)
 
-    elif self.train_loss_level == "component":
-      loss = loss + self.get_component_level_loss(compressed_model_cache, original_model_cache)
+      if self.train_loss_level == "layer":
+        loss = loss + self.get_layer_level_loss(compressed_model_cache, original_model_cache)
+
+      else:
+        loss = loss + self.get_component_level_loss(compressed_model_cache, original_model_cache)
 
     elif self.train_loss_level == "intervention":
+      original_model_logits = self.get_original_model()(inputs)
+      compressed_model_logits = self.get_compressed_model()(inputs)
+
+      # Independently of the train loss level, we always compute the output loss since we want the compressed model to
+      # have the same output as the original model.
+      loss = self.get_output_loss(compressed_model_logits, original_model_logits)
+
       if self.epochs_since_last_train_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_train_resample_ablation_loss = 0
 
@@ -71,10 +80,15 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     return loss
 
   def get_output_loss(self, compressed_model_logits, original_model_logits):
+    # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
+    compressed_model_logits = compressed_model_logits[:, 1:]
+    original_model_logits = original_model_logits[:, 1:]
+
     if self.is_categorical:
       # Cross entropy loss
-      loss = t.nn.functional.cross_entropy(compressed_model_logits.flatten(end_dim=-2),
-                                           original_model_logits.flatten(end_dim=-2))
+      flattened_logits: Float[Tensor, "batch*pos, vocab_out"] = compressed_model_logits.flatten(end_dim=-2)
+      flattened_expected_labels: Int[Tensor, "batch*pos"] = original_model_logits.argmax(dim=-1).flatten()
+      loss = t.nn.functional.cross_entropy(flattened_logits, flattened_expected_labels)
     else:
       # MSE loss
       loss = t.nn.functional.mse_loss(compressed_model_logits, original_model_logits)
