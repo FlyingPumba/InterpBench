@@ -37,6 +37,8 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                ae_max_training_epochs: int = 15,
                ae_training_args: TrainingArgs = None):
     self.old_tl_model: HookedTracrTransformer = old_tl_model
+    self.old_tl_model.freeze_all_weights()
+
     self.new_tl_model: HookedTracrTransformer = new_tl_model
     self.autoencoders_dict: Dict[str, AutoEncoder] = autoencoders_dict
     self.autoencoder_trainers_dict: Dict[str, AutoEncoderTrainer] = {}
