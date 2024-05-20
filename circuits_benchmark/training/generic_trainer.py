@@ -152,8 +152,11 @@ class GenericTrainer:
     loss.backward()
 
     # clip gradients to avoid exploding gradients, and log the global L2 gradient norm
-    grad_norm = t.nn.utils.clip_grad_norm_(self.parameters, self.args.gradient_clip)
-    self.test_metrics["grad_norm"] = grad_norm
+    grad_norm_before_clipping = np.sqrt(sum([t.norm(p.grad.cpu())**2 for p in self.parameters if p.grad is not None]))
+    self.test_metrics["grad_norm_before_clipping"] = grad_norm_before_clipping
+    t.nn.utils.clip_grad_norm_(self.parameters, self.args.gradient_clip)
+    grad_norm_after_clipping = np.sqrt(sum([t.norm(p.grad.cpu()) ** 2 for p in self.parameters if p.grad is not None]))
+    self.test_metrics["grad_norm_after_clipping"] = grad_norm_after_clipping
 
     self.optimizer.step()
 
