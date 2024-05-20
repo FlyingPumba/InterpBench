@@ -47,7 +47,7 @@ def setup_args_parser(subparsers):
 
   parser.add_argument("--freeze-ae-weights", action="store_true", default=False,
                       help="Freeze the weights of the autoencoder during the non-linear compression training.")
-  parser.add_argument("--ae-training-epochs-gap", type=int, default=10,
+  parser.add_argument("--ae-training-epochs-gap", type=int, default=None,
                       help="The number of epochs to wait before training the autoencoder again.")
   parser.add_argument("--ae-max-training-epochs", type=int, default=15,
                       help="The max number of epochs to use for training when autoencoder weights are not frozen.")

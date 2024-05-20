@@ -140,6 +140,8 @@ class GenericTrainer:
     self.optimizer.zero_grad()
 
     loss = self.compute_train_loss(inputs)
+    if self.use_wandb:
+      wandb.log({"train_loss": loss}, step=self.step)
 
     self.update_params(loss)
 
