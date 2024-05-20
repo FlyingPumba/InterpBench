@@ -126,7 +126,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       for layer in range(self.n_layers):
         cache_key = utils.get_act_name("resid_post", layer)
         compressed_model_cache.cache_dict[cache_key] = self.get_activation_mapper().decompress(
-          compressed_model_cache.cache_dict[cache_key])
+          compressed_model_cache.cache_dict[cache_key], hook_name=cache_key)
 
     elif self.train_loss_level == "component":
       # Decompress the residual streams outputted by the attention and mlp components of all layers
@@ -135,12 +135,12 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
           hook_name = f"{component}_out"
           cache_key = utils.get_act_name(hook_name, layer)
           compressed_model_cache.cache_dict[cache_key] = self.get_activation_mapper().decompress(
-            compressed_model_cache.cache_dict[cache_key])
+            compressed_model_cache.cache_dict[cache_key], hook_name=hook_name)
 
       for component in ["embed", "pos_embed"]:
         hook_name = f"hook_{component}"
         compressed_model_cache.cache_dict[hook_name] = self.get_activation_mapper().decompress(
-          compressed_model_cache.cache_dict[hook_name])
+          compressed_model_cache.cache_dict[hook_name], hook_name=hook_name)
 
     elif self.train_loss_level == "intervention":
       return compressed_model_logits, compressed_model_cache

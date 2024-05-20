@@ -34,6 +34,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     if self.train_loss_level == "intervention":
       self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
+    else:
+      assert self.args.resample_ablation_test_loss is False, "Resample ablation loss is only available for intervention."
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     # Run the input on both compressed and original model

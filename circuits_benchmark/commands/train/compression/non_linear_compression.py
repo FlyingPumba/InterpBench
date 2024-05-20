@@ -27,7 +27,7 @@ def setup_args_parser(subparsers):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
-  parser.add_argument("--train-loss", type=str, default="layer", choices=compression_train_loss_level_options,
+  parser.add_argument("--train-loss", type=str, default="intervention", choices=compression_train_loss_level_options,
                       help="The train loss level for the compression training.")
   parser.add_argument("--ae-path", type=str, default=None,
                       help="Path to trained AutoEncoder model.")
@@ -75,18 +75,24 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
   )
 
-  # Set up autoencoders for compression training
   autoencoders_dict = {}
-  autoencoders_dict["blocks.*.hook_mlp_out"] = AutoEncoder(original_d_model_size,
-                                                           compressed_d_model_size,
-                                                           args.ae_layers,
-                                                           args.ae_first_hidden_layer_shape)
-  for layer in range(tl_model.cfg.n_layers):
-    for head in range(tl_model.cfg.n_heads):
-      autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
-                                                                                  compressed_d_model_size,
-                                                                                  args.ae_layers,
-                                                                                  args.ae_first_hidden_layer_shape)
+  if args.train_loss == "intervention":
+    # Set up autoencoders for compression training
+    autoencoders_dict["blocks.*.hook_mlp_out"] = AutoEncoder(original_d_model_size,
+                                                             compressed_d_model_size,
+                                                             args.ae_layers,
+                                                             args.ae_first_hidden_layer_shape)
+    for layer in range(tl_model.cfg.n_layers):
+      for head in range(tl_model.cfg.n_heads):
+        autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
+                                                                                    compressed_d_model_size,
+                                                                                    args.ae_layers,
+                                                                                    args.ae_first_hidden_layer_shape)
+  else:
+    autoencoders_dict["*"] = AutoEncoder(original_d_model_size,
+                                         compressed_d_model_size,
+                                         args.ae_layers,
+                                         args.ae_first_hidden_layer_shape)
 
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}.")
