@@ -73,6 +73,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
   def compute_test_metrics(self):
     clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
+    corrupted_data = None
 
     inputs = clean_data.get_inputs()
     expected_outputs = clean_data.get_correct_outputs()
@@ -110,22 +111,42 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
                                                                expected_outputs_tensor).item()
 
     # measure the effect of each node on the compressed model's output
-    node_effect_results = self.evaluate_node_effect(
-      self.case.get_clean_data(count=500, seed=random.randint(0, 1000000)),
-      self.case.get_corrupted_data(count=500, seed=random.randint(0, 1000000)),
-    )
+    if self.epoch % 20 == 0:
+      corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size,
+                                                    seed=random.randint(0, 1000000))
 
-    for node_str, result in node_effect_results.items():
-      self.test_metrics[f"{node_str}_node_effect"] = result
+      compressed_model_node_effect_results = self.evaluate_node_effect(
+        self.get_compressed_model(),
+        clean_data,
+        corrupted_data,
+      )
 
-    self.test_metrics["iia"] = self.sample_iia(self.clean_dataset, self.corrupted_dataset)
+      for node_str, node_effect in compressed_model_node_effect_results.items():
+        self.test_metrics[f"{node_str}_compressed_model_node_effect"] = node_effect
+
+      original_model_node_effect_results = self.evaluate_node_effect(
+        self.get_original_model(),
+        clean_data,
+        corrupted_data,
+      )
+
+      for node_str, node_effect in original_model_node_effect_results.items():
+        self.test_metrics[f"{node_str}_original_model_node_effect"] = node_effect
+
+      # log abs diff of node effects
+      for node_str, original_model_node_effect in original_model_node_effect_results.items():
+        compressed_model_node_effect = compressed_model_node_effect_results[node_str]
+        self.test_metrics[f"{node_str}_node_effect_diff"] = abs(original_model_node_effect - compressed_model_node_effect)
+
+      self.test_metrics["iia"] = self.sample_iia(self.clean_dataset, self.corrupted_dataset)
 
     if self.args.resample_ablation_test_loss:
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_test_resample_ablation_loss = 0
 
-        corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size,
-                                                      seed=random.randint(0, 1000000))
+        if corrupted_data is None:
+          corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size,
+                                                        seed=random.randint(0, 1000000))
 
         # Compute the resampling ablation loss
         resample_ablation_loss_args = {
@@ -221,7 +242,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     # return average over sampled nodes
     return iia / len(nodes_to_sample)
 
-  def evaluate_node_effect(self, clean_data, corrupted_data):
+  def evaluate_node_effect(self, model, clean_data, corrupted_data):
     effect_by_node = {}
 
     full_circuit = get_full_acdc_circuit(self.get_original_model().cfg.n_layers, self.get_original_model().cfg.n_heads)
@@ -236,33 +257,32 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       if is_qkv_granularity_hook(hook_name):
         continue
 
-      compressed_model = self.get_compressed_model()
-      compressed_model_original_logits = compressed_model(clean_data.get_inputs())
-      _, compressed_model_corrupted_cache = compressed_model.run_with_cache(corrupted_data.get_inputs())
+      original_logits = model(clean_data.get_inputs())
+      _, corrupted_cache = model.run_with_cache(corrupted_data.get_inputs())
 
-      compressed_model_patching_data = {}
-      compressed_model_patching_data[hook_name] = compressed_model_corrupted_cache[hook_name]
-      compressed_model_hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=compressed_model_patching_data,
+      patching_data = {}
+      patching_data[hook_name] = corrupted_cache[hook_name]
+      hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=patching_data,
                                          head_index=head_index)
-      with compressed_model.hooks([(hook_name, compressed_model_hook_fn)]):
-        compressed_model_intervened_logits = compressed_model(clean_data.get_inputs())
+      with model.hooks([(hook_name, hook_fn)]):
+        intervened_logits = model(clean_data.get_inputs())
 
       # Remove BOS from logits
-      compressed_model_original_logits = compressed_model_original_logits[:, 1:]
-      compressed_model_intervened_logits = compressed_model_intervened_logits[:, 1:]
+      original_logits = original_logits[:, 1:]
+      intervened_logits = intervened_logits[:, 1:]
 
       # apply log softmax to the logits
-      compressed_model_original_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(
-        compressed_model_original_logits, dim=-1)
-      compressed_model_intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(
-        compressed_model_intervened_logits, dim=-1)
+      original_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(
+        original_logits, dim=-1)
+      intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(
+        intervened_logits, dim=-1)
 
       # calculate labels for each position
-      compressed_original_labels: Int[Tensor, "batch pos"] = t.argmax(compressed_model_original_logits, dim=-1)
-      compressed_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(compressed_model_intervened_logits, dim=-1)
+      compressed_original_labels: Int[Tensor, "batch pos"] = t.argmax(original_logits, dim=-1)
+      compressed_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(intervened_logits, dim=-1)
 
-      compressed_model_effect = (compressed_original_labels != compressed_intervened_labels).float().mean().item()
-      effect_by_node[str(node)] = compressed_model_effect
+      effect = (compressed_original_labels != compressed_intervened_labels).float().mean().item()
+      effect_by_node[str(node)] = effect
 
     return effect_by_node
 
