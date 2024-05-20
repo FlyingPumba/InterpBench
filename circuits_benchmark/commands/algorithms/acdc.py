@@ -16,10 +16,11 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.analysis.acdc_circuit import calculate_fpr_and_tpr
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit, get_full_acdc_circuit
+from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.project_paths import get_default_output_dir
 from circuits_benchmark.utils.wandb_artifact_download import download_artifact
+from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 
 
 def setup_args_parser(subparsers):
@@ -298,7 +299,8 @@ def run_acdc(
 
     if calculate_fpr_tpr:
         print("Calculating FPR and TPR for threshold", threshold)
-        full_circuit = get_full_acdc_circuit(tl_model.cfg.n_layers, tl_model.cfg.n_heads)
+        full_corr = TLACDCCorrespondence.setup_from_model(tl_model, use_pos_embed=use_pos_embed)
+        full_circuit = build_acdc_circuit(full_corr)
         tracr_hl_circuit, tracr_ll_circuit, alignment = case.get_tracr_circuit(granularity="acdc_hooks")
         result = calculate_fpr_and_tpr(acdc_circuit, tracr_ll_circuit, full_circuit, verbose=True)
     else:

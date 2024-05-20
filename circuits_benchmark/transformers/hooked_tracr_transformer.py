@@ -95,7 +95,7 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
 
   def load_weights_from_file(self, path: str):
     """Loads the transformer weights from file."""
-    self.load_state_dict(t.load(path))
+    self.load_state_dict(t.load(path, map_location=self.device))
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""

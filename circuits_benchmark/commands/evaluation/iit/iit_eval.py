@@ -40,7 +40,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
 
     hl_model = case.build_transformer_lens_model()
     hl_model = make_iit_hl_model(hl_model)
-    tracr_output = case.build_tracr_model()
+    tracr_output = case.get_tracr_output()
     hl_ll_corr = correspondence.TracrCorrespondence.from_output(case=case, tracr_output=tracr_output)
 
     cfg_dict = {
