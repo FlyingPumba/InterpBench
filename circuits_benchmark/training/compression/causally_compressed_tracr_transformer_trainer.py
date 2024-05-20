@@ -1,3 +1,4 @@
+import random
 from typing import List, Dict
 
 import torch as t
@@ -8,8 +9,8 @@ from torch.nn import Parameter
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
-from circuits_benchmark.metrics.resampling_ablation_loss.intervention import InterventionData
-from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import get_resample_ablation_loss
+from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
+  get_resample_ablation_loss_from_inputs
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
   CompressedTracrTransformerTrainer
 from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
@@ -29,9 +30,12 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
                output_dir: str | None = None):
     super().__init__(case, parameters, training_args, is_categorical, n_layers, output_dir=output_dir)
     self.train_loss_level = train_loss_level
+    self.last_resample_ablation_loss = None
 
     if self.train_loss_level == "intervention":
       self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
+    else:
+      assert self.args.resample_ablation_test_loss is False, "Resample ablation loss is only available for intervention."
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     # Run the input on both compressed and original model
@@ -53,12 +57,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       if self.epochs_since_last_train_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_train_resample_ablation_loss = 0
 
-        corruped_inputs = self.case.get_corrupted_data(count=len(inputs)).get_inputs()
-        _, compressed_model_corrupted_cache = self.get_logits_and_cache_from_compressed_model(corruped_inputs)
-        _, base_model_corrupted_cache = self.get_logits_and_cache_from_original_model(corruped_inputs)
-
-        loss = loss + self.get_intervention_level_loss(inputs, compressed_model_cache, original_model_cache,
-                                                       compressed_model_corrupted_cache, base_model_corrupted_cache)
+        intervention_loss = self.get_intervention_level_loss()
+        loss = loss + self.args.resample_ablation_loss_weight * intervention_loss
 
       self.epochs_since_last_train_resample_ablation_loss += 1
 
@@ -89,10 +89,10 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     # Sum the L2 of output vectors for all layers in both compressed and original model
     for layer in range(self.n_layers):
-      compressed_model_output = compressed_model_cache["resid_post", layer]
-      original_model_output = original_model_cache["resid_post", layer]
+      compressed_model_activations = compressed_model_cache["resid_post", layer]
+      original_model_activations = original_model_cache["resid_post", layer]
 
-      layer_loss = t.nn.functional.mse_loss(compressed_model_output, original_model_output)
+      layer_loss = t.nn.functional.mse_loss(compressed_model_activations, original_model_activations)
       if self.use_wandb:
         wandb.log({f"layer_{str(layer)}_loss": layer_loss}, step=self.step)
 
@@ -107,20 +107,20 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     for layer in range(self.n_layers):
       for component in ["attn", "mlp"]:
         hook_name = f"{component}_out"
-        compressed_model_output = compressed_model_cache[hook_name, layer]
-        original_model_output = original_model_cache[hook_name, layer]
+        compressed_model_activations = compressed_model_cache[hook_name, layer]
+        original_model_activations = original_model_cache[hook_name, layer]
 
-        component_loss = t.nn.functional.mse_loss(original_model_output, compressed_model_output)
+        component_loss = t.nn.functional.mse_loss(original_model_activations, compressed_model_activations)
         if self.use_wandb:
           wandb.log({f"layer_{str(layer)}_{component}_loss": component_loss}, step=self.step)
 
     # Sum the L2 output vectors for the embeddings in both compressed and original model
     for component in ["embed", "pos_embed"]:
       hook_name = f"hook_{component}"
-      compressed_model_output = compressed_model_cache[hook_name]
-      original_model_output = original_model_cache[hook_name]
+      compressed_model_activations = compressed_model_cache[hook_name]
+      original_model_activations = original_model_cache[hook_name]
 
-      component_loss = t.nn.functional.mse_loss(original_model_output, compressed_model_output)
+      component_loss = t.nn.functional.mse_loss(original_model_activations, compressed_model_activations)
       if self.use_wandb:
         wandb.log({f"{hook_name}_loss": component_loss}, step=self.step)
 
@@ -128,32 +128,46 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     return loss
 
-  def get_intervention_level_loss(self, clean_inputs, compressed_model_clean_cache, base_model_clean_cache,
-                                  compressed_model_corrupted_cache, base_model_corrupted_cache):
-    intervention_data = InterventionData(clean_inputs,
-                                         base_model_corrupted_cache,
-                                         compressed_model_corrupted_cache,
-                                         base_model_clean_cache,
-                                         compressed_model_clean_cache)
-    batched_intervention_data = [intervention_data]
+  def get_intervention_level_loss(self):
     resample_ablation_loss_args = {
-      "batched_intervention_data": batched_intervention_data,
+      "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size,
+                                               seed=random.randint(0, 1000000)),
+      "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size,
+                                                       seed=random.randint(0, 1000000)),
       "base_model": self.get_original_model(),
       "hypothesis_model": self.get_compressed_model(),
       "max_interventions": self.args.resample_ablation_max_interventions,
+      "max_components": self.args.resample_ablation_max_components,
+      "is_categorical": self.is_categorical,
+      "batch_size": self.args.resample_ablation_batch_size,
     }
 
-    residual_stream_mapper = self.get_residual_stream_mapper()
-    if residual_stream_mapper is not None:
-      resample_ablation_loss_args["residual_stream_mapper"] = residual_stream_mapper
+    activation_mapper = self.get_activation_mapper()
+    if activation_mapper is not None:
+      resample_ablation_loss_args["activation_mapper"] = activation_mapper
 
-    resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
+    resample_ablation_output = get_resample_ablation_loss_from_inputs(**resample_ablation_loss_args)
 
     if self.use_wandb:
       wandb.log({"train_resample_ablation_loss": resample_ablation_output.loss,
                  "train_resample_ablation_var_exp": resample_ablation_output.variance_explained}, step=self.step)
 
+      for hook_name, loss in resample_ablation_output.max_loss_per_node.items():
+        wandb.log({f"train_{hook_name}_max_cp_loss": loss}, step=self.step)
+
+      for hook_name, loss in resample_ablation_output.mean_loss_per_node.items():
+        wandb.log({f"train_{hook_name}_mean_cp_loss": loss}, step=self.step)
+
+    self.last_resample_ablation_loss = resample_ablation_output.loss.item()
+
     return resample_ablation_output.loss
+
+  def get_lr_validation_metric(self):
+    validation_metric = super().get_lr_validation_metric()
+    if self.last_resample_ablation_loss is not None:
+      # We want to maximize the validation metric, so we subtract the resample ablation loss
+      validation_metric = validation_metric - self.last_resample_ablation_loss
+    return validation_metric
 
   def define_wandb_metrics(self):
     super().define_wandb_metrics()

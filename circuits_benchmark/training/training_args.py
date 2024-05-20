@@ -22,6 +22,7 @@ class TrainingArgs():
   weight_decay: Optional[float] = 0.1
   beta_1: Optional[float] = 0.9
   beta_2: Optional[float] = 0.99
+  gradient_clip: Optional[float] = 0.01
 
   # lr scheduler config
   lr_start: Optional[float] = 1e-3
@@ -33,8 +34,10 @@ class TrainingArgs():
   test_accuracy_atol: Optional[float] = 1e-2
 
   # resample ablation loss config
-  resample_ablation_loss: Optional[bool] = False
+  resample_ablation_test_loss: Optional[bool] = False
   resample_ablation_loss_epochs_gap: Optional[int] = 50
   resample_ablation_max_interventions: Optional[int] = 10
+  resample_ablation_max_components: Optional[int] = 1
   resample_ablation_data_size: Optional[int] = 100
   resample_ablation_batch_size: Optional[int] = 20000
+  resample_ablation_loss_weight: Optional[float] = 1

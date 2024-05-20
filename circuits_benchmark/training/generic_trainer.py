@@ -1,6 +1,6 @@
 import dataclasses
 import sys
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import numpy as np
 import torch as t
@@ -86,7 +86,7 @@ class GenericTrainer:
     """Prepare the dataset and split it into train and test sets."""
     raise NotImplementedError
 
-  def train(self):
+  def train(self, finish_wandb_run: Optional[bool] = True):
     """
     Trains the model, for `self.args.epochs` epochs.
     """
@@ -123,7 +123,7 @@ class GenericTrainer:
     if self.output_dir is not None:
       self.save_artifacts()
 
-    if self.use_wandb:
+    if self.use_wandb and finish_wandb_run:
       wandb.finish()
 
     return {**self.test_metrics, "train_loss": self.train_loss.item()}
@@ -150,6 +150,7 @@ class GenericTrainer:
   def update_params(self, loss: Float[Tensor, ""]):
     """Performs a gradient update step."""
     loss.backward()
+    t.nn.utils.clip_grad_norm_(self.parameters, self.args.gradient_clip)
     self.optimizer.step()
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
@@ -165,7 +166,7 @@ class GenericTrainer:
     if len(self.test_metrics.items()) == 0:
       return ""
     else:
-      return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in self.test_metrics.items()]))[:-2]
+      return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in list(self.test_metrics.items())[:3]]))[:-2]
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-generic-training"

@@ -1,16 +1,20 @@
 from argparse import Namespace
+from math import ceil
 
+import pandas as pd
+import wandb
 from torch.nn import init
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.compression.auto_compression import run_auto_compression_training
+from circuits_benchmark.metrics.iia import evaluate_iia, ablation_types, evaluate_iia_on_all_ablation_types
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
-from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
 from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
 from circuits_benchmark.training.compression.non_linear_compressed_tracr_transformer_trainer import \
   NonLinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
+from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 
@@ -23,7 +27,7 @@ def setup_args_parser(subparsers):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
-  parser.add_argument("--train-loss", type=str, default="layer", choices=compression_train_loss_level_options,
+  parser.add_argument("--train-loss", type=str, default="intervention", choices=compression_train_loss_level_options,
                       help="The train loss level for the compression training.")
   parser.add_argument("--ae-path", type=str, default=None,
                       help="Path to trained AutoEncoder model.")
@@ -56,47 +60,46 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                args: Namespace,
                                                training_args: TrainingArgs,
                                                compression_size: int):
-  original_residual_stream_size = tl_model.cfg.d_model
+  original_d_model_size = tl_model.cfg.d_model
+  original_d_head_size = tl_model.cfg.d_head
+
+  compressed_d_model_size = ceil(original_d_model_size / 2) # compression_size
+  compressed_d_head_size = ceil(original_d_head_size / 2)
 
   new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
     tl_model,
-    overwrite_cfg_dict={"d_model": compression_size},
+    overwrite_cfg_dict={
+      "d_model": compressed_d_model_size,
+      "d_head": compressed_d_head_size,
+    },
     init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
   )
 
-  autoencoder = AutoEncoder(original_residual_stream_size,
-                            compression_size,
-                            args.ae_layers,
-                            args.ae_first_hidden_layer_shape)
-  if args.ae_path is not None:
-    # Load AutoEncoder model weights
-    autoencoder.load_weights_from_file(args.ae_path)
+  autoencoders_dict = {}
+  if args.train_loss == "intervention":
+    # Set up autoencoders for compression training
+    autoencoders_dict["blocks.*.hook_mlp_out"] = AutoEncoder(original_d_model_size,
+                                                             compressed_d_model_size,
+                                                             args.ae_layers,
+                                                             args.ae_first_hidden_layer_shape)
+    for layer in range(tl_model.cfg.n_layers):
+      for head in range(tl_model.cfg.n_heads):
+        autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
+                                                                                    compressed_d_model_size,
+                                                                                    args.ae_layers,
+                                                                                    args.ae_first_hidden_layer_shape)
   else:
-    # Train an AutoEncoder model
-    ae_training_args = TrainingArgs()
-    ae_training_args.seed = args.seed
-    ae_training_args.epochs = args.ae_epochs
-    ae_training_args.lr_start = args.ae_lr_start
-    ae_training_args.batch_size = args.ae_batch_size
-    ae_training_args.test_data_ratio = training_args.test_data_ratio
-    ae_training_args.train_data_size = training_args.train_data_size
-    ae_training_args.early_stop_test_accuracy = training_args.early_stop_test_accuracy if training_args.early_stop_test_accuracy is not None else 0.97
-    ae_training_args.lr_patience = 15
+    autoencoders_dict["*"] = AutoEncoder(original_d_model_size,
+                                         compressed_d_model_size,
+                                         args.ae_layers,
+                                         args.ae_first_hidden_layer_shape)
 
-    print(
-      f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
-    trainer = AutoEncoderTrainer(case, autoencoder, tl_model, ae_training_args,
-                                 train_loss_level=args.train_loss,
-                                 output_dir=args.output_dir)
-    final_metrics = trainer.train()
-    print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
-    print(final_metrics)
-
-  print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compression_size}.")
+  print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
+        f"compressed head size {compressed_d_head_size}.")
   trainer = NonLinearCompressedTracrTransformerTrainer(case,
                                                        tl_model,
                                                        new_tl_model,
-                                                       autoencoder,
+                                                       autoencoders_dict,
                                                        training_args,
                                                        train_loss_level=args.train_loss,
                                                        output_dir=args.output_dir,
@@ -104,9 +107,29 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                        ae_training_epochs_gap=args.ae_training_epochs_gap,
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
                                                        ae_max_training_epochs=args.ae_max_training_epochs)
-  final_metrics = trainer.train()
-  print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compression_size}: ")
+  final_metrics = trainer.train(finish_wandb_run=False)
+  print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
+        f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
+
+  iia_eval_results = evaluate_iia_on_all_ablation_types(case, tl_model, new_tl_model)
+  print(f" >>> IIA evaluation results:")
+  for node_str, result in iia_eval_results.items():
+    print(result)
+
+  # Save iia_eval_results as csv
+  iia_eval_results_df = pd.DataFrame(iia_eval_results).T
+  iia_eval_results_csv_path = f"{args.output_dir}/iia_eval_results.csv"
+  iia_eval_results_df.to_csv(iia_eval_results_csv_path, index=False)
+
+  if trainer.wandb_run is not None:
+    # save the files as artifacts to wandb
+    prefix = f"case-{case.get_index()}-multi-aes"
+    artifact = wandb.Artifact(f"{prefix}-iia-evaluation", type="csv")
+    artifact.add_file(iia_eval_results_csv_path)
+    trainer.wandb_run.log_artifact(artifact)
+
+    wandb.finish()
 
   return final_metrics
 

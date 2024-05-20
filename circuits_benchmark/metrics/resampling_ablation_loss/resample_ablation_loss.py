@@ -1,6 +1,6 @@
 import gc
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 import torch as t
@@ -11,13 +11,17 @@ from transformer_lens import HookedTransformer
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import InterventionData
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_interventions import get_interventions
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import MultiHookActivationMapper
 
 
 @dataclass
 class ResampleAblationLossOutput:
   loss: Float[Tensor, ""]
   variance_explained: Float[Tensor, ""]
+  max_loss_per_node: Dict[str, Float[Tensor, ""]]
+  mean_loss_per_node: Dict[str, Float[Tensor, ""]]
+  intervened_nodes: List[str]
 
 
 def get_resample_ablation_loss_from_inputs(
@@ -25,10 +29,12 @@ def get_resample_ablation_loss_from_inputs(
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
-    residual_stream_mapper: ResidualStreamMapper | None = None,
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
     hook_filters: List[str] | None = None,
     batch_size: int = 2048,
-    max_interventions: int = 10
+    max_interventions: int = 10,
+    max_components: int = 1,
+    is_categorical: bool = False,
 ) -> ResampleAblationLossOutput:
   # assert that clean_input and corrupted_input have the same length
   assert len(clean_inputs) == len(corrupted_inputs), "clean and corrupted inputs should have same length."
@@ -40,27 +46,33 @@ def get_resample_ablation_loss_from_inputs(
                                                             corrupted_inputs,
                                                             base_model,
                                                             hypothesis_model,
-                                                            residual_stream_mapper,
+                                                            activation_mapper,
                                                             batch_size)
 
-  return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, residual_stream_mapper,
-                                    hook_filters, max_interventions)
+  return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, activation_mapper,
+                                    hook_filters, max_interventions, max_components, is_categorical)
 
 
 def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
                                base_model: HookedTransformer,
                                hypothesis_model: HookedTransformer,
-                               residual_stream_mapper: ResidualStreamMapper | None,
+                               activation_mapper: MultiHookActivationMapper | ActivationMapper | None,
                                hook_filters: List[str] | None = None,
-                               max_interventions: int = 10):
+                               max_interventions: int = 10,
+                               max_components: int = 1,
+                               is_categorical: bool = False) -> ResampleAblationLossOutput:
   # This is a memory intensive operation, so we will garbage collect before starting.
   gc.collect()
   t.cuda.empty_cache()
 
   if hook_filters is None:
-    # by default, we use the following hooks for the intervention points.
-    # This will give 2 + n_layers * 2 intervention points.
-    hook_filters = ["hook_embed", "hook_pos_embed", "hook_attn_out", "hook_mlp_out"]
+    if activation_mapper is None or isinstance(activation_mapper, ActivationMapper):
+      # by default, we use the following hooks for the intervention points.
+      # This will give 2 + n_layers * 2 intervention points.
+      hook_filters = ["hook_embed", "hook_pos_embed", "hook_attn_out", "hook_mlp_out"]
+    else:
+      # We use all hook names that can be processed by the multi activation mapper.
+      hook_filters = [k for k in base_model.hook_dict.keys() if activation_mapper.supports_hook(k)]
 
   # we assume that both models have the same architecture. Otherwise, the comparison is flawed since they have different
   # intervention points.
@@ -82,31 +94,79 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
   # for each intervention, run both models, calculate MSE and add it to the losses.
   losses = []
   variance_explained = []
+  max_loss_per_node = {}
+  mean_loss_per_node = {}
+  intervened_nodes = set()
   for intervention in get_interventions(base_model,
                                         hypothesis_model,
                                         hook_filters,
-                                        residual_stream_mapper,
-                                        max_interventions):
+                                        activation_mapper,
+                                        max_interventions,
+                                        max_components):
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
-    intervention_losses = []
-    intervention_variance_explained = []
+    batched_data_intervention_losses = []
+    batched_data_intervention_variance_explained = []
     for intervention_data in batched_intervention_data:
       clean_inputs_batch = intervention_data.clean_inputs
 
       with intervention.hooks(base_model, hypothesis_model, intervention_data):
-        base_model_logits = base_model(clean_inputs_batch)
-        hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
+        if is_categorical:
+          # use cross entropy loss for categorical outputs.
+          base_model_logits = base_model(clean_inputs_batch)
+          hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
 
-        loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits)
+          # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
+          base_model_logits = base_model_logits[:, 1:]
+          hypothesis_model_logits = hypothesis_model_logits[:, 1:]
+
+          log_probs = hypothesis_model_logits.log_softmax(dim=-1)
+          expected_tokens = base_model_logits.argmax(dim=-1)
+
+          # Get logprobs the first seq_len-1 predictions (so we can compare them with the actual next tokens)
+          log_probs_for_tokens = log_probs.gather(dim=-1, index=expected_tokens.unsqueeze(-1)).squeeze(-1)
+
+          loss = -log_probs_for_tokens.mean()
+        else:
+          # Use MSE loss for numerical outputs.
+          base_model_logits = base_model(clean_inputs_batch)
+          hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
+          loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits)
+
         var_explained = 1 - loss / base_model_logits_variance
 
-        intervention_losses.append(loss.reshape(1))
-        intervention_variance_explained.append(var_explained.reshape(1))
+        batched_data_intervention_losses.append(loss.reshape(1))
+        batched_data_intervention_variance_explained.append(var_explained.reshape(1))
 
-    losses.append(t.cat(intervention_losses).mean().reshape(1))
-    variance_explained.append(t.cat(intervention_variance_explained).mean().reshape(1))
+    intervention_loss = t.cat(batched_data_intervention_losses).mean().reshape(1)
+    losses.append(intervention_loss)
 
-  return ResampleAblationLossOutput(loss=t.cat(losses).mean(), variance_explained=t.cat(variance_explained).mean())
+    intervention_var_exp = t.cat(batched_data_intervention_variance_explained).mean().reshape(1)
+    variance_explained.append(intervention_var_exp)
+
+    intervened_nodes.update(intervention.get_intervened_nodes())
+
+    # store the max and mean loss per hook for the intervention.
+    for node_name in intervention.get_intervened_nodes():
+      if node_name in max_loss_per_node:
+        max_loss_per_node[node_name] = max(max_loss_per_node[node_name], intervention_loss)
+      else:
+        max_loss_per_node[node_name] = intervention_loss
+
+      if node_name in mean_loss_per_node:
+        mean_loss_per_node[node_name] = t.cat([mean_loss_per_node[node_name], intervention_loss])
+      else:
+        mean_loss_per_node[node_name] = intervention_loss
+
+  for node_name in mean_loss_per_node:
+    mean_loss_per_node[node_name] = mean_loss_per_node[node_name].mean()
+
+  return ResampleAblationLossOutput(
+    loss=t.cat(losses).mean(),
+    variance_explained=t.cat(variance_explained).mean(),
+    max_loss_per_node=max_loss_per_node,
+    mean_loss_per_node=mean_loss_per_node,
+    intervened_nodes=list(intervened_nodes)
+  )
 
 
 def get_batched_intervention_data(
@@ -114,7 +174,7 @@ def get_batched_intervention_data(
     corrupted_inputs: CaseDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
-    residual_stream_mapper: ResidualStreamMapper | None = None,
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
     batch_size: int = 2048,
 ) -> List[InterventionData]:
   data = []
@@ -130,7 +190,7 @@ def get_batched_intervention_data(
 
     base_model_clean_cache = None
     hypothesis_model_clean_cache = None
-    if residual_stream_mapper is not None:
+    if activation_mapper is not None:
       # Run the clean inputs on both models and save the activation caches.
       _, base_model_clean_cache = base_model.run_with_cache(clean_inputs_batch)
       _, hypothesis_model_clean_cache = hypothesis_model.run_with_cache(clean_inputs_batch)

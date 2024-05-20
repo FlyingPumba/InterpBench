@@ -7,8 +7,8 @@ from circuits_benchmark.training.compression.causally_compressed_tracr_transform
   CausallyCompressedTracrTransformerTrainer
 from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
-from circuits_benchmark.training.compression.residual_stream_mapper.linear_mapper import LinearMapper
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.linear_mapper import LinearMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput, \
   HookedTracrTransformer
@@ -46,7 +46,7 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
       # the unembedding since TransformerLens does not have a hook for that.
       for layer in range(self.n_layers - 1):
         cache_key = utils.get_act_name("resid_post", layer)
-        compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
+        compressed_model_cache.cache_dict[cache_key] = self.get_activation_mapper().decompress(
           compressed_model_cache.cache_dict[cache_key])
 
     elif self.train_loss_level == "component":
@@ -55,12 +55,12 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
         for component in ["attn", "mlp"]:
           hook_name = f"{component}_out"
           cache_key = utils.get_act_name(hook_name, layer)
-          compressed_model_cache.cache_dict[cache_key] = self.get_residual_stream_mapper().decompress(
+          compressed_model_cache.cache_dict[cache_key] = self.get_activation_mapper().decompress(
             compressed_model_cache.cache_dict[cache_key])
 
       for component in ["embed", "pos_embed"]:
         hook_name = f"hook_{component}"
-        compressed_model_cache.cache_dict[hook_name] = self.get_residual_stream_mapper().decompress(
+        compressed_model_cache.cache_dict[hook_name] = self.get_activation_mapper().decompress(
           compressed_model_cache.cache_dict[hook_name])
 
     elif self.train_loss_level == "intervention":
@@ -83,7 +83,7 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
   def get_compressed_model(self) -> HookedTransformer:
     return self.compressed_model
 
-  def get_residual_stream_mapper(self) -> ResidualStreamMapper:
+  def get_activation_mapper(self) -> ActivationMapper | None:
     return LinearMapper(self.compressed_model.W_compress)
 
   def build_wandb_name(self):

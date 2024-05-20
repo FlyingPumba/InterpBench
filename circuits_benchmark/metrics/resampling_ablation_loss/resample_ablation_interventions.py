@@ -1,20 +1,22 @@
 import random
 from typing import List, Generator
 
-import numpy as np
 from transformer_lens import HookedTransformer
 
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Intervention
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import \
+  MultiHookActivationMapper
 
 
 def get_interventions(
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     hook_filters: List[str],
-    residual_stream_mapper: ResidualStreamMapper | None = None,
-    max_interventions: int = 10) -> Generator[Intervention, None, None]:
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
+    max_interventions: int = 10,
+    max_components: int = 1) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
   hook_names_for_patching = [name for name in hook_names
@@ -24,23 +26,38 @@ def get_interventions(
   assert all([hook_name in hypothesis_model.hook_dict for hook_name in hook_names_for_patching]), \
     "All hook names for patching should be present in the hypothesis model."
 
+  # add attention heads to attention hook names that need it
+  node_names_for_patching = []
+  attn_head_hooks = [
+    "attn.hook_result",
+    "attn.hook_z",
+    "attn.hook_attn_scores",
+    "attn.hook_pattern",
+    "attn.hook_result",
+  ]
+  for letter in "qkv":
+    attn_head_hooks.append(f"attn.hook_{letter}")
+    attn_head_hooks.append(f"hook_{letter}_input")
+  for hook_name in hook_names_for_patching[:]:
+    if any([hook_name.endswith(attn_head_hook) for attn_head_hook in attn_head_hooks]):
+      # add attention head version of hook name
+      for head in range(base_model.cfg.n_heads):
+        node_names_for_patching.append(f"{hook_name}[{head}]")
+    else:
+      node_names_for_patching.append(hook_name)
+
   # For each hook name we need to decide what type of intervention we want to apply.
-  options = InterventionType.get_available_interventions(residual_stream_mapper)
+  options = InterventionType.get_available_interventions(activation_mapper)
+  options.remove(InterventionType.NO_INTERVENTION)
 
-  # If max_interventions is greater than the total number of possible combinations, we will use all of them.
-  # Otherwise, we will use a random sample of max_interventions.
-  total_number_combinations = len(options) ** len(hook_names_for_patching)
+  for _ in range(max_interventions):
+    # choose max_components_to_intervene (no replacement) out of the node_names_for_patching
+    node_names_to_intervene = random.sample(node_names_for_patching, max_components)
 
-  if max_interventions < total_number_combinations:
-    indices = random.sample(range(total_number_combinations), max_interventions)
-  else:
-    indices = range(total_number_combinations)
+    # randomly choose the intervention type for each hook name
+    intervention_types = [random.choice(options) for _ in range(len(node_names_to_intervene))]
 
-  for index in indices:
-    # build intervention for index
-    intervention_types = np.base_repr(index, base=len(options)).zfill(len(hook_names_for_patching))
-    intervention_types = [options[int(digit)] for digit in intervention_types]
-    intervention = Intervention(hook_names_for_patching, intervention_types, residual_stream_mapper)
+    intervention = Intervention(node_names_to_intervene, intervention_types, activation_mapper)
     yield intervention
 
 
