@@ -21,7 +21,7 @@ class TrainingArgs():
   # AdamW optimizer config
   weight_decay: Optional[float] = 0.1
   beta_1: Optional[float] = 0.9
-  beta_2: Optional[float] = 0.99
+  beta_2: Optional[float] = 0.95
   gradient_clip: Optional[float] = 0.01
 
   # lr scheduler config
