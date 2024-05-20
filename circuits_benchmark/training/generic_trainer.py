@@ -150,7 +150,11 @@ class GenericTrainer:
   def update_params(self, loss: Float[Tensor, ""]):
     """Performs a gradient update step."""
     loss.backward()
-    t.nn.utils.clip_grad_norm_(self.parameters, self.args.gradient_clip)
+
+    # clip gradients to avoid exploding gradients, and log the global L2 gradient norm
+    grad_norm = t.nn.utils.clip_grad_norm_(self.parameters, self.args.gradient_clip)
+    self.test_metrics["grad_norm"] = grad_norm
+
     self.optimizer.step()
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
