@@ -6,6 +6,7 @@ import wandb
 from jaxtyping import Float, Int
 from torch import Tensor
 from torch.nn import Parameter
+from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
@@ -38,10 +39,9 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       assert self.args.resample_ablation_test_loss is False, "Resample ablation loss is only available for intervention."
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
-    # Run the input on both compressed and original model
-    clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
-
     if self.train_loss_level == "layer" or self.train_loss_level == "component":
+      clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
+
       original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(clean_data.get_inputs())
       compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(clean_data.get_inputs())
 
@@ -56,10 +56,13 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
         loss = loss + self.get_component_level_loss(compressed_model_cache, original_model_cache)
 
     elif self.train_loss_level == "intervention":
+      clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
       corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
 
-      original_model_logits = self.get_original_model()(clean_data.get_inputs())
-      compressed_model_logits = self.get_compressed_model()(clean_data.get_inputs())
+      # We calculate the output loss on the "corrupted data", which is the same as the clean data but generated on another seed,
+      # so we can reuse the activation cache for the resample ablation loss
+      original_model_logits = self.get_original_model()(corrupted_data.get_inputs())
+      compressed_model_logits, compressed_model_corrupted_cache = self.get_compressed_model().run_with_cache(corrupted_data.get_inputs())
 
       # Independently of the train loss level, we always compute the output loss since we want the compressed model to
       # have the same output as the original model.
@@ -68,7 +71,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
       if self.epochs_since_last_train_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_train_resample_ablation_loss = 0
 
-        intervention_loss = self.get_intervention_level_loss(clean_data, corrupted_data)
+        intervention_loss = self.get_intervention_level_loss(clean_data, corrupted_data, compressed_model_corrupted_cache)
         loss = loss + self.args.resample_ablation_loss_weight * intervention_loss
 
       self.epochs_since_last_train_resample_ablation_loss += 1
@@ -144,10 +147,14 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     return loss
 
-  def get_intervention_level_loss(self, clean_data: CaseDataset, corrupted_data: CaseDataset):
+  def get_intervention_level_loss(self,
+                                  clean_data: CaseDataset,
+                                  corrupted_data: CaseDataset,
+                                  compressed_model_corrupted_cache: ActivationCache):
     resample_ablation_loss_args = {
       "clean_inputs": clean_data,
       "corrupted_inputs": corrupted_data,
+      "hypothesis_model_corrupted_cache": compressed_model_corrupted_cache,
       "base_model": self.get_original_model(),
       "hypothesis_model": self.get_compressed_model(),
       "max_interventions": self.args.resample_ablation_max_interventions,

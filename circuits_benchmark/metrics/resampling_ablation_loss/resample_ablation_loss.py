@@ -6,7 +6,7 @@ import numpy as np
 import torch as t
 from jaxtyping import Float, Int
 from torch import Tensor
-from transformer_lens import HookedTransformer
+from transformer_lens import HookedTransformer, ActivationCache
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import InterventionData
@@ -35,7 +35,9 @@ def get_resample_ablation_loss_from_inputs(
     max_interventions: int = 10,
     max_components: int = 1,
     is_categorical: bool = False,
-) -> ResampleAblationLossOutput:
+    hypothesis_model_corrupted_cache: ActivationCache | None = None
+  ) -> ResampleAblationLossOutput:
+
   # assert that clean_input and corrupted_input have the same length
   assert len(clean_inputs) == len(corrupted_inputs), "clean and corrupted inputs should have same length."
   # assert that clean and corrupted inputs are not exactly the same, otherwise the comparison is flawed.
@@ -47,7 +49,8 @@ def get_resample_ablation_loss_from_inputs(
                                                             base_model,
                                                             hypothesis_model,
                                                             activation_mapper,
-                                                            batch_size)
+                                                            batch_size,
+                                                            hypothesis_model_corrupted_cache=hypothesis_model_corrupted_cache)
 
   return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, activation_mapper,
                                     hook_filters, max_interventions, max_components, is_categorical)
@@ -170,17 +173,22 @@ def get_batched_intervention_data(
     hypothesis_model: HookedTransformer,
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
     batch_size: int = 2048,
+    hypothesis_model_corrupted_cache: ActivationCache | None = None,
 ) -> List[InterventionData]:
   data = []
+  batches_count = 0
 
   for clean_inputs_batch, corrupted_inputs_batch in zip(clean_inputs.get_inputs_loader(batch_size),
                                                         corrupted_inputs.get_inputs_loader(batch_size)):
+    batches_count += 1
     clean_inputs_batch = clean_inputs_batch[CaseDataset.INPUT_FIELD]
     corrupted_inputs_batch = corrupted_inputs_batch[CaseDataset.INPUT_FIELD]
 
     # Run the corrupted inputs on both models and save the activation caches.
     _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_inputs_batch)
-    _, hypothesis_model_corrupted_cache = hypothesis_model.run_with_cache(corrupted_inputs_batch)
+
+    if hypothesis_model_corrupted_cache is None:
+      _, hypothesis_model_corrupted_cache = hypothesis_model.run_with_cache(corrupted_inputs_batch)
 
     base_model_clean_cache = None
     hypothesis_model_clean_cache = None
@@ -195,5 +203,8 @@ def get_batched_intervention_data(
                                          base_model_clean_cache,
                                          hypothesis_model_clean_cache)
     data.append(intervention_data)
+
+  assert hypothesis_model_corrupted_cache is None or batches_count == 1, \
+    "The hypothesis model corrupted cache optimization argument should only when there is a single batch."
 
   return data
