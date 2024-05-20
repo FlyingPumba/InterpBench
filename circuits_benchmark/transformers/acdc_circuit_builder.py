@@ -33,19 +33,17 @@ def build_acdc_circuit(corr: TLACDCCorrespondence) -> Circuit:
 
 
 def get_full_acdc_circuit(n_layers: int, n_heads: int) -> Circuit:
-
-    raise NotImplementedError("This function is not correct.")
-
-    # full_corr = TLACDCCorrespondence.setup_from_model(tl_model, use_pos_embed=use_pos_embed)
-    # full_circuit = build_acdc_circuit(full_corr)
     circuit = Circuit()
 
     circuit.add_node(CircuitNode("hook_embed"))
     circuit.add_node(CircuitNode("hook_pos_embed"))
 
-    resid_writers = ["hook_embed", "hook_pos_embed", "attn.hook_result", "mlp.hook_out"]
+    # nodes that write to residual stream match at least one of the following
+    resid_writers_filter = ["hook_embed", "hook_pos_embed", "attn.hook_result", "hook_mlp_out"]
 
     for layer in range(n_layers):
+        upstream_nodes = list(circuit.nodes)
+
         # attention heads
         for head in range(n_heads):
             for letter in "qkv":
@@ -61,17 +59,18 @@ def get_full_acdc_circuit(n_layers: int, n_heads: int) -> Circuit:
                 matrix_node = CircuitNode(f"blocks.{layer}.attn.hook_{letter}", head)
                 circuit.add_edge(matrix_node, attn_result_node)
 
-            current_nodes = list(circuit.nodes)
             nodes_that_receive_resid_directly = [
                 f"blocks.{layer}.hook_q_input",
                 f"blocks.{layer}.hook_k_input",
                 f"blocks.{layer}.hook_v_input",
             ]
-            for from_node in current_nodes:
-                if any([from_node.name.endswith(resid_writer) for resid_writer in resid_writers]):
-                    if f"blocks.{layer}" not in from_node.name:
+            for from_node in upstream_nodes:
+                if any([from_node.name.endswith(resid_writer) for resid_writer in resid_writers_filter]):
+                    if f"blocks.{layer}" not in from_node.name:  # discard nodes from current layer
                         for to_node_name in nodes_that_receive_resid_directly:
                             circuit.add_edge(from_node, CircuitNode(to_node_name, head))
+
+        upstream_nodes = list(circuit.nodes)
 
         # mlp
         mlp_in_node = CircuitNode(f"blocks.{layer}.hook_mlp_in")
@@ -80,10 +79,9 @@ def get_full_acdc_circuit(n_layers: int, n_heads: int) -> Circuit:
         circuit.add_node(mlp_out_node)
         circuit.add_edge(mlp_in_node, mlp_out_node)
 
-        current_nodes = list(circuit.nodes)
         nodes_that_receive_resid_directly = [mlp_in_node]
-        for from_node in current_nodes:
-            if any([from_node.name.endswith(resid_writer) for resid_writer in resid_writers]):
+        for from_node in upstream_nodes:
+            if any([from_node.name.endswith(resid_writer) for resid_writer in resid_writers_filter]):
                 if (f"blocks.{layer}" not in from_node.name) or ("attn.hook_result" in from_node.name):
                     for to_node in nodes_that_receive_resid_directly:
                         circuit.add_edge(from_node, to_node)
@@ -91,7 +89,7 @@ def get_full_acdc_circuit(n_layers: int, n_heads: int) -> Circuit:
     last_resid_post_node = CircuitNode(f"blocks.{n_layers - 1}.hook_resid_post")
     circuit.add_node(last_resid_post_node)
     for from_node in list(circuit.nodes):
-        if any([from_node.name.endswith(resid_writer) for resid_writer in resid_writers]):
+        if any([from_node.name.endswith(resid_writer) for resid_writer in resid_writers_filter]):
             circuit.add_edge(from_node, last_resid_post_node)
 
     return circuit
