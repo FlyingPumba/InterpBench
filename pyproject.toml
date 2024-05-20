@@ -32,6 +32,7 @@ argparse-dataclass = "^2.0.0"
 chex = "^0.1.85"
 dm-haiku = "^0.0.11"
 dataframe-image = "^0.2.3"
+ipython = "^8.24.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
