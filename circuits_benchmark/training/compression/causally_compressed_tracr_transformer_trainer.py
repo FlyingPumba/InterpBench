@@ -100,6 +100,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     if self.use_wandb:
       wandb.log({"output_loss": loss}, step=self.step)
+      wandb.log({"base_model_logits_std": original_model_logits.std()}, step=self.step)
+      wandb.log({"compressed_model_logits_std": compressed_model_logits.std()}, step=self.step)
 
     return loss
 
