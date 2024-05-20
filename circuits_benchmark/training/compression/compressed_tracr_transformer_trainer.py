@@ -72,9 +72,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     return None
 
   def compute_test_metrics(self):
-    test_data: Dict[str, HookedTracrTransformerBatchInput] = next(iter(self.test_loader))
-    inputs = test_data[CaseDataset.INPUT_FIELD]
-    expected_outputs = test_data[CaseDataset.CORRECT_OUTPUT_FIELD]
+    clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
+
+    inputs = clean_data.get_inputs()
+    expected_outputs = clean_data.get_correct_outputs()
     predicted_outputs = self.get_decoded_outputs_from_compressed_model(inputs)
 
     correct_predictions = []
@@ -123,12 +124,13 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_test_resample_ablation_loss = 0
 
+        corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size,
+                                                      seed=random.randint(0, 1000000))
+
         # Compute the resampling ablation loss
         resample_ablation_loss_args = {
-          "clean_inputs": self.case.get_clean_data(count=self.args.resample_ablation_data_size,
-                                                   seed=random.randint(0, 1000000)),
-          "corrupted_inputs": self.case.get_corrupted_data(count=self.args.resample_ablation_data_size,
-                                                           seed=random.randint(0, 1000000)),
+          "clean_inputs": clean_data,
+          "corrupted_inputs": corrupted_data,
           "base_model": self.get_original_model(),
           "hypothesis_model": self.get_compressed_model(),
           "max_interventions": self.args.resample_ablation_max_interventions,
