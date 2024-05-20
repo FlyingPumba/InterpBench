@@ -218,14 +218,4 @@ class Intervention(object):
 
     with base_model.hooks(base_model_hooks):
       with hypothesis_model.hooks(hypothesis_model_hooks):
-        self.freeze_not_intervened_hooks(hypothesis_model)
-
         yield self
-
-  def freeze_not_intervened_hooks(self, model: HookedTransformer):
-    affected_params = self.get_params_affected_by_interventions()
-    for param_name, param in model.named_parameters():
-      if param_name in ["embed.W_E", "pos_embed.W_pos", "unembed.W_U", "unembed.b_U"]:
-        param.requires_grad = True
-      else:
-        param.requires_grad = param_name in affected_params
