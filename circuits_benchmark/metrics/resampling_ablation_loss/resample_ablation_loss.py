@@ -4,7 +4,7 @@ from typing import List, Dict
 
 import numpy as np
 import torch as t
-from jaxtyping import Float
+from jaxtyping import Float, Int
 from torch import Tensor
 from transformer_lens import HookedTransformer
 
@@ -110,26 +110,20 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
       clean_inputs_batch = intervention_data.clean_inputs
 
       with intervention.hooks(base_model, hypothesis_model, intervention_data):
+        base_model_logits = base_model(clean_inputs_batch)
+        hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
+
+        # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
+        base_model_logits = base_model_logits[:, 1:]
+        hypothesis_model_logits = hypothesis_model_logits[:, 1:]
+
         if is_categorical:
-          # use cross entropy loss for categorical outputs.
-          base_model_logits = base_model(clean_inputs_batch)
-          hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
-
-          # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
-          base_model_logits = base_model_logits[:, 1:]
-          hypothesis_model_logits = hypothesis_model_logits[:, 1:]
-
-          log_probs = hypothesis_model_logits.log_softmax(dim=-1)
-          expected_tokens = base_model_logits.argmax(dim=-1)
-
-          # Get logprobs the first seq_len-1 predictions (so we can compare them with the actual next tokens)
-          log_probs_for_tokens = log_probs.gather(dim=-1, index=expected_tokens.unsqueeze(-1)).squeeze(-1)
-
-          loss = -log_probs_for_tokens.mean()
+          # Use Cross Entropy loss for categorical outputs.
+          flattened_logits: Float[Tensor, "batch*pos, vocab_out"] = hypothesis_model_logits.flatten(end_dim=-2)
+          flattened_expected_labels: Int[Tensor, "batch*pos"] = base_model_logits.argmax(dim=-1).flatten()
+          loss = t.nn.functional.cross_entropy(flattened_logits, flattened_expected_labels)
         else:
           # Use MSE loss for numerical outputs.
-          base_model_logits = base_model(clean_inputs_batch)
-          hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
           loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits)
 
         var_explained = 1 - loss / base_model_logits_variance
