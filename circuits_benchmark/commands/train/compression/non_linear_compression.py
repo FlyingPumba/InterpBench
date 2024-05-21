@@ -3,19 +3,18 @@ from math import ceil
 
 import pandas as pd
 import wandb
-from torch.nn import init
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.compression.auto_compression import run_auto_compression_training
-from circuits_benchmark.metrics.iia import evaluate_iia, ablation_types, evaluate_iia_on_all_ablation_types
+from circuits_benchmark.metrics.iia import evaluate_iia_on_all_ablation_types
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
 from circuits_benchmark.training.compression.non_linear_compressed_tracr_transformer_trainer import \
   NonLinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from circuits_benchmark.utils.init_functions import wang_init_method
 
 
 def setup_args_parser(subparsers):
@@ -72,9 +71,9 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
       "d_model": compressed_d_model_size,
       "d_head": compressed_d_head_size,
     },
-    init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
+    init_params_fn=wang_init_method(tl_model.cfg.n_layers, compressed_d_model_size),
   )
-  new_tl_model.normalize_output = True
+  # new_tl_model.normalize_output = True
 
   autoencoders_dict = {}
   if args.train_loss == "intervention":
