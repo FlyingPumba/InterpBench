@@ -153,6 +153,14 @@ class GenericTrainer:
     """Performs a gradient update step."""
     loss.backward()
 
+    if hasattr(self, "new_tl_model"):
+      # print gradients descending by norm
+      sorted_grads = sorted([(name, param.grad.norm()) for name, param in self.new_tl_model.named_parameters()
+                             if param.grad is not None],
+                            key=lambda x: x[1], reverse=True)
+      for name, grad_norm in sorted_grads:
+        print(f"Gradient norm for node {name}: {grad_norm:.8f}")
+
     # clip gradients to avoid exploding gradients, and log the global L2 gradient norm
     grad_norm_before_clipping = np.sqrt(sum([t.norm(p.grad.cpu())**2 for p in self.parameters if p.grad is not None]))
     self.test_metrics["grad_norm_before_clipping"] = grad_norm_before_clipping

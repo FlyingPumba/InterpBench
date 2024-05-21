@@ -106,6 +106,9 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                         activation_mapper,
                                         max_interventions,
                                         max_components):
+
+    print(f"\nRunning intervention on node {intervention.node_names[0]}")
+
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
     batched_data_intervention_losses = []
     batched_data_intervention_variance_explained = []
