@@ -15,7 +15,7 @@ def small_init_init_method(dim):
 
 
 def wang_init_method(n_layers, dim):
-  std = 2 / n_layers / math.sqrt(dim)
+  std = 2 / n_layers / math.sqrt(dim)  # Equivalent to (2 / n_layers) * (1 / math.sqrt(dim))
 
   def init_(tensor):
     return t.nn.init.normal_(tensor, mean=0.0, std=std)
