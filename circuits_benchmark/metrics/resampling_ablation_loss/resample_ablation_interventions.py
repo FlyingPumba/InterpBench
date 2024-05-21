@@ -1,5 +1,5 @@
 import random
-from typing import List, Generator
+from typing import List, Generator, Optional, Dict
 
 from transformer_lens import HookedTransformer
 
@@ -16,7 +16,8 @@ def get_interventions(
     hook_filters: List[str],
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
     max_interventions: int = 10,
-    max_components: int = 1) -> Generator[Intervention, None, None]:
+    max_components: int = 1,
+    effect_diffs_by_node: Optional[Dict[str, float]] = None) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
   hook_names_for_patching = [name for name in hook_names
@@ -52,7 +53,27 @@ def get_interventions(
 
   for _ in range(max_interventions):
     # choose max_components_to_intervene (no replacement) out of the node_names_for_patching
-    node_names_to_intervene = random.sample(node_names_for_patching, max_components)
+    if effect_diffs_by_node is None:
+      node_names_to_intervene = random.sample(node_names_for_patching, max_components)
+    else:
+      # perform Rank Selection based on effect_diffs_by_node (the largest the effect, the higher the probability)
+      node_names_to_intervene = []
+
+      # set the effect_diffs of the nodes that are not in effect_diffs_by_node to 1 (the maximum)
+      effect_diffs_by_node = effect_diffs_by_node.copy()
+      for node in node_names_for_patching:
+        if node not in effect_diffs_by_node:
+          effect_diffs_by_node[node] = 1
+
+      for _ in range(max_components):
+        # Compute rank weights. If a node is not in effect_diffs_by_node, it is considered to have an effect diff of 1 (the maximum)
+        total_effect_diff = sum([effect_diffs_by_node[node] for node in node_names_for_patching])
+        rank_weights = [effect_diffs_by_node[node] / total_effect_diff for node in node_names_for_patching]
+
+        # pick max_components out of the node_names_for_patching
+        node = random.choices(node_names_for_patching, weights=rank_weights, k=1)[0]
+        node_names_to_intervene.append(node)
+        node_names_for_patching.remove(node)
 
     # randomly choose the intervention type for each hook name
     intervention_types = [random.choice(options) for _ in range(len(node_names_to_intervene))]

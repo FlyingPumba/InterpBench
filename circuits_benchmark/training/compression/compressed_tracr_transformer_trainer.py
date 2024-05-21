@@ -38,6 +38,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     self.is_categorical = is_categorical
     self.n_layers = n_layers
+    self.effect_diffs_by_node = {}
 
     if self.args.resample_ablation_test_loss:
       self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
@@ -142,7 +143,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       for node_str, original_model_node_effect in original_model_node_effect_results.items():
         compressed_model_node_effect = compressed_model_node_effect_results[node_str]
         node_effect_diff = abs(original_model_node_effect - compressed_model_node_effect)
+
         self.test_metrics[f"{node_str}_node_effect_diff"] = node_effect_diff
+        self.effect_diffs_by_node[node_str] = node_effect_diff
+
         avg_node_effect_diff += node_effect_diff
 
       self.test_metrics["avg_node_effect_diff"] = avg_node_effect_diff / len(original_model_node_effect_results)

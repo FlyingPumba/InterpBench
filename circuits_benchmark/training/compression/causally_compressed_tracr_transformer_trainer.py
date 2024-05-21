@@ -170,6 +170,9 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     if activation_mapper is not None:
       resample_ablation_loss_args["activation_mapper"] = activation_mapper
 
+    if self.effect_diffs_by_node is not None:
+      resample_ablation_loss_args["effect_diffs_by_node"] = self.effect_diffs_by_node
+
     resample_ablation_output = get_resample_ablation_loss_from_inputs(**resample_ablation_loss_args)
 
     if self.use_wandb:

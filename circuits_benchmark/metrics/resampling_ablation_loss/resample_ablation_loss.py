@@ -1,6 +1,6 @@
 import gc
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import numpy as np
 import torch as t
@@ -36,7 +36,8 @@ def get_resample_ablation_loss_from_inputs(
     max_interventions: int = 10,
     max_components: int = 1,
     is_categorical: bool = False,
-    hypothesis_model_corrupted_cache: ActivationCache | None = None
+    hypothesis_model_corrupted_cache: ActivationCache | None = None,
+    effect_diffs_by_node: Optional[Dict[str, float]] = None
   ) -> ResampleAblationLossOutput:
 
   # assert that clean_input and corrupted_input have the same length
@@ -53,8 +54,13 @@ def get_resample_ablation_loss_from_inputs(
                                                             batch_size,
                                                             hypothesis_model_corrupted_cache=hypothesis_model_corrupted_cache)
 
-  return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model, activation_mapper,
-                                    hook_filters, max_interventions, max_components, is_categorical)
+  return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model,
+                                    activation_mapper=activation_mapper,
+                                    hook_filters=hook_filters,
+                                    max_interventions=max_interventions,
+                                    max_components=max_components,
+                                    is_categorical=is_categorical,
+                                    effect_diffs_by_node=effect_diffs_by_node)
 
 
 def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
@@ -65,7 +71,8 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                max_interventions: int = 10,
                                max_components: int = 1,
                                is_categorical: bool = False,
-                               use_node_effect_diff: bool = True) -> ResampleAblationLossOutput:
+                               use_node_effect_diff: bool = True,
+                               effect_diffs_by_node: Optional[Dict[str, float]] = None) -> ResampleAblationLossOutput:
   # This is a memory intensive operation, so we will garbage collect before starting.
   gc.collect()
   t.cuda.empty_cache()
@@ -108,7 +115,8 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                         hook_filters,
                                         activation_mapper,
                                         max_interventions,
-                                        max_components):
+                                        max_components,
+                                        effect_diffs_by_node):
 
     print(f"\nRunning intervention {intervention.node_intervention_types[0]} on node {intervention.node_names[0]}")
     for node_name in intervention.get_intervened_nodes():
