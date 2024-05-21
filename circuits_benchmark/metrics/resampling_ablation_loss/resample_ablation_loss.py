@@ -21,6 +21,7 @@ class ResampleAblationLossOutput:
   variance_explained: Float[Tensor, ""]
   max_loss_per_node: Dict[str, Float[Tensor, ""]]
   mean_loss_per_node: Dict[str, Float[Tensor, ""]]
+  interventions_per_node: Dict[str, int]
   intervened_nodes: List[str]
 
 
@@ -100,6 +101,7 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
   variance_explained = []
   max_loss_per_node = {}
   mean_loss_per_node = {}
+  interventions_per_node = {}
   intervened_nodes = set()
   for intervention in get_interventions(base_model,
                                         hypothesis_model,
@@ -109,6 +111,11 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                         max_components):
 
     print(f"\nRunning intervention {intervention.node_intervention_types[0]} on node {intervention.node_names[0]}")
+    for node_name in intervention.get_intervened_nodes():
+      if node_name in interventions_per_node:
+        interventions_per_node[node_name] += 1
+      else:
+        interventions_per_node[node_name] = 1
 
     # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
     batched_data_intervention_losses = []
@@ -198,6 +205,7 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
     variance_explained=t.cat(variance_explained).mean(),
     max_loss_per_node=max_loss_per_node,
     mean_loss_per_node=mean_loss_per_node,
+    interventions_per_node=interventions_per_node,
     intervened_nodes=list(intervened_nodes)
   )
 

@@ -32,6 +32,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     super().__init__(case, parameters, training_args, is_categorical, n_layers, output_dir=output_dir)
     self.train_loss_level = train_loss_level
     self.last_resample_ablation_loss = None
+    self.interventions_per_node = {}
 
     if self.train_loss_level == "intervention":
       self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
@@ -180,6 +181,14 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
       for hook_name, loss in resample_ablation_output.mean_loss_per_node.items():
         wandb.log({f"train_{hook_name}_mean_cp_loss": loss}, step=self.step)
+
+      for node_name, interventions_count in resample_ablation_output.interventions_per_node.items():
+        if node_name in self.interventions_per_node:
+          self.interventions_per_node[node_name] += interventions_count
+        else:
+          self.interventions_per_node[node_name] = interventions_count
+
+        wandb.log({f"{node_name}_interventions_count": self.interventions_per_node[node_name]}, step=self.step)
 
     self.last_resample_ablation_loss = resample_ablation_output.loss.item()
 
