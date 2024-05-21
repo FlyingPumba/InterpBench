@@ -134,14 +134,15 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
         hypothesis_model_clean_logits = hypothesis_model_clean_logits[:, 1:]
 
         if is_categorical:
-          # calculate labels for each position
-          base_model_clean_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_clean_logits, dim=-1)
-          base_model_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_intervened_logits, dim=-1)
-          hypothesis_model_clean_labels: Int[Tensor, "batch pos"] = t.argmax(hypothesis_model_clean_logits, dim=-1)
-          hypothesis_model_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(hypothesis_model_intervened_logits, dim=-1)
+          # calculate log softmax and compare using mse loss
+          # we want to know how much the distribution of probabilities changes for each model.
+          base_model_clean_logits = t.nn.functional.log_softmax(base_model_clean_logits, dim=-1)
+          hypothesis_model_clean_logits = t.nn.functional.log_softmax(hypothesis_model_clean_logits, dim=-1)
+          base_model_intervened_logits = t.nn.functional.log_softmax(base_model_intervened_logits, dim=-1)
+          hypothesis_model_intervened_logits = t.nn.functional.log_softmax(hypothesis_model_intervened_logits, dim=-1)
 
-          base_model_effect = (base_model_clean_labels != base_model_intervened_labels).float().mean()
-          hypothesis_model_effect = (hypothesis_model_clean_labels != hypothesis_model_intervened_labels).float().mean()
+          base_model_effect = t.nn.functional.mse_loss(base_model_clean_logits, base_model_intervened_logits)
+          hypothesis_model_effect = t.nn.functional.mse_loss(hypothesis_model_clean_logits, hypothesis_model_intervened_logits)
 
           loss = t.abs(base_model_effect - hypothesis_model_effect)
 
@@ -159,7 +160,7 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
           flattened_intervened_expected_labels: Int[Tensor, "batch*pos"] = base_model_intervened_logits.argmax(
             dim=-1).flatten()
           loss = t.nn.functional.cross_entropy(flattened_intervened_logits,
-                                                          flattened_intervened_expected_labels)
+                                               flattened_intervened_expected_labels)
         else:
           # Use MSE loss for numerical outputs.
           loss = t.nn.functional.mse_loss(base_model_intervened_logits, hypothesis_model_intervened_logits)
