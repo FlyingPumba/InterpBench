@@ -231,10 +231,6 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       compressed_model_intervened_logits = compressed_model_intervened_logits[:, 1:]
 
       if base_model.is_categorical():
-        # apply log softmax to the logits
-        base_model_intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(base_model_intervened_logits, dim=-1)
-        compressed_model_intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(compressed_model_intervened_logits, dim=-1)
-
         # calculate labels for each position
         base_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_intervened_logits, dim=-1)
         compressed_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(compressed_model_intervened_logits, dim=-1)
@@ -280,18 +276,16 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       original_logits = original_logits[:, 1:]
       intervened_logits = intervened_logits[:, 1:]
 
-      # apply log softmax to the logits
-      original_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(
-        original_logits, dim=-1)
-      intervened_logits: Float[Tensor, "batch pos vocab"] = t.nn.functional.log_softmax(
-        intervened_logits, dim=-1)
+      if model.is_categorical():
+        # calculate labels for each position
+        original_labels: Int[Tensor, "batch pos"] = t.argmax(original_logits, dim=-1)
+        intervened_labels: Int[Tensor, "batch pos"] = t.argmax(intervened_logits, dim=-1)
 
-      # calculate labels for each position
-      compressed_original_labels: Int[Tensor, "batch pos"] = t.argmax(original_logits, dim=-1)
-      compressed_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(intervened_logits, dim=-1)
-
-      effect = (compressed_original_labels != compressed_intervened_labels).float().mean().item()
-      effect_by_node[str(node)] = effect
+        effect = (original_labels != intervened_labels).float().mean().item()
+        effect_by_node[str(node)] = effect
+      else:
+        effect = 1 - t.isclose(original_logits, intervened_logits, atol=self.args.test_accuracy_atol).float().mean().item()
+        effect_by_node[str(node)] = effect
 
     return effect_by_node
 

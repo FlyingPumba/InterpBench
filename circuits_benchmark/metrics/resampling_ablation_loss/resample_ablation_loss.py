@@ -144,9 +144,11 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
           hypothesis_model_effect = (hypothesis_model_clean_labels != hypothesis_model_intervened_labels).float().mean()
 
           loss = t.abs(base_model_effect - hypothesis_model_effect)
-  
+
         else:
-          raise NotImplementedError("Numerical outputs are not supported yet.")
+          base_model_effect = t.nn.functional.mse_loss(base_model_clean_logits, base_model_intervened_logits)
+          hypothesis_model_effect = t.nn.functional.mse_loss(hypothesis_model_clean_logits, hypothesis_model_intervened_logits)
+          loss = t.abs(base_model_effect - hypothesis_model_effect)
 
       else:
         # Just compare the intervened logits of both models.
