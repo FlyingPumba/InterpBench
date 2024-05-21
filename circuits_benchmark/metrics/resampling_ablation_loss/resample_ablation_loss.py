@@ -63,7 +63,8 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                hook_filters: List[str] | None = None,
                                max_interventions: int = 10,
                                max_components: int = 1,
-                               is_categorical: bool = False) -> ResampleAblationLossOutput:
+                               is_categorical: bool = False,
+                               use_node_effect_diff: bool = True) -> ResampleAblationLossOutput:
   # This is a memory intensive operation, so we will garbage collect before starting.
   gc.collect()
   t.cuda.empty_cache()
@@ -90,8 +91,8 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
   base_model_logits_variance = []
   for intervention_data in batched_intervention_data:
     clean_inputs_batch = intervention_data.clean_inputs
-    base_model_logits = base_model(clean_inputs_batch)
-    base_model_logits_variance.append(t.var(base_model_logits).item())
+    base_model_intervened_logits = base_model(clean_inputs_batch)
+    base_model_logits_variance.append(t.var(base_model_intervened_logits).item())
   base_model_logits_variance = np.mean(base_model_logits_variance)
 
   # for each intervention, run both models, calculate MSE and add it to the losses.
@@ -116,26 +117,55 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
       clean_inputs_batch = intervention_data.clean_inputs
 
       with intervention.hooks(base_model, hypothesis_model, intervention_data):
-        base_model_logits = base_model(clean_inputs_batch)
-        hypothesis_model_logits = hypothesis_model(clean_inputs_batch)
+        base_model_intervened_logits = base_model(clean_inputs_batch)
+        hypothesis_model_intervened_logits = hypothesis_model(clean_inputs_batch)
 
-        # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
-        base_model_logits = base_model_logits[:, 1:]
-        hypothesis_model_logits = hypothesis_model_logits[:, 1:]
+      # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
+      base_model_intervened_logits = base_model_intervened_logits[:, 1:]
+      hypothesis_model_intervened_logits = hypothesis_model_intervened_logits[:, 1:]
+
+      if use_node_effect_diff:
+        # We will compare the clean vs intervened logits of both models.
+        base_model_clean_logits = base_model(clean_inputs_batch)
+        hypothesis_model_clean_logits = hypothesis_model(clean_inputs_batch)
+
+        # Remove BOS
+        base_model_clean_logits = base_model_clean_logits[:, 1:]
+        hypothesis_model_clean_logits = hypothesis_model_clean_logits[:, 1:]
 
         if is_categorical:
+          # calculate labels for each position
+          base_model_clean_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_clean_logits, dim=-1)
+          base_model_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_intervened_logits, dim=-1)
+          hypothesis_model_clean_labels: Int[Tensor, "batch pos"] = t.argmax(hypothesis_model_clean_logits, dim=-1)
+          hypothesis_model_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(hypothesis_model_intervened_logits, dim=-1)
+
+          base_model_effect = (base_model_clean_labels != base_model_intervened_labels).float().mean()
+          hypothesis_model_effect = (hypothesis_model_clean_labels != hypothesis_model_intervened_labels).float().mean()
+
+          loss = t.abs(base_model_effect - hypothesis_model_effect)
+  
+        else:
+          raise NotImplementedError("Numerical outputs are not supported yet.")
+
+      else:
+        # Just compare the intervened logits of both models.
+        if is_categorical:
           # Use Cross Entropy loss for categorical outputs.
-          flattened_logits: Float[Tensor, "batch*pos, vocab_out"] = hypothesis_model_logits.flatten(end_dim=-2)
-          flattened_expected_labels: Int[Tensor, "batch*pos"] = base_model_logits.argmax(dim=-1).flatten()
-          loss = t.nn.functional.cross_entropy(flattened_logits, flattened_expected_labels)
+          flattened_intervened_logits: Float[
+            Tensor, "batch*pos, vocab_out"] = hypothesis_model_intervened_logits.flatten(end_dim=-2)
+          flattened_intervened_expected_labels: Int[Tensor, "batch*pos"] = base_model_intervened_logits.argmax(
+            dim=-1).flatten()
+          loss = t.nn.functional.cross_entropy(flattened_intervened_logits,
+                                                          flattened_intervened_expected_labels)
         else:
           # Use MSE loss for numerical outputs.
-          loss = t.nn.functional.mse_loss(base_model_logits, hypothesis_model_logits)
+          loss = t.nn.functional.mse_loss(base_model_intervened_logits, hypothesis_model_intervened_logits)
 
-        var_explained = 1 - loss / base_model_logits_variance
+      batched_data_intervention_losses.append(loss.reshape(1))
 
-        batched_data_intervention_losses.append(loss.reshape(1))
-        batched_data_intervention_variance_explained.append(var_explained.reshape(1))
+      var_explained = 1 - loss / base_model_logits_variance
+      batched_data_intervention_variance_explained.append(var_explained.reshape(1))
 
     intervention_loss = t.cat(batched_data_intervention_losses).mean().reshape(1)
     losses.append(intervention_loss)
