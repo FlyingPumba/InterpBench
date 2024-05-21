@@ -73,7 +73,7 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     },
     init_params_fn=wang_init_method(tl_model.cfg.n_layers, compressed_d_model_size),
   )
-  # new_tl_model.normalize_output = True
+  new_tl_model.normalize_output = True
 
   autoencoders_dict = {}
   if args.train_loss == "intervention":
