@@ -74,6 +74,7 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     },
     init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
   )
+  new_tl_model.normalize_output = True
 
   autoencoders_dict = {}
   if args.train_loss == "intervention":
