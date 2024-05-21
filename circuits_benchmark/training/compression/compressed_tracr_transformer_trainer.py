@@ -147,7 +147,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
       self.test_metrics["avg_node_effect_diff"] = avg_node_effect_diff / len(original_model_node_effect_results)
 
-      self.test_metrics["iia"] = self.sample_iia(self.clean_dataset, self.corrupted_dataset)
+    self.test_metrics["iia"] = self.sample_iia(self.clean_dataset, self.corrupted_dataset)
 
     if self.args.resample_ablation_test_loss:
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
