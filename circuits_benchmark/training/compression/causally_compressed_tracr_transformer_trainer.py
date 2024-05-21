@@ -194,13 +194,6 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     return resample_ablation_output.loss
 
-  def get_lr_validation_metric(self):
-    validation_metric = super().get_lr_validation_metric()
-    if self.last_resample_ablation_loss is not None:
-      # We want to maximize the validation metric, so we subtract the resample ablation loss
-      validation_metric = validation_metric - self.last_resample_ablation_loss
-    return validation_metric
-
   def define_wandb_metrics(self):
     super().define_wandb_metrics()
 
