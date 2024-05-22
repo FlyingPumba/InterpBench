@@ -81,6 +81,14 @@ class GenericTrainer:
     print(f"Training with args: {self.args}")
     print(f"Will run for {self.epochs} epochs ({self.steps} steps).")
 
+    if self.use_wandb:
+      self.wandb_run = wandb.init(project=self.args.wandb_project,
+                                  name=self.args.wandb_name,
+                                  config=self.get_wandb_config(),
+                                  tags=self.get_wandb_tags(),
+                                  notes=self.get_wandb_notes())
+      self.define_wandb_metrics()
+
 
   def setup_dataset(self):
     """Prepare the dataset and split it into train and test sets."""
@@ -90,14 +98,6 @@ class GenericTrainer:
     """
     Trains the model, for `self.args.epochs` epochs.
     """
-    if self.use_wandb:
-      self.wandb_run = wandb.init(project=self.args.wandb_project,
-                                  name=self.args.wandb_name,
-                                  config=self.get_wandb_config(),
-                                  tags=self.get_wandb_tags(),
-                                  notes=self.get_wandb_notes())
-      self.define_wandb_metrics()
-
     self.training_progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
     for i in range(self.epochs):
       self.epoch = i
