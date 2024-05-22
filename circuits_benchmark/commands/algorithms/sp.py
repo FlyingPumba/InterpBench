@@ -17,6 +17,7 @@ from subnetwork_probing.train import NodeLevelMaskedTransformer
 
 # from acdc.acdc_utils import kl_divergence
 from functools import partial
+from circuits_benchmark.utils.iit import make_ll_cfg
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.node_sp import train_sp
 from circuits_benchmark.metrics.validation_metrics import l2_metric
@@ -76,7 +77,7 @@ def setup_args_parser(subparsers):
     # parser.add_argument("--torch-num-threads", type=int, default=0)
     parser.add_argument("--print-stats", type=int, default=1, required=False)
     parser.add_argument("--print-every", type=int, default=1, required=False)
-    parser.add_argument("--atol", type=float, default=1e-2, required=False)
+    parser.add_argument("--atol", type=float, default=5e-2, required=False)
     parser.add_argument("--compressed-model", action="store_true")
     parser.add_argument("--tracr", action="store_true")
 
@@ -144,17 +145,7 @@ def run_sp(
             case, tracr_output=case.get_tracr_output()
         )
 
-        cfg_dict = {
-            "n_layers": 2,
-            "n_heads": 4,
-            "d_head": 4,
-            "d_model": 8,
-            "d_mlp": 16,
-            "seed": 0,
-            "act_fn": "gelu",
-        }
-        ll_cfg = hl_model.cfg.to_dict().copy()
-        ll_cfg.update(cfg_dict)
+        ll_cfg = make_ll_cfg(hl_model)
 
         tl_model = HookedTracrTransformer(
             ll_cfg,
@@ -167,6 +158,8 @@ def run_sp(
         tl_model.load_weights_from_file(
             f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_510.pth"
         )
+        if output_suffix == "":
+            output_suffix = f"weight_510"
 
     # Check that dot program is in path
     if not shutil.which("dot"):
@@ -231,14 +224,12 @@ def run_sp(
     )
 
     output_dir = os.path.join(
-        args.output_dir, f"results/sp_{case.get_index()}", output_suffix
+        args.output_dir, f"{'edge_' if args.edgewise else 'node_'}sp_{case.get_index()}", output_suffix
     )
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    images_output_dir = os.path.join(
-        output_dir, f"results/sp_{case.get_index()}", "images"
-    )
+    images_output_dir = os.path.join(output_dir, "images")
     if not os.path.exists(images_output_dir):
         os.makedirs(images_output_dir)
 
@@ -281,9 +272,10 @@ def run_sp(
             eval_fn=eval_fn_to_use,
         )
         percentage_binary = masked_model.proportion_of_binary_scores()
-        sp_circuit = build_acdc_circuit(
-            corr=masked_model.get_edge_level_correspondence_from_masks(use_pos_embed=use_pos_embed)
+        sp_corr = masked_model.get_edge_level_correspondence_from_masks(
+            use_pos_embed=use_pos_embed
         )
+        sp_circuit = build_acdc_circuit(corr=sp_corr)
     else:
         masked_model, log_dict = train_sp(
             args=args,
@@ -293,16 +285,19 @@ def run_sp(
         from subnetwork_probing.train import proportion_of_binary_scores
 
         percentage_binary = proportion_of_binary_scores(masked_model)
-        corr, _ = iterative_correspondence_from_mask(
-            masked_model.model, log_dict["nodes_to_mask"],
-            use_pos_embed=use_pos_embed
+        sp_corr, _ = iterative_correspondence_from_mask(
+            masked_model.model,
+            log_dict["nodes_to_mask"],
+            use_pos_embed=use_pos_embed,
         )
-        sp_circuit = build_acdc_circuit(corr=corr)
+        sp_circuit = build_acdc_circuit(corr=sp_corr)
 
     # Update dict with some different things
     # log_dict["nodes_to_mask"] = list(map(str, log_dict["nodes_to_mask"]))
     # to_log_dict["number_of_edges"] = corr.count_no_edges() TODO
     log_dict["percentage_binary"] = percentage_binary
+    # save sp circuit edges
+    save_edges(sp_corr, f"{output_dir}/edges.pkl")
 
     if calculate_fpr_tpr:
         print("Calculating FPR and TPR for regularizer", args.lambda_reg)

@@ -25,14 +25,22 @@ def make_iit_hl_model(hl_model):
                     y.argmax(dim=-1), num_classes=y.shape[-1]
                 ).float()
             return y
-
+        
+        def get_correct_input(self, input):
+            if isinstance(input, tuple):
+                return input[0]
+            elif isinstance(input, torch.Tensor):
+                return input
+            else:
+                raise ValueError(f"Invalid input type: {type(input)}")
+        
         def forward(self, input):
-            x, _, _ = input
+            x = self.get_correct_input(input)
             out = self.hl_model(x)
             return self.create_hl_output(out)
 
         def run_with_hooks(self, input, *args, **kwargs):
-            x, _, _ = input
+            x = self.get_correct_input(input)
             out = self.hl_model.run_with_hooks(x, *args, **kwargs)
             # if self.hl_model.is_categorical():
             #     return out.argmax(dim=1)

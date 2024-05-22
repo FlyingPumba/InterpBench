@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from argparse import Namespace
+import pickle
 
 import torch as t
 import wandb
@@ -158,8 +159,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             json.dump(config, f)
 
         # TODO: save the config
-        # ll_model_cfg = model_pair.ll_model.cfg
-        # ll_model_cfg_dict = ll_model_cfg.to_dict()
-
-        # with open(f"{save_dir}/ll_model_cfg_{weight_int}.json", "w") as f:
-        #     json.dump(ll_model_cfg_dict, f)
+        ll_model_cfg = model_pair.ll_model.cfg
+        ll_model_cfg_dict = ll_model_cfg.to_dict()
+        
+        pickle.dump(ll_model_cfg_dict, open(f"{save_dir}/ll_model_cfg_{weight_int}.pkl", "wb"))
