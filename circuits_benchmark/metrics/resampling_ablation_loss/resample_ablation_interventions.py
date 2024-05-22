@@ -68,10 +68,12 @@ def get_interventions(
         if node not in effect_diffs_by_node:
           effect_diffs_by_node[node] = 1
 
+        if effect_diffs_by_node[node] == 0:
+          effect_diffs_by_node[node] = 1e-7  # to avoid division by zero
+
       for _ in range(components_to_intervene):
         # Compute rank weights. If a node is not in effect_diffs_by_node, it is considered to have an effect diff of 1 (the maximum)
         total_effect_diff: float = sum([effect_diffs_by_node[node] for node in node_names_for_patching_in_this_intervention])
-        total_effect_diff = max(total_effect_diff, 1e-7)  # to avoid division by zero
         rank_weights = [effect_diffs_by_node[node] / total_effect_diff for node in node_names_for_patching_in_this_intervention]
 
         # pick max_components out of the node_names_for_patching_in_this_intervention
