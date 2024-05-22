@@ -1,3 +1,4 @@
+import dataclasses
 from argparse import Namespace
 from math import ceil
 
@@ -101,6 +102,13 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                          args.ae_layers,
                                          args.ae_first_hidden_layer_shape)
 
+  ae_training_args = dataclasses.replace(training_args,
+                                         wandb_project=None,
+                                         wandb_name=None,
+                                         epochs=args.ae_epochs,
+                                         batch_size=args.ae_batch_size,
+                                         lr_start=args.ae_lr_start)
+
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}.")
   trainer = NonLinearCompressedTracrTransformerTrainer(case,
@@ -111,6 +119,7 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                        train_loss_level=args.train_loss,
                                                        output_dir=args.output_dir,
                                                        freeze_ae_weights=args.freeze_ae_weights,
+                                                       ae_training_args=ae_training_args,
                                                        ae_training_epochs_gap=args.ae_training_epochs_gap,
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
                                                        ae_max_training_epochs=args.ae_max_training_epochs)
