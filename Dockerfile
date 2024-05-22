@@ -2,7 +2,7 @@
 # https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0
 # https://github.com/orgs/python-poetry/discussions/1879#discussioncomment-2255728
 
-FROM python:3.10-buster as base
+FROM python:3.11.6 as base
 
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
