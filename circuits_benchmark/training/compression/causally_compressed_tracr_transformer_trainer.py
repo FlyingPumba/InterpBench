@@ -29,10 +29,11 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
                n_layers: int,
                train_loss_level: CompressionTrainLossLevel = "layer",
                output_dir: str | None = None):
-    super().__init__(case, parameters, training_args, is_categorical, n_layers, output_dir=output_dir)
     self.train_loss_level = train_loss_level
     self.last_resample_ablation_loss = None
     self.interventions_per_node = {}
+
+    super().__init__(case, parameters, training_args, is_categorical, n_layers, output_dir=output_dir)
 
     if self.train_loss_level == "intervention":
       self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
