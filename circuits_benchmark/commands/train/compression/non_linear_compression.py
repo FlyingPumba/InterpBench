@@ -78,18 +78,25 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
   autoencoders_dict = {}
   if args.train_loss == "intervention":
     # Set up autoencoders for compression training
-    autoencoders_dict["blocks.*.hook_mlp_out"] = AutoEncoder(original_d_model_size,
-                                                             compressed_d_model_size,
-                                                             args.ae_layers,
-                                                             args.ae_first_hidden_layer_shape)
-    for layer in range(tl_model.cfg.n_layers):
-      for head in range(tl_model.cfg.n_heads):
-        autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
-                                                                                    compressed_d_model_size,
-                                                                                    args.ae_layers,
-                                                                                    args.ae_first_hidden_layer_shape)
+    if case.get_index() == "5":
+      autoencoders_dict["blocks.*.hook_mlp_out"] = AutoEncoder(original_d_model_size,
+                                                               compressed_d_model_size,
+                                                               args.ae_layers,
+                                                               args.ae_first_hidden_layer_shape)
+      for layer in range(tl_model.cfg.n_layers):
+        for head in range(tl_model.cfg.n_heads):
+          autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
+                                                                                      compressed_d_model_size,
+                                                                                      args.ae_layers,
+                                                                                      args.ae_first_hidden_layer_shape)
+    else:
+      ae = AutoEncoder(original_d_model_size,
+                       compressed_d_model_size,
+                       args.ae_layers,
+                       args.ae_first_hidden_layer_shape)
+      autoencoders_dict["hook_embed|hook_pos_embed|.*hook_attn_out|.*hook_mlp_out"] = ae
   else:
-    autoencoders_dict["*"] = AutoEncoder(original_d_model_size,
+    autoencoders_dict[".*"] = AutoEncoder(original_d_model_size,
                                          compressed_d_model_size,
                                          args.ae_layers,
                                          args.ae_first_hidden_layer_shape)

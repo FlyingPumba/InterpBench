@@ -44,10 +44,7 @@ class MultiHookActivationMapper(object):
         mapper_key = mapper_key.split("[")[0]
 
       # replace square brackets and dots with escaped versions
-      mapper_key = mapper_key.replace("[", "\\[").replace("]", "\\]").replace(".", "\\.")
-
-      # replace * with a regex pattern
-      mapper_key = mapper_key.replace("*", ".*")
+      mapper_key = mapper_key.replace("[", "\\[").replace("]", "\\]")
 
       # convert the mapper_key to a regex pattern
       regex = re.compile(f"^{mapper_key}$")
