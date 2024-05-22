@@ -71,7 +71,7 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                max_interventions: int = 10,
                                max_components: int = 1,
                                is_categorical: bool = False,
-                               use_node_effect_diff: bool = True,
+                               use_node_effect_diff: bool = False,
                                effect_diffs_by_node: Optional[Dict[str, float]] = None) -> ResampleAblationLossOutput:
   # This is a memory intensive operation, so we will garbage collect before starting.
   gc.collect()
