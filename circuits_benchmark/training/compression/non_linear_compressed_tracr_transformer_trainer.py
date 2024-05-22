@@ -152,6 +152,11 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
           ae_trainer.compute_test_metrics()
           wandb.log({f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}, step=self.step)
 
+    # log norm of all params individually
+    if self.use_wandb:
+      for name, param in self.new_tl_model.named_parameters():
+        wandb.log({f"param_{name}_norm": param.norm()}, step=self.step)
+
   def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
     return self.new_tl_model(inputs, return_type="decoded")
 
