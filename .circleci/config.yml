@@ -6,7 +6,7 @@ orbs:
 jobs:
   test:
     docker:
-      - image: cimg/python:3.10
+      - image: cimg/python:3.11.6
     steps:
       - checkout
       - run:
@@ -27,7 +27,7 @@ jobs:
           path: junit.xml
   deploy:
     docker:
-      - image: cimg/python:3.10
+      - image: cimg/python:3.11.6
     steps:
       - checkout
       - setup_remote_docker
