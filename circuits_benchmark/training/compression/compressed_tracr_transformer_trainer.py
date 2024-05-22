@@ -112,7 +112,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
                                                                expected_outputs_tensor).item()
 
     # measure the effect of each node on the compressed model's output
-    if self.epoch % 20 == 0:
+    if self.epoch % 50 == 0:
       corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size,
                                                     seed=random.randint(0, 1000000))
 
@@ -151,7 +151,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
       self.test_metrics["avg_node_effect_diff"] = avg_node_effect_diff / len(original_model_node_effect_results)
 
-    if self.epoch % 10 == 0:
+    if self.epoch % 100 == 0:
       self.test_metrics["iia"] = self.sample_iia(self.clean_dataset, self.corrupted_dataset)
 
     if self.args.resample_ablation_test_loss:
@@ -196,7 +196,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
 
-  def sample_iia(self, clean_data, corrupted_data, percentage_nodes_to_sample: Optional[float] = 0.2):
+  def sample_iia(self, clean_data, corrupted_data, percentage_nodes_to_sample: Optional[float] = 1):
     iia = 0.0
 
     base_model = self.get_original_model()
