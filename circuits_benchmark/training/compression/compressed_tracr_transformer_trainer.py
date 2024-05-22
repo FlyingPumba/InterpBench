@@ -34,11 +34,11 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
                is_categorical: bool,
                n_layers: int,
                output_dir: str | None = None):
-    super().__init__(case, parameters, training_args, output_dir=output_dir)
-
     self.is_categorical = is_categorical
     self.n_layers = n_layers
     self.effect_diffs_by_node = {}
+
+    super().__init__(case, parameters, training_args, output_dir=output_dir)
 
     if self.args.resample_ablation_test_loss:
       self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
