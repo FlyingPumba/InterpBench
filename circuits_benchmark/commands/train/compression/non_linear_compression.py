@@ -53,6 +53,8 @@ def setup_args_parser(subparsers):
                       help="The max number of epochs to use for training when autoencoder weights are not frozen.")
   parser.add_argument("--ae-desired-test-mse", type=float, default=1e-3,
                       help="The desired test mean squared error for the autoencoder.")
+  parser.add_argument("--ae-train-loss-weight", type=float, default=100,
+                      help="The weight for the autoencoder training loss in the total loss.")
 
 
 def run_single_non_linear_compression_training(case: BenchmarkCase,
@@ -122,7 +124,8 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
                                                        ae_training_args=ae_training_args,
                                                        ae_training_epochs_gap=args.ae_training_epochs_gap,
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
-                                                       ae_max_training_epochs=args.ae_max_training_epochs)
+                                                       ae_max_training_epochs=args.ae_max_training_epochs,
+                                                       ae_train_loss_weight=args.ae_train_loss_weight)
   final_metrics = trainer.train(finish_wandb_run=False)
   print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}:")

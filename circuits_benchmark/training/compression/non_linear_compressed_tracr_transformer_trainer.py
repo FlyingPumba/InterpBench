@@ -36,7 +36,8 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                ae_training_epochs_gap: int = 10,
                ae_desired_test_mse: float = 1e-3,
                ae_max_training_epochs: int = 15,
-               ae_training_args: TrainingArgs = None):
+               ae_training_args: TrainingArgs = None,
+               ae_train_loss_weight: int = 100):
     self.old_tl_model: HookedTracrTransformer = old_tl_model
     self.old_tl_model.freeze_all_weights()
 
@@ -44,6 +45,8 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     self.autoencoders_dict: Dict[str, AutoEncoder] = autoencoders_dict
     self.autoencoder_trainers_dict: Dict[str, AutoEncoderTrainer] = {}
     self.device = old_tl_model.device
+
+    self.ae_train_loss_weight = ae_train_loss_weight
 
     parameters = list(new_tl_model.parameters())
     self.freeze_ae_weights = freeze_ae_weights
@@ -131,7 +134,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
           ae_train_losses.append(ae_train_loss)
 
         avg_ae_train_loss = t.mean(t.stack(ae_train_losses))
-        train_loss += avg_ae_train_loss
+        train_loss += self.ae_train_loss_weight * avg_ae_train_loss
 
       if self.use_wandb and avg_ae_train_loss is not None:
         # We performed training for the AutoEncoder. Log average train loss and test metrics
