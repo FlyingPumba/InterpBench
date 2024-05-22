@@ -86,28 +86,7 @@ class TracrUniqueDataset(TracrIITDataset):
 
     @staticmethod
     def collate_fn(batch, hl_model, device=DEVICE):
-        def get_encoded_input_from_torch_input(xy):
-            """Encode input to the format expected by the model"""
-            x, y = zip(*xy)
-            encoded_x = hl_model.map_tracr_input_to_tl_input(x)
-
-            if hl_model.is_categorical():
-                y = list(y)
-                for i in range(len(y)):
-                    y[i] = [0] + hl_model.tracr_output_encoder.encode(y[i][1:])
-                y = list(map(list, zip(*y)))
-                y = torch.tensor(y, dtype=torch.long).transpose(0, 1)
-                # print(y, y.shape)
-                num_classes = len(hl_model.tracr_output_encoder.encoding_map.keys())
-                y = torch.nn.functional.one_hot(y, num_classes=num_classes).float()
-            else:
-                y = list(map(list, zip(*y)))
-                y[0] = list(np.zeros(len(y[0])))
-                y = torch.tensor(y, dtype=torch.float32).transpose(0, 1)
-            intermediate_values = None
-            return encoded_x.to(device), y.to(device), intermediate_values
-
-        encoded_base_input = get_encoded_input_from_torch_input(batch)
+        encoded_base_input = get_encoded_input_from_torch_input(batch, hl_model, device)
         return encoded_base_input
 
 
