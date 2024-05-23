@@ -39,6 +39,7 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
     self.tracr_input_encoder = tracr_input_encoder
     self.tracr_output_encoder = tracr_output_encoder
     self.residual_stream_labels = residual_stream_labels
+    self.normalize_output = False
 
     if "use_hook_mlp_in" in self.cfg.to_dict():  # Tracr models always include MLPs
       self.set_use_hook_mlp_in(True)
@@ -95,7 +96,7 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
 
   def load_weights_from_file(self, path: str):
     """Loads the transformer weights from file."""
-    self.load_state_dict(t.load(path))
+    self.load_state_dict(t.load(path, map_location=self.device))
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
@@ -114,7 +115,10 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
     tl_batch_input = self.map_tracr_input_to_tl_input(batch_input)
     logits = self(tl_batch_input)
     if return_type == "logits":
-      return logits
+      if hasattr(self, "normalize_output") and getattr(self, "normalize_output"):
+        return t.nn.functional.normalize(logits)
+      else:
+        return logits
     else:
       return self.map_tl_output_to_tracr_output(logits)
 

@@ -23,19 +23,26 @@ def get_encoded_input_from_torch_input(xy, hl_model, device):
     x, y = zip(*xy)
     encoded_x = hl_model.map_tracr_input_to_tl_input(x)
 
+    # if hl_model.is_categorical():
+    #     y = list(y)
+    #     for i in range(len(y)):
+    #         y[i] = [0] + hl_model.tracr_output_encoder.encode(y[i][1:])
+    #     y = list(map(list, zip(*y)))
+    #     y = torch.tensor(y, dtype=torch.long).transpose(0, 1)
+    #     # print(y, y.shape)
+    #     num_classes = len(hl_model.tracr_output_encoder.encoding_map.keys())
+    #     y = torch.nn.functional.one_hot(y, num_classes=num_classes).float()
+    # else:
+    #     y = list(map(list, zip(*y)))
+    #     y[0] = list(np.zeros(len(y[0])))
+    #     y = torch.tensor(y, dtype=torch.float32).transpose(0, 1)
+    with torch.no_grad():
+        y = hl_model(encoded_x)
+    
     if hl_model.is_categorical():
-        y = list(y)
-        for i in range(len(y)):
-            y[i] = [0] + hl_model.tracr_output_encoder.encode(y[i][1:])
-        y = list(map(list, zip(*y)))
-        y = torch.tensor(y, dtype=torch.long).transpose(0, 1)
-        # print(y, y.shape)
-        num_classes = len(hl_model.tracr_output_encoder.encoding_map.keys())
-        y = torch.nn.functional.one_hot(y, num_classes=num_classes).float()
-    else:
-        y = list(map(list, zip(*y)))
-        y[0] = list(np.zeros(len(y[0])))
-        y = torch.tensor(y, dtype=torch.float32).transpose(0, 1)
+        # convert to one-hot
+        y = torch.nn.functional.one_hot(y.argmax(dim=-1), num_classes=y.shape[-1]).float()
+
     intermediate_values = None
     return encoded_x.to(device), y.to(device), intermediate_values
 

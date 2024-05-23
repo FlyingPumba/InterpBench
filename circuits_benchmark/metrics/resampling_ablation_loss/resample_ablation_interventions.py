@@ -1,20 +1,23 @@
 import random
-from typing import List, Generator
+from typing import List, Generator, Optional, Dict
 
-import numpy as np
 from transformer_lens import HookedTransformer
 
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Intervention
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import \
+  MultiHookActivationMapper
 
 
 def get_interventions(
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     hook_filters: List[str],
-    residual_stream_mapper: ResidualStreamMapper | None = None,
-    max_interventions: int = 10) -> Generator[Intervention, None, None]:
+    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
+    max_interventions: int = 10,
+    max_components: int = 1,
+    effect_diffs_by_node: Optional[Dict[str, float]] = None) -> Generator[Intervention, None, None]:
   """Builds the different combinations for possible interventions on the base and hypothesis models."""
   hook_names: List[str | None] = list(base_model.hook_dict.keys())
   hook_names_for_patching = [name for name in hook_names
@@ -24,23 +27,65 @@ def get_interventions(
   assert all([hook_name in hypothesis_model.hook_dict for hook_name in hook_names_for_patching]), \
     "All hook names for patching should be present in the hypothesis model."
 
+  # add attention heads to attention hook names that need it
+  node_names_for_patching = []
+  attn_head_hooks = [
+    "attn.hook_result",
+    "attn.hook_z",
+    "attn.hook_attn_scores",
+    "attn.hook_pattern",
+    "attn.hook_result",
+  ]
+  for letter in "qkv":
+    attn_head_hooks.append(f"attn.hook_{letter}")
+    attn_head_hooks.append(f"hook_{letter}_input")
+  for hook_name in hook_names_for_patching[:]:
+    if any([hook_name.endswith(attn_head_hook) for attn_head_hook in attn_head_hooks]):
+      # add attention head version of hook name
+      for head in range(base_model.cfg.n_heads):
+        node_names_for_patching.append(f"{hook_name}[{head}]")
+    else:
+      node_names_for_patching.append(hook_name)
+
   # For each hook name we need to decide what type of intervention we want to apply.
-  options = InterventionType.get_available_interventions(residual_stream_mapper)
+  # options = InterventionType.get_available_interventions(activation_mapper)
+  # options.remove(InterventionType.NO_INTERVENTION)
+  options = [InterventionType.REGULAR_CORRUPTED]
 
-  # If max_interventions is greater than the total number of possible combinations, we will use all of them.
-  # Otherwise, we will use a random sample of max_interventions.
-  total_number_combinations = len(options) ** len(hook_names_for_patching)
+  for _ in range(max_interventions):
+    components_to_intervene = random.randint(1, min(max_components, len(node_names_for_patching)))
 
-  if max_interventions < total_number_combinations:
-    indices = random.sample(range(total_number_combinations), max_interventions)
-  else:
-    indices = range(total_number_combinations)
+    if effect_diffs_by_node is None:
+      # choose components_to_intervene (no replacement) out of the node_names_for_patching
+      node_names_to_intervene = random.sample(node_names_for_patching, components_to_intervene)
+    else:
+      # perform Rank Selection based on effect_diffs_by_node (the largest the effect, the higher the probability)
+      node_names_to_intervene = []
 
-  for index in indices:
-    # build intervention for index
-    intervention_types = np.base_repr(index, base=len(options)).zfill(len(hook_names_for_patching))
-    intervention_types = [options[int(digit)] for digit in intervention_types]
-    intervention = Intervention(hook_names_for_patching, intervention_types, residual_stream_mapper)
+      # set the effect_diffs of the nodes that are not in effect_diffs_by_node to 1 (the maximum)
+      effect_diffs_by_node = effect_diffs_by_node.copy()
+      node_names_for_patching_in_this_intervention = node_names_for_patching[:]
+      for node in node_names_for_patching_in_this_intervention:
+        if node not in effect_diffs_by_node:
+          effect_diffs_by_node[node] = 1
+
+        if effect_diffs_by_node[node] == 0:
+          effect_diffs_by_node[node] = 1e-7  # to avoid division by zero
+
+      for _ in range(components_to_intervene):
+        # Compute rank weights. If a node is not in effect_diffs_by_node, it is considered to have an effect diff of 1 (the maximum)
+        total_effect_diff: float = sum([effect_diffs_by_node[node] for node in node_names_for_patching_in_this_intervention])
+        rank_weights = [effect_diffs_by_node[node] / total_effect_diff for node in node_names_for_patching_in_this_intervention]
+
+        # pick max_components out of the node_names_for_patching_in_this_intervention
+        node = random.choices(node_names_for_patching_in_this_intervention, weights=rank_weights, k=1)[0]
+        node_names_to_intervene.append(node)
+        node_names_for_patching_in_this_intervention.remove(node)
+
+    # randomly choose the intervention type for each hook name
+    intervention_types = [random.choice(options) for _ in range(len(node_names_to_intervene))]
+
+    intervention = Intervention(node_names_to_intervene, intervention_types, activation_mapper)
     yield intervention
 
 

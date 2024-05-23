@@ -1,6 +1,7 @@
 from enum import Enum
 
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import MultiHookActivationMapper
 
 
 class InterventionType(Enum):
@@ -38,9 +39,9 @@ class InterventionType(Enum):
             InterventionType.CLEAN_DECOMPRESSION, InterventionType.NO_INTERVENTION]
 
   @staticmethod
-  def get_available_interventions(residual_stream_mapper: ResidualStreamMapper | None = None):
-    """Returns the available interventions according to the provided residual_stream_mapper."""
-    if residual_stream_mapper is None:
+  def get_available_interventions(activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None):
+    """Returns the available interventions according to the provided activation_mapper."""
+    if activation_mapper is None:
       return [InterventionType.REGULAR_CORRUPTED, InterventionType.NO_INTERVENTION]
     else:
       return InterventionType.get_all()

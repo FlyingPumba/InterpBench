@@ -1,6 +1,6 @@
 import dataclasses
 import sys
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import numpy as np
 import torch as t
@@ -81,15 +81,6 @@ class GenericTrainer:
     print(f"Training with args: {self.args}")
     print(f"Will run for {self.epochs} epochs ({self.steps} steps).")
 
-
-  def setup_dataset(self):
-    """Prepare the dataset and split it into train and test sets."""
-    raise NotImplementedError
-
-  def train(self):
-    """
-    Trains the model, for `self.args.epochs` epochs.
-    """
     if self.use_wandb:
       self.wandb_run = wandb.init(project=self.args.wandb_project,
                                   name=self.args.wandb_name,
@@ -98,6 +89,15 @@ class GenericTrainer:
                                   notes=self.get_wandb_notes())
       self.define_wandb_metrics()
 
+
+  def setup_dataset(self):
+    """Prepare the dataset and split it into train and test sets."""
+    raise NotImplementedError
+
+  def train(self, finish_wandb_run: Optional[bool] = True):
+    """
+    Trains the model, for `self.args.epochs` epochs.
+    """
     self.training_progress_bar = tqdm(total=len(self.train_loader) * self.epochs)
     for i in range(self.epochs):
       self.epoch = i
@@ -123,7 +123,7 @@ class GenericTrainer:
     if self.output_dir is not None:
       self.save_artifacts()
 
-    if self.use_wandb:
+    if self.use_wandb and finish_wandb_run:
       wandb.finish()
 
     return {**self.test_metrics, "train_loss": self.train_loss.item()}
@@ -140,6 +140,8 @@ class GenericTrainer:
     self.optimizer.zero_grad()
 
     loss = self.compute_train_loss(inputs)
+    if self.use_wandb:
+      wandb.log({"train_loss": loss}, step=self.step)
 
     self.update_params(loss)
 
@@ -150,6 +152,22 @@ class GenericTrainer:
   def update_params(self, loss: Float[Tensor, ""]):
     """Performs a gradient update step."""
     loss.backward()
+
+    if hasattr(self, "new_tl_model"):
+      # print gradients descending by norm
+      sorted_grads = sorted([(name, param.grad.norm()) for name, param in self.new_tl_model.named_parameters()
+                             if param.grad is not None],
+                            key=lambda x: x[1], reverse=True)
+      for name, grad_norm in sorted_grads:
+        print(f"Gradient norm for node {name}: {grad_norm:.8f}")
+
+    # clip gradients to avoid exploding gradients, and log the global L2 gradient norm
+    grad_norm_before_clipping = np.sqrt(sum([t.norm(p.grad.cpu())**2 for p in self.parameters if p.grad is not None]))
+    self.test_metrics["grad_norm_before_clipping"] = grad_norm_before_clipping
+    t.nn.utils.clip_grad_norm_(self.parameters, self.args.gradient_clip)
+    grad_norm_after_clipping = np.sqrt(sum([t.norm(p.grad.cpu()) ** 2 for p in self.parameters if p.grad is not None]))
+    self.test_metrics["grad_norm_after_clipping"] = grad_norm_after_clipping
+
     self.optimizer.step()
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
@@ -165,7 +183,7 @@ class GenericTrainer:
     if len(self.test_metrics.items()) == 0:
       return ""
     else:
-      return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in self.test_metrics.items()]))[:-2]
+      return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in list(self.test_metrics.items())[:3]]))[:-2]
 
   def build_wandb_name(self):
     return f"case-{self.case.get_index()}-generic-training"

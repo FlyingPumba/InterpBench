@@ -1,3 +1,5 @@
+import re
+
 import torch as t
 import wandb
 from jaxtyping import Float
@@ -21,12 +23,14 @@ class AutoEncoderTrainer(GenericTrainer):
                tl_model: HookedTracrTransformer,
                args: TrainingArgs,
                train_loss_level: CompressionTrainLossLevel = "layer",
+               hook_name_filter_for_input_activations: str | None = None,
                output_dir: str | None = None):
     self.autoencoder = autoencoder
     self.tl_model = tl_model
     self.tl_model_n_layers = tl_model.cfg.n_layers
     self.tl_model.freeze_all_weights()
     self.train_loss_level = train_loss_level
+    self.hook_name_for_input_activations = hook_name_filter_for_input_activations
     super().__init__(case, list(autoencoder.parameters()), args, output_dir=output_dir)
 
   def setup_dataset(self):
@@ -36,29 +40,45 @@ class AutoEncoderTrainer(GenericTrainer):
 
     named_data = {}
 
-    if self.train_loss_level == "layer":
-      # collect the residual stream activations from all layers
-      for layer in range(self.tl_model_n_layers):
-        named_data[f"layer_{layer}_resid_pre"] = tl_cache["resid_pre", layer]
-      named_data[f"layer_{self.tl_model_n_layers-1}_resid_post"] = tl_cache["resid_post", self.tl_model_n_layers-1]
+    if self.hook_name_for_input_activations is None:
+      if self.train_loss_level == "layer":
+        # collect the residual stream activations from all layers
+        for layer in range(self.tl_model_n_layers):
+          named_data[f"layer_{layer}_resid_pre"] = tl_cache["resid_pre", layer]
+        named_data[f"layer_{self.tl_model_n_layers-1}_resid_post"] = tl_cache["resid_post", self.tl_model_n_layers-1]
 
-    elif self.train_loss_level == "component" or self.train_loss_level == "intervention":
-      # collect the output of the attention and mlp components from all layers
-      for layer in range(self.tl_model_n_layers):
-        named_data[f"layer_{layer}_attn_out"] = tl_cache["attn_out", layer]
-        named_data[f"layer_{layer}_mlp_out"] = tl_cache["mlp_out", layer]
+      elif self.train_loss_level == "component" or self.train_loss_level == "intervention":
+        # collect the output of the attention and mlp components from all layers
+        for layer in range(self.tl_model_n_layers):
+          named_data[f"layer_{layer}_attn_out"] = tl_cache["attn_out", layer]
+          named_data[f"layer_{layer}_mlp_out"] = tl_cache["mlp_out", layer]
 
-      # collect the embeddings, but repeat the data self.tl_model_n_layers times
-      named_data["embed"] = tl_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
-      named_data["pos_embed"] = tl_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
+        # collect the embeddings, but repeat the data self.tl_model_n_layers times
+        named_data["embed"] = tl_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
+        named_data["pos_embed"] = tl_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
+      else:
+        raise ValueError(f"Invalid train_loss_level: {self.train_loss_level}")
+
     else:
-      raise ValueError(f"Invalid train_loss_level: {self.train_loss_level}")
+      assert self.train_loss_level == "intervention", "Only intervention level is supported with hook_name_for_input_activations"
+      str_for_regex = self.hook_name_for_input_activations.split("[")[0]
+      regex = re.compile(f"^{str_for_regex}$")
+      for hook_name in self.tl_model.hook_dict.keys():
+        if regex.match(hook_name):
+          data = tl_cache[hook_name]
+          if "[" in self.hook_name_for_input_activations:
+            # extract the head index
+            head_index = int(self.hook_name_for_input_activations.split("[")[1].split("]")[0])
+            data = data[:, :, head_index, :]
+
+          named_data[hook_name] = data
+          break
 
     # Shape of tensors is [activations_len, seq_len, d_model]. We will convert to [activations_len, d_model] to
     # treat the residual stream for each sequence position as a separate sample.
     # The final length of all activations together is train_data_size*(n_layers + 1)*seq_len
     for name, data in named_data.items():
-      named_data[name]: Float[Tensor, "activations_len, seq_len, d_model"] = (
+      named_data[name]: Float[Tensor, "activations_len, seq_len, d_model"] | Float[Tensor, "activations_len, seq_len, d_head"] = (
         data.transpose(0, 1).reshape(-1, data.shape[-1]))
 
     # split the data into train and test sets

@@ -2,10 +2,10 @@ from jaxtyping import Float
 from torch import Tensor
 from torch.nn import Linear
 
-from circuits_benchmark.training.compression.residual_stream_mapper.residual_stream_mapper import ResidualStreamMapper
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 
 
-class LinearMapper(ResidualStreamMapper):
+class LinearMapper(ActivationMapper):
   """Maps the residual stream to/from a lower dimensional space using a linear layer."""
 
   def __init__(self, compression_matrix: Linear):
