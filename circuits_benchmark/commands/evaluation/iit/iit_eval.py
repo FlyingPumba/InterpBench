@@ -8,7 +8,7 @@ import iit.model_pairs as mp
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
-from circuits_benchmark.utils.iit import make_iit_hl_model
+from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg
 from circuits_benchmark.utils.iit.dataset import get_unique_data, TracrIITDataset, TracrUniqueDataset
 from iit.utils.eval_ablations import check_causal_effect, get_causal_effects_for_all_nodes, \
     make_combined_dataframe_of_results, save_result
@@ -20,7 +20,7 @@ def setup_args_parser(subparsers):
 
     parser.add_argument("-w", "--weights", type=str, default="510", help="IIT, behavior, strict weights")
     parser.add_argument("-m", "--mean", type=bool, default=True, help="Use mean cache")
-
+    # parser.add_argument("-o", "--output_dir", type=str, default="./results", help="Output directory")
     # model_pair_class_map = {
     #     "strict": mp.StrictIITModelPair,
     #     "behavior": mp.IITBehaviorModelPair,
@@ -31,7 +31,7 @@ def setup_args_parser(subparsers):
 
 
 def run_iit_eval(case: BenchmarkCase, args: Namespace):
-    output_dir = args.output_dir
+    output_dir = "./results"
     weight = args.weights
     use_mean_cache = args.mean
 
@@ -43,17 +43,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
     tracr_output = case.get_tracr_output()
     hl_ll_corr = correspondence.TracrCorrespondence.from_output(case=case, tracr_output=tracr_output)
 
-    cfg_dict = {
-        "n_layers": 2,
-        "n_heads": 4,
-        "d_head": 4,
-        "d_model": 8,
-        "d_mlp": 16,
-        "seed": 0,
-        "act_fn": "gelu",
-    }
-    ll_cfg = hl_model.cfg.to_dict().copy()
-    ll_cfg.update(cfg_dict)
+    ll_cfg = make_ll_cfg(hl_model)
 
     ll_model = HookedTracrTransformer(
         ll_cfg, hl_model.tracr_input_encoder, hl_model.tracr_output_encoder, hl_model.residual_stream_labels,

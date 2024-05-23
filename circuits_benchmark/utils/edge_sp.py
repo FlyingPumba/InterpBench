@@ -24,6 +24,8 @@ def save_edges(corr: TLACDCCorrespondence, fname: str):
     with open(fname, "wb") as f:
         pickle.dump(edges_list, f)
 
+    print(f"Saved edges to {fname}")
+
 
 def train_edge_sp(
     args,

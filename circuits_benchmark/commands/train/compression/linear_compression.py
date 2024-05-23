@@ -22,8 +22,6 @@ def setup_args_parser(subparsers):
                            "optimal size.")
   parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
                       help="The desired test accuracy when using 'auto' compression size.")
-  parser.add_argument("--train-loss", type=str, default="layer", choices=compression_train_loss_level_options,
-                      help="The train loss level for the compression training.")
   parser.add_argument("--linear-compression-initialization", type=str, default="linear",
                       choices=linear_compression_initialization_options,
                       help="The initialization method for the linear compression matrix.")
@@ -44,7 +42,7 @@ def run_single_linear_compression_training(case: BenchmarkCase,
     tl_model.device)
 
   trainer = LinearCompressedTracrTransformerTrainer(case, tl_model, compressed_tracr_transformer, training_args,
-                                                    train_loss_level=args.train_loss,
+                                                    train_loss_level="layer",
                                                     output_dir=args.output_dir)
   final_metrics = trainer.train()
   print(f" >>> Final metrics for {case} with residual stream compression size {compression_size}: ")

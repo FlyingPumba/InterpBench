@@ -90,16 +90,21 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     if os.path.exists(clean_dirname):
         shutil.rmtree(clean_dirname)
 
+    ll_cfg = hl_model.cfg.to_dict().copy()
+    n_heads = max(4, ll_cfg["n_heads"])
+    d_head = ll_cfg["d_head"] // 2
+    d_model = n_heads * d_head
+    d_mlp = d_model * 4
     cfg_dict = {
-        "n_layers": 2,
-        "n_heads": 4,
-        "d_head": 4,
-        "d_model": 8,
-        "d_mlp": 16,
+        "n_layers": max(2, ll_cfg["n_layers"]),
+        "n_heads": n_heads,
+        "d_head": d_head,
+        "d_model": d_model,
+        "d_mlp": d_mlp,
         "seed": 0,
         "act_fn": "gelu",
+        # "initializer_range": 0.02,
     }
-    ll_cfg = hl_model.cfg.to_dict().copy()
     ll_cfg.update(cfg_dict)
 
     ll_model = HookedTracrTransformer(
