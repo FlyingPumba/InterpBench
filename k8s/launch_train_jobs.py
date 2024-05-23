@@ -201,12 +201,16 @@ def create_jobs() -> List[str]:
 
 
 def build_wandb_name(command: List[str]):
+  if any("--wandb-name=" in part for part in command):
+    for part in command:
+      if "--wandb-name=" in part:
+        return part.split("=")[1]
+
   # Use a set of important arguments for our experiment to build the wandb name.
   # Each argument will be separated by a dash. We also define an alias for each argument so that the name is more readable.
   important_args_aliases = {
     "-i": "case",
     "residual-stream-compression-size": "size",
-    "wandb-name": "name",
     # "seed": "seed",
     # "ae-epochs": "ae-epochs",
     # "freeze-ae-weights": "frozen",
