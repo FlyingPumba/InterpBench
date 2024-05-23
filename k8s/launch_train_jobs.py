@@ -17,8 +17,8 @@ with JOB_TEMPLATE_PATH.open() as f:
 
 def build_commands():
   # training_methods = ["linear-compression", "non-linear-compression", "natural-compression", "autoencoder"]
-  training_methods = ["linear-compression", "non-linear-compression"]
-  case_instances = get_cases(indices=["1", "6", "7", "8", "10", "11", "12", "13", "14", "15", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38"])
+  training_methods = ["non-linear-compression"]
+  case_instances = get_cases(indices=["3"])
 
   cases = []
   compression_sizes_by_case = {}
@@ -27,9 +27,9 @@ def build_commands():
     compression_sizes_by_case[case.get_index()] = [ceil(original_resid_size * 2 / 3)]
     cases.append(case.get_index())
 
-  seeds = [68]
+  seeds = [67]
   lr_starts = [0.001]
-  epochs = 150 * 1000
+  epochs = 30 * 1000
   train_data_sizes = [1000]
   test_data_ratios = [0.3]
   batch_sizes = [2048]
@@ -68,7 +68,7 @@ def build_commands():
               for test_data_ratio in test_data_ratios:
                 for batch_size in batch_sizes:
 
-                  wandb_project = f"linear-vs-non-linear"
+                  wandb_project = f"head-level-compression"
 
                   command = [".venv/bin/python", "main.py",
                              "train", method,
@@ -80,13 +80,15 @@ def build_commands():
                              f"--batch-size={batch_size}",
                              f"--epochs={epochs}",
                              f"--lr-start={lr_start}",
-                             f"--lr-patience=2000",
+                             f"--lr-patience=5000",
+                             f"--weight-decay=0",
                              # "--early-stop-test-accuracy=0.97",
-                             "--resample-ablation-loss=True",
                              "--resample-ablation-data-size=1000",
                              "--resample-ablation-max-interventions=50",
                              "--resample-ablation-loss-epochs-gap=25",
-                             f"--wandb-project={wandb_project}"]
+                             f"--wandb-project={wandb_project}",
+                             "--wandb-name=case-3-seed-67-reg-patching-no-weight-decay"
+                             ]
 
                   if method == "linear-compression":
                     # produce all combinations of args in linear_compression_args
@@ -103,7 +105,9 @@ def build_commands():
                         else:
                           specific_cmd.append(f"--{arg_name}={arg_value}")
 
-                      specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                      if all("--wandb-name=" not in part for part in specific_cmd):
+                        specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+
                       commands.append(specific_cmd)
 
                   if method == "non-linear-compression":
@@ -131,10 +135,14 @@ def build_commands():
                           for i, arg_name in enumerate(non_frozen_arg_names):
                             more_specific_cmd.append(f"--{arg_name}={non_frozen_arg_values_combination[i]}")
 
-                          more_specific_cmd.append(f"--wandb-name={build_wandb_name(more_specific_cmd)}")
+                          if all("--wandb-name=" not in part for part in more_specific_cmd):
+                            more_specific_cmd.append(f"--wandb-name={build_wandb_name(more_specific_cmd)}")
+
                           commands.append(more_specific_cmd)
                       else:
-                        specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                        if all("--wandb-name=" not in part for part in specific_cmd):
+                          specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+
                         commands.append(specific_cmd)
 
                   if method == "autoencoder":
@@ -152,11 +160,15 @@ def build_commands():
                         else:
                           specific_cmd.append(f"--{arg_name}={arg_value}")
 
-                      specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                      if all("--wandb-name=" not in part for part in specific_cmd):
+                        specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+
                       commands.append(specific_cmd)
 
                   if method == "natural-compression":
-                    command.append(f"--wandb-name={build_wandb_name(command)}")
+                    if all("--wandb-name=" not in part for part in command):
+                      command.append(f"--wandb-name={build_wandb_name(command)}")
+
                     commands.append(command)
 
   return commands
@@ -167,7 +179,7 @@ def create_jobs() -> List[str]:
   priority = "cpu-normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
   cpu = 8
-  memory = "4Gi"
+  memory = "8Gi"
   gpu = 0
 
   commands = build_commands()
@@ -194,6 +206,7 @@ def build_wandb_name(command: List[str]):
   important_args_aliases = {
     "-i": "case",
     "residual-stream-compression-size": "size",
+    "wandb-name": "name",
     # "seed": "seed",
     # "ae-epochs": "ae-epochs",
     # "freeze-ae-weights": "frozen",
