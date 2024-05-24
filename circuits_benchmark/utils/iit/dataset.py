@@ -103,7 +103,12 @@ def create_dataset(case, hl_model, train_count=12000, test_count=3000):
     return TracrIITDataset(train_data, train_data, hl_model), TracrIITDataset(test_data, test_data, hl_model)
 
 
-def get_unique_data(case):
+def get_unique_data(case, max_len=1000):
+    '''
+    Returns all possible unique datapoints from the case 
+    if the number of unique datapoints is less than max_len.
+    Otherwise, returns a random sample of max_len unique datapoints.
+    '''
     data = case.get_clean_data(count=50_000)
     test_inputs = data.get_inputs().to_numpy()
     test_outputs = data.get_correct_outputs().to_numpy()
@@ -118,6 +123,9 @@ def get_unique_data(case):
     assert len(unique_test_inputs) == len(unique_test_outputs)
     assert len(unique_test_inputs) == len(np.unique([", ".join(i) for i in np.array(test_inputs)]))
     assert len(np.unique([", ".join(i) for i in np.array(unique_test_inputs)])) == len(unique_test_inputs)
-
+    if len(unique_test_inputs) > max_len:
+        random_indices = np.random.choice(len(unique_test_inputs), max_len, replace=False)
+        unique_test_inputs = unique_test_inputs[random_indices]
+        unique_test_outputs = unique_test_outputs[random_indices]
     unique_test_data = TracrDataset(unique_test_inputs, unique_test_outputs)
     return unique_test_data
