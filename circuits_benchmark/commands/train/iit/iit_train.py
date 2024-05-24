@@ -53,6 +53,12 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--wandb-suffix", type=str, default="", help="Wandb suffix"
     )
+    parser.add_argument(
+        "--epochs", type=int, default=50, help="Number of epochs"
+    )
+    parser.add_argument(
+        "--sweep-config-file", type=str, help="Sweep config file", default=None
+    )
 
 
 def config_is_bad(config):
@@ -108,16 +114,16 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "atol": {"values": [0.05]},
                 "lr": {"values": [1e-3, 1e-4, 1e-5]},
                 "use_single_loss": {"values": [True, False]},
-                "iit_weight": {"values": [0.5, 1.0, 1.5]},
-                "behavior_weight": {"values": [0.5, 1.0, 1.5]},
-                "strict_weight": {"values": [0.0, 0.5, 1.0, 1.5]},
-                "epochs": {"values": [50]},
+                "iit_weight": {"values": [0.4, 0.5, 0.6, 1.0]},
+                "behavior_weight": {"values": [0.5, 1.0]},
+                "strict_weight": {"values": [0.0, 0.2, 0.5, 1.0, 1.5]},
+                "epochs": {"values": [args.epochs]},
                 "act_fn": {"values": ["relu", "gelu"]},
             },
         }
         sweep_id = wandb.sweep(
             sweep_config,
-            project="iit",
+            project=f"iit_{case.get_index()}",
             entity=args.wandb_entity,
         )
         wandb.agent(sweep_id, main)
@@ -129,7 +135,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "iit_weight": args.iit_weight,
             "behavior_weight": args.behavior_weight,
             "strict_weight": args.strict_weight,
-            "epochs": 50,
+            "epochs": args.epochs,
             "act_fn": "gelu",
             "wandb_suffix": args.wandb_suffix,
         }

@@ -20,6 +20,8 @@ def setup_args_parser(subparsers):
 
     parser.add_argument("-w", "--weights", type=str, default="510", help="IIT, behavior, strict weights")
     parser.add_argument("-m", "--mean", type=bool, default=True, help="Use mean cache")
+    parser.add_argument("--save-to-wandb", action="store_true", help="Save results to wandb")
+    parser.add_argument("--batch_size", type=int, default=256, help="Batch size")
     # parser.add_argument("-o", "--output_dir", type=str, default="./results", help="Output directory")
     # model_pair_class_map = {
     #     "strict": mp.StrictIITModelPair,
@@ -60,7 +62,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
     result_not_in_circuit = check_causal_effect(model_pair, test_set, node_type="n", verbose=False)
     result_in_circuit = check_causal_effect(model_pair, test_set, node_type="c", verbose=False)
 
-    metric_collection = model_pair._run_eval_epoch(test_set.make_loader(256, 0),
+    metric_collection = model_pair._run_eval_epoch(test_set.make_loader(args.batch_size, 0),
                                                    model_pair.loss_fn)
 
     # zero/mean ablation
@@ -82,3 +84,11 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
     with open(f"{save_dir}/metric_collection.log", "w") as f:
         f.write(str(metric_collection))
         print(metric_collection)
+    
+    if args.save_to_wandb:
+        import wandb
+        wandb.init(project="iit", group="eval", name=f"node_effect_{case.get_index()}_weight_{weight}")
+        wandb.log(metric_collection.to_dict())
+        wandb.save(f"{output_dir}/ll_models/{case.get_index()}/*")
+        wandb.save(f"{save_dir}/*")
+        wandb.finish()
