@@ -46,6 +46,7 @@ def build_wandb_name(command: List[str]):
     # Use a set of important arguments for our experiment to build the wandb name.
     # Each argument will be separated by a dash. We also define an alias for each argument so that the name is more readable.
     important_args_aliases = {
+    "main.py": "",
     "threshold": "",
     "-i": "case",
     "--wandb-suffix": "",
@@ -53,30 +54,34 @@ def build_wandb_name(command: List[str]):
     }
     important_args = important_args_aliases.keys()
     wandb_name = ""
-
-    wandb_name += command[3] + "-"  # training method
-
+    split_command = []
+    for c in command:
+        if ' ' in c:
+            split_command.extend(c.split(' '))
+        else:
+            split_command.append(c)
     for arg in important_args:
-        for i, part in enumerate(command):
-            alias = important_args_aliases[arg]
-            if alias != "":
-                suffix = f"{alias}-"
-            else:
-                suffix = ""
-
-            if "=" in part:
-                arg_value = part.split("=")[1].replace(".", "-").replace("+", "--")
-                wandb_name += f"{suffix}{arg_value}-"
-            else:
-                try:
-                    wandb_name += f"{suffix}{command[i + 1]}-"
-                except IndexError:
-                    wandb_name += f"{suffix}"
-            break
+        found = False
+        for i, part in enumerate(split_command):
+            if arg in part:
+                found = True
+                alias = important_args_aliases[arg]
+                suffix = "" if alias == "" else f"{alias}-"
+                if "=" in part:
+                    arg_value = part.split("=")[1].replace(".", "-").replace("+", "--")
+                    wandb_name += f"{suffix}{arg_value}-"
+                else:
+                    try:
+                        wandb_name += f"{suffix}{split_command[i + 1]}-"
+                    except IndexError:
+                        wandb_name += f"{suffix}"
+                break
+        if not found:
+            wandb_name += f"{important_args_aliases[arg]}-"
     # remove last dash from wandb_name
     wandb_name = wandb_name[:-1]
 
-    assert wandb_name != "", f"wandb_name is empty. command: {command}"
+    assert wandb_name != "", f"wandb_name is empty. command: {split_command}"
 
     return wandb_name
 
