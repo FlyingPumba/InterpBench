@@ -51,7 +51,7 @@ class TracrIITDataset(IITDataset):
     def __init__(self, base_data, ablation_data, hl_model, seed=0, every_combination=False):
         super().__init__(base_data, ablation_data, seed, every_combination)
         self.hl_model = hl_model
-        self.device = hl_model.cfg.device
+        self.device = hl_model.device
 
     @staticmethod
     def collate_fn(batch, hl_model, device=DEVICE):
@@ -121,7 +121,7 @@ def get_unique_data(case, max_len=1000):
     unique_test_inputs = test_inputs[first_occurences]
     unique_test_outputs = test_outputs[first_occurences]
     assert len(unique_test_inputs) == len(unique_test_outputs)
-    assert len(unique_test_inputs) == len(np.unique([", ".join(i) for i in np.array(test_inputs)]))
+    assert len(unique_test_inputs) == len(np.unique([", ".join(str(i)) for i in np.array(test_inputs)]))
     assert len(np.unique([", ".join(i) for i in np.array(unique_test_inputs)])) == len(unique_test_inputs)
     if len(unique_test_inputs) > max_len:
         random_indices = np.random.choice(len(unique_test_inputs), max_len, replace=False)

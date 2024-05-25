@@ -9,6 +9,10 @@ def make_iit_hl_model(hl_model):
 
         def __init__(self, hl_model: HookedTransformer):
             self.hl_model = hl_model
+            self.hl_model.to(hl_model.device)
+            for p in hl_model.parameters():
+                p.requires_grad = False
+                p.to(hl_model.device)
 
         def __getattr__(self, name: str):
             if hasattr(self.hl_model, name):

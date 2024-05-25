@@ -168,6 +168,11 @@ class TracrCorrespondence(Correspondence):
         )
 
     @classmethod
+    def make_identity_corr(cls, tracr_output: TracrOutput):
+        tracr_hl_corr = TracrHLCorr.from_output(tracr_output)
+        return cls.make_hl_ll_corr(tracr_hl_corr, None)
+
+    @classmethod
     def from_output(cls, case: BenchmarkCase, tracr_output: TracrOutput):
         tracr_hl_corr = TracrHLCorr.from_output(tracr_output)
         tracr_ll_corr = get_tracr_ll_corr(case)
