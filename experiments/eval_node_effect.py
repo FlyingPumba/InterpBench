@@ -35,14 +35,18 @@ def build_commands():
     for case in cases:
         case_obj = all_case_objs[case-1]
         is_categorical = case_obj.build_transformer_lens_model().is_categorical()
-        cat_mets = ["accuracy", "kl_div"] if is_categorical else ["kl_div"]
+        cat_mets = ["accuracy", "kl_div"] if is_categorical else ["accuracy"]
+        command1 = command1_template.format(case, iit, strict, behavior, case, weight).split()
+        eval_commands = []
         for cat_met in cat_mets:
-            command1 = command1_template.format(case, iit, strict, behavior, case, weight).split()
             command2 = command2_template.format(case, weight, cat_met).split()
-            command3 = command2_template.format(case, "tracr", cat_met).split()
-            joined_command = ["bash", "-c", f"{' '.join(command1)} && {' '.join(command2)} && {' '.join(command3)}"]
-
-            commands.append(joined_command)
+            eval_commands.append(command2)
+        joined_command = ["bash", "-c", f"{' '.join(command1)} && {' && '.join([' '.join(cmd) for cmd in eval_commands])}"]
+        commands.append(joined_command)
+        
+        for cat_met in cat_mets:
+            command_tracr = command2_template.format(case, "tracr", cat_met).split()
+            commands.append(command_tracr)
             
     
     return commands

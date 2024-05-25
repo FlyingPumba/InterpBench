@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-import subprocess
-import sys
-from itertools import product
 from math import ceil
 from pathlib import Path
-from typing import List
 from utils import *
-
-import numpy as np
+from utils.wandb_calls import get_runs_with_substr
+from tqdm import tqdm
 
 from circuits_benchmark.utils.get_cases import get_cases
 
@@ -20,6 +16,11 @@ with JOB_TEMPLATE_PATH.open() as f:
 
 
 def build_commands():
+    print("Getting runs...")
+    runs = get_runs_with_substr("supervised")
+    print("Deleting runs...")
+    for run in tqdm(runs):
+        run.delete(delete_artifacts=True)
     case_instances = get_cases(indices=None)
     cases = []
 
@@ -39,5 +40,5 @@ def build_commands():
 if __name__ == "__main__":
     print_commands(build_commands)
     launch_kubernetes_jobs(
-        build_commands, cpu=1, gpu=1, memory="4Gi", priority="high-batch"
+        build_commands, cpu=1, gpu=1, memory="8Gi", priority="high-batch"
     )
