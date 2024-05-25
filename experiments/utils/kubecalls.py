@@ -2,17 +2,11 @@ from typing import List, Callable
 from pathlib import Path
 import subprocess
 import sys
-import numpy as np
+from .aliases import important_args_aliases, replace_bad_things_in_arg
 
 JOB_TEMPLATE_PATH = Path(__file__).parent.parent / "runner.yaml"
 with JOB_TEMPLATE_PATH.open() as f:
     JOB_TEMPLATE = f.read()
-
-def create_random_str(length: int = 7):
-  alphabet = list('abcdefghijklmnopqrstuvwxyz0123456789')
-  np_alphabet = np.array(alphabet)
-  np_codes = np.random.choice(np_alphabet, (length))
-  return ''.join(np_codes)
 
 def create_jobs(
     build_commands: Callable,
@@ -26,7 +20,7 @@ def create_jobs(
     commands = build_commands()
     print(len(commands), "commands found.")
     for command in commands:
-        job_name = build_wandb_name(command)
+        job_name = build_job_name(command)
         job = JOB_TEMPLATE.format(
             NAME=job_name,
             COMMAND=command,
@@ -42,16 +36,9 @@ def create_jobs(
     return jobs
 
 
-def build_wandb_name(command: List[str]):
+def build_job_name(command: List[str]):
     # Use a set of important arguments for our experiment to build the wandb name.
     # Each argument will be separated by a dash. We also define an alias for each argument so that the name is more readable.
-    important_args_aliases = {
-    "main.py": "",
-    "threshold": "",
-    "-i": "case",
-    "--wandb-suffix": "",
-    "random_suffix": create_random_str(),
-    }
     important_args = important_args_aliases.keys()
     wandb_name = ""
     split_command = []
@@ -62,22 +49,23 @@ def build_wandb_name(command: List[str]):
             split_command.append(c)
     for arg in important_args:
         found = False
+        alias = important_args_aliases[arg]
         for i, part in enumerate(split_command):
             if arg in part:
                 found = True
-                alias = important_args_aliases[arg]
                 suffix = "" if alias == "" else f"{alias}-"
                 if "=" in part:
-                    arg_value = part.split("=")[1].replace(".", "-").replace("+", "--")
-                    wandb_name += f"{suffix}{arg_value}-"
+                    arg_value = part.split("=")[1]
                 else:
                     try:
-                        wandb_name += f"{suffix}{split_command[i + 1]}-"
+                        arg_value = split_command[i + 1]
                     except IndexError:
-                        wandb_name += f"{suffix}"
+                        arg_value = ""
+                arg_value = replace_bad_things_in_arg(arg_value)
+                wandb_name += f"{suffix}{arg_value}-"
                 break
         if not found:
-            wandb_name += f"{important_args_aliases[arg]}-"
+            wandb_name += f"{alias}-"
     # remove last dash from wandb_name
     wandb_name = wandb_name[:-1]
 
@@ -100,7 +88,7 @@ def launch_kubernetes_jobs(*args, **kwargs):
 def print_commands(build_commands: Callable):
     commands = build_commands()
     for command in commands:
-        job_name = build_wandb_name(command)
+        job_name = build_job_name(command)
         print(f"Job: {job_name}")
         print(f"Command: {' '.join(command)}")
         print()
