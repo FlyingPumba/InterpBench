@@ -4,7 +4,7 @@ import numpy as np
 import torch as t
 
 from circuits_benchmark.commands.train.compression import natural_compression, linear_compression, autoencoder, \
-  non_linear_compression
+  non_linear_compression, individual_components_compression
 from circuits_benchmark.commands.train.compression.autoencoder import train_autoencoder
 from circuits_benchmark.commands.train.compression.linear_compression import train_linear_compression
 from circuits_benchmark.commands.train.compression.non_linear_compression import train_non_linear_compression
@@ -23,6 +23,7 @@ def setup_args_parser(subparsers):
   autoencoder.setup_args_parser(run_subparsers)
   natural_compression.setup_args_parser(run_subparsers)
   iit_train.setup_args_parser(run_subparsers)
+  individual_components_compression.setup_args_parser(run_subparsers)
 
 
 def run(args):
@@ -47,5 +48,7 @@ def run(args):
       natural_compression.train_natural_compression(case, args)
     elif training_type == "iit":
       iit_train.run_iit_train(case, args)
+    elif training_type == "individual-components-compression":
+      individual_components_compression.train_individual_components_compression(case, args)
     else:
       raise ValueError(f"Unknown training: {training_type}")

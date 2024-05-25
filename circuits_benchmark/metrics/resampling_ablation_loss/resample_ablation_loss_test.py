@@ -430,7 +430,7 @@ class ResampleAblationLossTest(unittest.TestCase):
 
       training_args = TrainingArgs()
       training_args.epochs = 6000
-      training_args.early_stop_test_accuracy = 0.97
+      training_args.early_stop = 0.97
 
       trainer = NaturalCompressedTracrTransformerTrainer(case, original_tracr_model, compressed_model, training_args,
                                                          output_dir=output_dir)
@@ -513,7 +513,7 @@ class ResampleAblationLossTest(unittest.TestCase):
 
       training_args = TrainingArgs()
       training_args.epochs = 6000
-      training_args.early_stop_test_accuracy = 0.97
+      training_args.early_stop = 0.97
       # training_args.lr_start = 1e-2
 
       compressed_model = LinearCompressedTracrTransformer(
@@ -610,7 +610,7 @@ class ResampleAblationLossTest(unittest.TestCase):
       ae_training_args.epochs = 70
       ae_training_args.lr_start = 0.01
       ae_training_args.batch_size = 2048
-      ae_training_args.early_stop_test_accuracy = 0.97
+      ae_training_args.early_stop = 0.97
       ae_training_args.lr_patience = 15
 
       ae_trainer = AutoEncoderTrainer(case, autoencoder, original_tracr_model, ae_training_args, output_dir=output_dir)
@@ -625,7 +625,7 @@ class ResampleAblationLossTest(unittest.TestCase):
       # Train Non-Linear transformer
       training_args = TrainingArgs()
       training_args.epochs = 6000
-      training_args.early_stop_test_accuracy = 0.97
+      training_args.early_stop = 0.97
 
       trainer = NonLinearCompressedTracrTransformerTrainer(case,
                                                            original_tracr_model,
