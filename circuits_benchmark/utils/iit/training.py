@@ -25,6 +25,11 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
     model = HookedTransformer(ll_cfg)
     model.to(config.device)
 
+    lr_scheduler_map = {
+        "" : None,
+        "plateau" : t.optim.lr_scheduler.ReduceLROnPlateau,
+    }
+
     # make model pair
     training_args = {
         "lr": config.lr,
@@ -35,6 +40,7 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
         "behavior_weight": config.behavior_weight,
         "strict_weight": config.strict_weight,
         "clip_grad_norm": config.clip_grad_norm,
+        "lr_scheduler": lr_scheduler_map[config.lr_scheduler],
     }
     hl_ll_corr = correspondence.TracrCorrespondence.from_output(
         case, tracr_output

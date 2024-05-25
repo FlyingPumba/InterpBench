@@ -47,7 +47,7 @@ def setup_args_parser(subparsers):
     )
     parser.add_argument(
         "--categorical-metric",
-        choices=["accuracy", "kl_div"],
+        choices=["accuracy", "kl_div", "kl_div_self"],
         default="accuracy",
         help="Categorical metric to use",
     )
