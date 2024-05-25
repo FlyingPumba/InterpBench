@@ -103,6 +103,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         config = {
             **wandb.config,
             "wandb_suffix": args.wandb_suffix,
+            "device": "cpu" if args.device == "cpu" else "cuda",
         }
         train_model(config, case, tracr_output, hl_model, use_wandb=True)
 
@@ -119,6 +120,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "strict_weight": {"values": [0.0, 0.2, 0.5, 1.0, 1.5]},
                 "epochs": {"values": [args.epochs]},
                 "act_fn": {"values": ["relu", "gelu"]},
+                "clip_grad_norm": {"values": [10, 1.0, 0.1, 0.05]},
             },
         }
         sweep_id = wandb.sweep(
@@ -138,6 +140,8 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "epochs": args.epochs,
             "act_fn": "gelu",
             "wandb_suffix": args.wandb_suffix,
+            "device": "cpu" if args.device == "cpu" else "cuda",
+            "clip_grad_norm": 1.0,
         }
 
         args = argparse.Namespace(**config)
