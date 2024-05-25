@@ -121,6 +121,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "epochs": {"values": [args.epochs]},
                 "act_fn": {"values": ["relu", "gelu"]},
                 "clip_grad_norm": {"values": [10, 1.0, 0.1, 0.05]},
+                "lr_scheduler": {"values": ["plateau", ""]},
             },
         }
         sweep_id = wandb.sweep(
@@ -142,6 +143,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "wandb_suffix": args.wandb_suffix,
             "device": "cpu" if args.device == "cpu" else "cuda",
             "clip_grad_norm": 1.0,
+            "lr_scheduler": "",
         }
 
         args = argparse.Namespace(**config)

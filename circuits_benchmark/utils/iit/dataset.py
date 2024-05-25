@@ -39,9 +39,9 @@ def get_encoded_input_from_torch_input(xy, hl_model, device):
     with torch.no_grad():
         y = hl_model(encoded_x)
     
-    if hl_model.is_categorical():
-        # convert to one-hot
-        y = torch.nn.functional.one_hot(y.argmax(dim=-1), num_classes=y.shape[-1]).float()
+    # if hl_model.is_categorical():
+    #     # convert to one-hot
+    #     y = torch.nn.functional.one_hot(y.argmax(dim=-1), num_classes=y.shape[-1]).float()
 
     intermediate_values = None
     return encoded_x.to(device), y.to(device), intermediate_values
@@ -90,7 +90,7 @@ class TracrUniqueDataset(TracrIITDataset):
         return encoded_base_input
 
 
-def create_dataset(case, hl_model, train_count=12000, test_count=3000):
+def create_dataset(case, hl_model, train_count=20000, test_count=3000):
     data = case.get_clean_data(count=train_count + test_count)
     inputs = data.get_inputs().to_numpy()
     outputs = data.get_correct_outputs().to_numpy()
@@ -112,7 +112,7 @@ def get_unique_data(case, max_len=1000):
     data = case.get_clean_data(count=50_000)
     test_inputs = data.get_inputs().to_numpy()
     test_outputs = data.get_correct_outputs().to_numpy()
-    arr, idxs = np.unique([", ".join(i) for i in np.array(test_inputs)], return_inverse=True)
+    arr, idxs = np.unique([", ".join(str(i)) for i in np.array(test_inputs)], return_inverse=True)
     # create indices that point to the first unique input
     all_possible_inputs = np.arange(arr.shape[0])
     # find the first occurence of all_possible_inputs in idxs
