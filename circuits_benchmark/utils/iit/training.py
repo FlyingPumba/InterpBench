@@ -17,8 +17,8 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
 
     # make dataset
     hl_model.to(config.device)
-    train_data, test_data = create_dataset(case, hl_model)  # , 500, 100)
-
+    iit_hl_model = make_iit_hl_model(hl_model)
+    train_data, test_data = create_dataset(case, iit_hl_model)
     # make model
     ll_cfg = make_ll_cfg(hl_model)
     print(ll_cfg)
@@ -45,7 +45,6 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
     hl_ll_corr = correspondence.TracrCorrespondence.from_output(
         case, tracr_output
     )
-    iit_hl_model = make_iit_hl_model(hl_model)
     model_pair = mp.StrictIITModelPair(
         hl_model=iit_hl_model,
         ll_model=model,

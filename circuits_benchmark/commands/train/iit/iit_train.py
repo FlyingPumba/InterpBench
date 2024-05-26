@@ -113,7 +113,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "method": "grid",
             "parameters": {
                 "atol": {"values": [0.05]},
-                "lr": {"values": [1e-3, 1e-4, 1e-5]},
+                "lr": {"values": [1e-2, 1e-3, 1e-4, 1e-5]},
                 "use_single_loss": {"values": [True, False]},
                 "iit_weight": {"values": [0.4, 0.5, 0.6, 1.0]},
                 "behavior_weight": {"values": [0.5, 1.0]},

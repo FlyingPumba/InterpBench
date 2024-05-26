@@ -3,7 +3,7 @@ from torch.utils.data import Dataset, DataLoader
 from iit.utils.config import DEVICE
 import torch
 from iit.utils.iit_dataset import IITDataset
-
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 
 class TracrDataset(Dataset):
     def __init__(self, data: np.ndarray, labels: np.ndarray):
@@ -90,8 +90,19 @@ class TracrUniqueDataset(TracrIITDataset):
         return encoded_base_input
 
 
-def create_dataset(case, hl_model, train_count=20000, test_count=3000):
-    data = case.get_clean_data(count=train_count + test_count)
+def create_dataset(case: BenchmarkCase, hl_model, test_frac=0.2, min_train_count=20000, max_train_count=100_000):
+    vals = sorted(list(case.get_vocab()))
+    max_len = case.get_max_seq_len()
+    min_len = case.get_min_seq_len()
+    total_len = 0
+    for l in range(min_len, max_len + 1):
+        total_len += len(vals) ** l
+    # get all data if in the range of min_train_count and max_train_count
+    count = int(min_train_count * (1 + test_frac)) if total_len < min_train_count \
+        else total_len if total_len < max_train_count \
+        else int(max_train_count * (1 + test_frac))
+    train_count = int(count * (1 - test_frac))
+    data = case.get_clean_data(count=count)
     inputs = data.get_inputs().to_numpy()
     outputs = data.get_correct_outputs().to_numpy()
     train_inputs = inputs[:train_count]

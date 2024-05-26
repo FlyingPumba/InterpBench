@@ -11,7 +11,7 @@ from torch import Tensor
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
-from circuits_benchmark.metrics.validation_metrics import l2_metric
+from circuits_benchmark.metrics.validation_metrics import l2_metric, kl_metric
 from circuits_benchmark.transformers.alignment import Alignment
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
@@ -192,16 +192,18 @@ class BenchmarkCase(object):
                             tl_model: HookedTracrTransformer,
                             data_size: Optional[int] = 100) -> Tensor:
     """Returns the validation metric for the benchmark case.
-    By default, only the l2 metric is available. Other metrics should override this method.
+    By default, only the l2 and kl metrics are available. Other metrics should override this method.
     """
-    if metric_name not in ["l2"]:
-      raise ValueError(f"Metric {metric_name} is not available for case {self}")
-
     inputs = self.get_clean_data(count=data_size).get_inputs()
+    is_categorical = self.get_tl_model().is_categorical()
     with t.no_grad():
       baseline_output = tl_model(inputs)
-
-    return partial(l2_metric, baseline_output=baseline_output, is_categorical=False)
+    if metric_name == "l2":
+      return partial(l2_metric, baseline_output=baseline_output, is_categorical=is_categorical)
+    elif metric_name == "kl":
+      return partial(kl_metric, baseline_output=baseline_output, is_categorical=is_categorical)
+    else:
+      raise ValueError(f"Metric {metric_name} not available for this case.")
 
   def get_corrupted_data(self, count: Optional[int] = 10, seed: Optional[int] = 43) -> CaseDataset:
     """Returns the corrupted data for the benchmark case.

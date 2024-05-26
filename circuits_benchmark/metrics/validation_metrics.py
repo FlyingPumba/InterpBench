@@ -55,3 +55,20 @@ def l2_metric(new_output: torch.Tensor,
     baseline_output = baseline_output[:, :, 0]
 
   return ((new_output - baseline_output) ** 2).mean()
+
+def kl_metric(new_output: torch.Tensor,
+              baseline_output: torch.Tensor,
+              is_categorical: bool = True,
+              discard_bos_token: bool = True):
+  assert new_output.shape == baseline_output.shape, (new_output.shape, baseline_output.shape)
+
+  if discard_bos_token:
+    new_output = new_output[:, 1:]
+    baseline_output = baseline_output[:, 1:]
+
+  if not is_categorical:
+    raise NotImplementedError("KL divergence is only implemented for categorical outputs.")
+  # print(new_output.shape, baseline_output.shape)
+  return torch.nn.functional.kl_div(torch.nn.functional.log_softmax(new_output, dim=-1),
+                                     torch.nn.functional.softmax(baseline_output, dim=-1),
+                                     reduction='mean')
