@@ -1,55 +1,54 @@
-import os
-import pickle
-import argparse
+#!/usr/bin/env python3
+from utils import *
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.utils.get_cases import get_cases
+import wandb 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-i", "--task", type=str, required=True, help="Task")
 
-args = parser.parse_args()
-task = args.task
+def build_commands():
+    try:
+        api = wandb.Api()
+        project = 'acdc'
+        group = 'RQ3'
+        runs = api.runs(f'{project}', filters={"group": group})
+        # clean all runs in the group
+        for run in runs:
+            run.delete(delete_artifacts=True)
+    except Exception as e:
+        print("No runs found to delete.")
 
-weights = ["110", "510", "100" ,"910"]
-ibs = ["-b 1.0 -iit 1.0 -s 0.0", "-b 1.0 -i 1.0 -s 0.4", "-b 1.0 -i 0.0 -s 0.0", "-b 1.0 -i 1.0 -s 0.8"]
-wandb = True
-weights = [weights[1], weights[2]]
-ibs = [ibs[1], ibs[2]]
-############### train on task
-command = """python main.py train iit -i {} {}"""
-for i in (range(len(ibs))):
-    command_to_run = command.format(task, ibs[i])
-    print("Running", command_to_run)
-    os.system(command_to_run)
-
-################ evaluate on task
-command = """python main.py eval iit -i {} -w {}"""
-for weight in weights:
-    command_to_run = command.format(task, weight)
-    print("Running", command_to_run)
-    os.system(command_to_run)
-
-################# run acdc
-thresholds = [0.0, 1e-5, 1e-4, 1e-3, 1e-2, 
+    cases = [1, 3, 4, 13, 21, 24, 27, 32, 38, 8, 19]
+    iit = 1.0
+    strict = 0.4
+    behavior = 1.0
+    weight = int(strict * 1000 + behavior * 100 + iit * 10)
+    thresholds = [0.0, 1e-5, 1e-4, 1e-3, 1e-2, 
               0.025, 0.05, 0.1, 0.5, 0.8, 1.0, 10.0]
-command = """python main.py run acdc -i {} -w {} -t {}"""
-results = {}
-for weight in weights:
-    for threshold in thresholds:
-        command_to_run = command.format(task, weight, threshold)
-        command_to_run += " -wandb" if wandb else ""
-        print("=====================================================================================================")
-        print("Running", command_to_run)
-        print("=====================================================================================================")
-        file = f"results/acdc_{task}/weight_{weight}/threshold_{threshold}/result.pkl"
-        # if os.path.exists(file):
-        #     result = pickle.load(open(file, "rb"))
-        # else:
-        #     os.system(command_to_run)
-        #     if not os.path.exists(file):
-        #         print("ERROR: ", file, "not found")
-        #         continue
-        #     result = pickle.load(open(file, "rb"))
-        os.system(command_to_run)
-        result = pickle.load(open(file, "rb"))
-        results[(weight, threshold)] = result
-        
-pickle.dump(results, open(f"results/acdc_{task}/results.pkl", "wb"))
+
+    train_command_template = """python main.py train iit -i {} --epochs 2000 --device cpu -iit {} -s {} -b {} --use-wandb --wandb-suffix case-{}-strict-{}"""
+    acdc_command_template = """python main.py eval iit_acdc -i {} -w {} -t {} -wandb"""
+    commands = []
+    for case in cases:
+        commands_to_run = []
+        tracr_commands_to_run = []
+        train_command = train_command_template.format(case, iit, strict, behavior, case, strict)
+        commands_to_run.append(train_command)
+        for threshold in thresholds:
+            acdc_command = acdc_command_template.format(case, weight, threshold)
+            tracr_command = acdc_command_template.format(case, "tracr", threshold)
+            commands_to_run.append(acdc_command)
+            tracr_commands_to_run.append(tracr_command)
+        command = ["bash", "-c", " && ".join(commands_to_run)]
+        tracr_command = ["bash", "-c", " && ".join(tracr_commands_to_run)]
+        commands.append(command)
+        commands.append(tracr_command)
+    return commands
+
+
+if __name__ == "__main__":
+    print_commands(build_commands)
+    for arg in sys.argv:
+        if arg in ["-l", "--local"]:
+            print("Running locally.")
+            run_commands(build_commands())
+    launch_kubernetes_jobs(build_commands)
