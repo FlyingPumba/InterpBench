@@ -186,4 +186,8 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     print(
         f"Saved result to {clean_dirname}/result.txt and {clean_dirname}/result.pkl"
     )
+    if args.using_wandb:
+        import wandb
+        wandb.init(project=f"circuit_discovery", group="acdc", name=f"case_{case_num}")
+        wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)
     return result

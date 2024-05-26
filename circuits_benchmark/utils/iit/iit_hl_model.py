@@ -23,12 +23,8 @@ def make_iit_hl_model(hl_model):
                 )
 
         def create_hl_output(self, y):
-            # if self.hl_model.is_categorical():
-            #     argmax_y = y.argmax(dim=-1)
-            #     # convert to one-hot
-            #     return torch.nn.functional.one_hot(
-            #         argmax_y, num_classes=y.shape[-1]
-            #     )
+            if self.hl_model.is_categorical():
+                y = y.argmax(dim=-1)
             return y
         
         def get_correct_input(self, input):
