@@ -16,9 +16,9 @@ from circuits_benchmark.transformers.acdc_circuit_builder import (
     build_acdc_circuit,
 )
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
-from circuits_benchmark.utils.iit.tracr_ll_corrs import get_tracr_ll_corr
 from typing import Optional
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 
 
 def setup_args_parser(subparsers):
@@ -42,6 +42,9 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "-wandb", "--using_wandb", action="store_true", help="Use wandb"
     )
+    parser.add_argument(
+        "--load-from-wandb", action="store_true", help="Load model from wandb"
+    )
 
 
 def evaluate_acdc_circuit(
@@ -64,11 +67,6 @@ def evaluate_acdc_circuit(
 
 
 def run_acdc_eval(case: BenchmarkCase, args: Namespace):
-    if not case.supports_causal_masking():
-        raise NotImplementedError(
-            f"Case {case.get_index()} does not support causal masking"
-        )
-
     case_num = case.get_index()
 
     weight = args.weights
@@ -115,6 +113,8 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         remove_extra_tensor_cloning=False,
     )
     if weight != "tracr":
+        if args.load_from_wandb:
+            load_model_from_wandb(case_num, weight, args.output_dir)
         ll_model.load_weights_from_file(
             f"{args.output_dir}/ll_models/{case_num}/ll_model_{weight}.pth"
         )
@@ -188,6 +188,8 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     )
     if args.using_wandb:
         import wandb
-        wandb.init(project=f"circuit_discovery", group="acdc", name=f"case_{case_num}")
+        wandb.init(project=f"circuit_discovery", 
+                   group=f"{args.algorithm}_{case.get_index()}_{args.weights}", 
+                   name=f"case_{case_num}")
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)
     return result

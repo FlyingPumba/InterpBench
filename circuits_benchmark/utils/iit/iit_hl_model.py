@@ -3,7 +3,7 @@ from transformer_lens import HookedTransformer
 import torch
 
 
-def make_iit_hl_model(hl_model):
+def make_iit_hl_model(hl_model, eval_mode=False):
     class IITHLModel:
         """A wrapper class to make tracr models compatible with IITModelPair"""
 
@@ -25,6 +25,8 @@ def make_iit_hl_model(hl_model):
         def create_hl_output(self, y):
             if self.hl_model.is_categorical():
                 y = y.argmax(dim=-1)
+                if eval_mode:
+                    y = torch.nn.functional.one_hot(y, num_classes=self.hl_model.cfg.d_vocab_out)
             return y
         
         def get_correct_input(self, input):

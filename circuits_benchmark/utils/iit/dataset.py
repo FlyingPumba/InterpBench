@@ -88,15 +88,17 @@ class TracrUniqueDataset(TracrIITDataset):
     def collate_fn(batch, hl_model, device=DEVICE):
         encoded_base_input = get_encoded_input_from_torch_input(batch, hl_model, device)
         return encoded_base_input
-
-
-def create_dataset(case: BenchmarkCase, hl_model, test_frac=0.2, min_train_count=20000, max_train_count=100_000):
+def get_total_len(case: BenchmarkCase):
     vals = sorted(list(case.get_vocab()))
     max_len = case.get_max_seq_len()
     min_len = case.get_min_seq_len()
     total_len = 0
     for l in range(min_len, max_len + 1):
         total_len += len(vals) ** l
+    return total_len
+
+def create_dataset(case: BenchmarkCase, hl_model, test_frac=0.2, min_train_count=20000, max_train_count=100_000):
+    total_len = get_total_len(case)
     # get all data if in the range of min_train_count and max_train_count
     count = int(min_train_count * (1 + test_frac)) if total_len < min_train_count \
         else total_len if total_len < max_train_count \
@@ -114,13 +116,22 @@ def create_dataset(case: BenchmarkCase, hl_model, test_frac=0.2, min_train_count
     return TracrIITDataset(train_data, train_data, hl_model), TracrIITDataset(test_data, test_data, hl_model)
 
 
-def get_unique_data(case, max_len=1000):
+def get_unique_data(case: BenchmarkCase, max_len=10_000):
     '''
     Returns all possible unique datapoints from the case 
     if the number of unique datapoints is less than max_len.
     Otherwise, returns a random sample of max_len unique datapoints.
     '''
-    data = case.get_clean_data(count=50_000)
+    total_len = get_total_len(case)
+
+    if total_len < max_len:
+        data = case.get_clean_data(count=total_len)
+        test_inputs = data.get_inputs().to_numpy()
+        test_outputs = data.get_correct_outputs().to_numpy()
+        unique_test_data = TracrDataset(test_inputs, test_outputs)
+        return unique_test_data
+    
+    data = case.get_clean_data(count=3*max_len)
     test_inputs = data.get_inputs().to_numpy()
     test_outputs = data.get_correct_outputs().to_numpy()
     arr, idxs = np.unique([", ".join(str(i)) for i in np.array(test_inputs)], return_inverse=True)
