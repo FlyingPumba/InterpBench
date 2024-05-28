@@ -3,7 +3,7 @@ from transformer_lens import HookedTransformer
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from argparse import Namespace
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.utils.iit import make_iit_hl_model
+from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg
 from circuits_benchmark.utils.iit.dataset import (
     get_unique_data,
     TracrIITDataset,
@@ -13,6 +13,8 @@ from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 import pickle
 import iit.model_pairs as mp
 from iit.utils import index
+import wandb
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 
 
 def setup_args_parser(subparsers):
@@ -50,6 +52,12 @@ def setup_args_parser(subparsers):
         choices=["acdc", "edge_sp", "node_sp"],
         default="acdc",
         help="Algorithm to use",
+    )
+    parser.add_argument(
+        "-wandb", "--use-wandb", action="store_true", help="Use wandb for logging"
+    )
+    parser.add_argument(
+        "--load-from-wandb", action="store_true", help="Load model from wandb"
     )
 
 
@@ -107,40 +115,25 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     output_dir = args.output_dir
     weight = args.weights
     use_mean_cache = args.mean
-
-    if not case.supports_causal_masking():
-        raise NotImplementedError(
-            f"Case {case.get_index()} does not support causal masking"
-        )
+    use_wandb = args.use_wandb
 
     hl_model = case.build_transformer_lens_model()
-    hl_model = make_iit_hl_model(hl_model)
+    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
     tracr_output = case.get_tracr_output()
 
-    ll_cfg = hl_model.cfg.to_dict().copy()
-    n_heads = max(4, ll_cfg["n_heads"])
-    d_head = ll_cfg["d_head"] // 2
-    d_model = n_heads * d_head
-    d_mlp = d_model * 4
-    cfg_dict = {
-        "n_layers": max(2, ll_cfg["n_layers"]),
-        "n_heads": n_heads,
-        "d_head": d_head,
-        "d_model": d_model,
-        "d_mlp": d_mlp,
-        "seed": 0,
-        "act_fn": "gelu",
-        # "initializer_range": 0.02,
-    }
-    ll_cfg.update(cfg_dict)
-
-    model = HookedTransformer(ll_cfg)
-    model.load_state_dict(
-        torch.load(
-            f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth",
-            map_location=args.device,
+    ll_cfg = make_ll_cfg(hl_model)
+    if args.tracr:
+        model = case.get_tl_model()
+    else:
+        if args.load_from_wandb:
+            load_model_from_wandb(case.get_index(), weight, output_dir)
+        model = HookedTransformer(ll_cfg)
+        model.load_state_dict(
+            torch.load(
+                f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth",
+                map_location=args.device,
+            )
         )
-    )
 
     model_pair = mp.IITBehaviorModelPair(
         hl_model=hl_model,
@@ -149,7 +142,7 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
         training_args={},
     )
 
-    unique_test_data = get_unique_data(case)
+    unique_test_data = get_unique_data(case, max_len=100_000)
     test_set = TracrUniqueDataset(
         unique_test_data, unique_test_data, hl_model, every_combination=True
     )
@@ -173,3 +166,9 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     )
 
     print(f"Score: {score}")
+
+    if use_wandb:
+        wandb.init(project="node_realism", 
+                   group= f"{args.algorithm}_{case.get_index()}_{args.weights}",
+                   name=str(args.threshold))
+        wandb.log({"score": score})

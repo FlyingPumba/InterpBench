@@ -59,6 +59,9 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--sweep-config-file", type=str, help="Sweep config file", default=None
     )
+    parser.add_argument(
+        "--save-model-wandb", action="store_true", help="Save model to wandb"
+    )
 
 
 def config_is_bad(config):
@@ -94,6 +97,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
     )
 
     use_wandb = args.use_wandb
+    save_model_to_wandb = args.save_model_wandb
     output_dir = args.output_dir
 
     def main():
@@ -175,3 +179,12 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         ll_model_cfg_dict = ll_model_cfg.to_dict()
         
         pickle.dump(ll_model_cfg_dict, open(f"{save_dir}/ll_model_cfg_{weight_int}.pkl", "wb"))
+        if use_wandb:
+            wandb.finish()
+        if save_model_to_wandb:
+            wandb.init(
+                project="iit_models",
+                name=f"case_{case.get_index()}_weight_{weight_int}"
+            )
+            wandb.save(f"{save_dir}/*", base_path=output_dir)
+            wandb.finish()

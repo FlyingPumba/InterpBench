@@ -32,6 +32,7 @@ from subnetwork_probing.train import iterative_correspondence_from_mask
 from circuits_benchmark.commands.evaluation.iit.iit_acdc_eval import (
     evaluate_acdc_circuit,
 )
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 
 
 def setup_args_parser(subparsers):
@@ -80,6 +81,9 @@ def setup_args_parser(subparsers):
     parser.add_argument("--atol", type=float, default=5e-2, required=False)
     parser.add_argument("--compressed-model", action="store_true")
     parser.add_argument("--tracr", action="store_true")
+    parser.add_argument(
+        "--load-from-wandb", action="store_true", help="Load model from wandb"
+    )
 
 
 def eval_fn(
@@ -155,6 +159,8 @@ def run_sp(
             remove_extra_tensor_cloning=False,
         )
         tl_model.to(args.device)
+        if args.load_from_wandb:
+            load_model_from_wandb(case.get_index(), "510", args.output_dir)
         tl_model.load_weights_from_file(
             f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_510.pth"
         )
@@ -204,7 +210,18 @@ def run_sp(
             lambda x, y: torch.isclose(x, y, atol=args.atol).float().mean()
         )
         test_accuracy_metric = partial(test_accuracy_fn, test_baseline_output)
-
+    elif metric_name == "kl":
+        kl_metric = lambda x, y: torch.nn.functional.kl_div(
+            torch.nn.functional.log_softmax(x, dim=-1),
+            torch.nn.functional.softmax(y, dim=-1),
+            reduction="mean",
+        )
+        validation_metric = partial(
+            kl_metric, y = baseline_output
+        )
+        test_loss_metric = partial(
+            kl_metric, y = test_baseline_output
+        )
     else:
         raise NotImplementedError(f"Metric {metric_name} not implemented")
     test_metrics = {"loss": test_loss_metric, "accuracy": test_accuracy_metric}
@@ -350,6 +367,7 @@ def run_sp(
                 "percentage_binary": percentage_binary,
             }
         )
+        wandb.save(f"{output_dir}/edges.pkl")
         wandb.finish()
     # print("Done running sp: ")
     # print(result["edges"])

@@ -23,6 +23,7 @@ from iit.utils.eval_ablations import (
     save_result,
     Categorical_Metric,
 )
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 
 
 def setup_args_parser(subparsers):
@@ -51,6 +52,9 @@ def setup_args_parser(subparsers):
         default="accuracy",
         help="Categorical metric to use",
     )
+    parser.add_argument(
+        "--load-from-wandb", action="store_true", help="Load model from wandb"
+    )
     # parser.add_argument("-o", "--output_dir", type=str, default="./results", help="Output directory")
     # model_pair_class_map = {
     #     "strict": mp.StrictIITModelPair,
@@ -67,7 +71,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
     use_mean_cache = args.mean
 
     hl_model = case.build_transformer_lens_model()
-    hl_model = make_iit_hl_model(hl_model)
+    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
     tracr_output = case.get_tracr_output()
 
     if weight == "tracr":
@@ -87,6 +91,8 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
             hl_model.residual_stream_labels,
             remove_extra_tensor_cloning=True,
         )
+        if args.load_from_wandb:
+            load_model_from_wandb(case.get_index(), weight, output_dir)
         ll_model.load_weights_from_file(
             f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth"
         )
