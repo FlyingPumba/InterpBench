@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 import sys
 from utils import *
-
+from utils.wandb_calls import get_runs_with_substr
 # join the commands using && and wrap them in bash -c "..."
 # command = ["bash", "-c", f"{' '.join(ae_command)} && {' '.join(command)}"]
+weight = "510"
+s = "0.4"
+iit = "1"
+b = "1"
 
+def clean_runs():
+    runs = get_runs_with_substr(weight, project="iit_models")
+    for run in runs:
+        run.delete(delete_artifacts=True)
 
 def build_commands():
-    # case_instances = get_cases(indices=None)
-    cases = [1, 3, 4, 13, 21, 24, 27, 32, 38, 8] # 6, 18, 12, 19
-    # cases = []
-
-    # for case in case_instances:
-    #     cases.append(case.get_index())
-
-    command_template = """python main.py train iit -i {} --epochs 2000 --device cpu -iit 1 -s 0.4 --use-wandb --wandb-suffix strict_{}"""
+    cases = working_cases
+    command_template = """python main.py train iit -i {} --epochs 500 --device cpu -iit 1 -s 0.4 --use-wandb --wandb-suffix strict_{} --save-model-wandb"""
 
     commands = []
     for case in cases:
@@ -26,10 +28,11 @@ def build_commands():
 
 if __name__ == "__main__":
     print_commands(build_commands)
+    clean_runs()
     for arg in sys.argv:
         if arg in ["-l", "--local"]:
             print("Running locally.")
             run_commands(build_commands())
     launch_kubernetes_jobs(
-        build_commands, cpu=1, gpu=1, memory="4Gi", priority="high-batch"
+        build_commands, cpu=1, gpu=1, memory="12Gi", priority="high-batch"
     )

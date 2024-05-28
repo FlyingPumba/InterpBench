@@ -13,21 +13,20 @@ with JOB_TEMPLATE_PATH.open() as f:
 
 # join the commands using && and wrap them in bash -c "..."
 # command = ["bash", "-c", f"{' '.join(ae_command)} && {' '.join(command)}"]
+cases = working_cases
 
+def clean_runs():
+    runs = get_runs_with_substr("supervised")
+    for run in tqdm(runs):
+        for case in cases:
+            if case in run.name:
+                run.delete(delete_artifacts=True)
+    model_runs = get_runs_with_substr("100", project="iit_models")
+    for run in tqdm(model_runs):
+        run.delete(delete_artifacts=True)
 
 def build_commands():
-    print("Getting runs...")
-    runs = get_runs_with_substr("supervised")
-    print("Deleting runs...")
-    for run in tqdm(runs):
-        run.delete(delete_artifacts=True)
-    case_instances = get_cases(indices=None)
-    cases = []
-
-    for case in case_instances:
-        cases.append(case.get_index())
-
-    command_template = """python main.py train iit -i {} --epochs 500 --device cpu -iit 0 -s 0 --use-wandb --wandb-suffix supervised_{}"""
+    command_template = """python main.py train iit -i {} --epochs 500 --device cpu -iit 0 -s 0 --use-wandb --wandb-suffix supervised_{} --save-model-wandb"""
 
     commands = []
     for case in cases:
@@ -39,6 +38,11 @@ def build_commands():
 
 if __name__ == "__main__":
     print_commands(build_commands)
+    clean_runs()
+    for arg in sys.argv:
+        if arg in ["-l", "--local"]:
+            print("Running locally.")
+            run_commands(build_commands())
     launch_kubernetes_jobs(
-        build_commands, cpu=1, gpu=1, memory="8Gi", priority="high-batch"
+        build_commands, cpu=1, gpu=1, memory="12Gi", priority="high-batch"
     )

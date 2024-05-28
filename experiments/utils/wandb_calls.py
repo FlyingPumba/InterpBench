@@ -1,9 +1,8 @@
 import wandb
 from tqdm import tqdm
 
-def get_runs_with_substr(name_has_prefix):
+def get_runs_with_substr(name_has_prefix, project="iit"):
     api = wandb.Api()
-    project = "iit"
     runs = api.runs(f"{project}")
 
     # clean all runs in the group

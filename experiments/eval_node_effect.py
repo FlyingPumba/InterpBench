@@ -22,32 +22,20 @@ def build_commands():
     all_case_objs = get_cases()
     weight = int(strict * 1000 + behavior * 100 + iit * 10)
 
-    # command1
-    command1_template = """python main.py train iit -i {} --epochs 2000 --device cpu -iit {} -s {} -b {} --use-wandb --wandb-suffix case-{}-strict-{}"""
-
-    # command2
-    command2_template = """python main.py eval iit -i {} -w {} --save-to-wandb --categorical-metric {}"""
-
-    # join the commands using && and wrap them in bash -c "..."
-    # command = ["bash", "-c", f"{' '.join(ae_command)} && {' '.join(command)}"]
+    command_template = """python main.py eval iit -i {} -w {} --save-to-wandb --categorical-metric {} --load-from-wandb"""
 
     commands = []
     for case in cases:
         case_obj = all_case_objs[case-1]
         is_categorical = case_obj.build_transformer_lens_model().is_categorical()
         cat_mets = ["accuracy", "kl_div"] if is_categorical else ["accuracy"]
-        command1 = command1_template.format(case, iit, strict, behavior, case, weight).split()
-        eval_commands = []
         for cat_met in cat_mets:
-            command2 = command2_template.format(case, weight, cat_met).split()
-            eval_commands.append(command2)
-        joined_command = ["bash", "-c", f"{' '.join(command1)} && {' && '.join([' '.join(cmd) for cmd in eval_commands])}"]
-        commands.append(joined_command)
+            command = command_template.format(case, weight, cat_met).split()
+            commands.append(command)
         
         for cat_met in cat_mets:
-            command_tracr = command2_template.format(case, "tracr", cat_met).split()
+            command_tracr = command_template.format(case, "tracr", cat_met).split()
             commands.append(command_tracr)
-            
     
     return commands
 
