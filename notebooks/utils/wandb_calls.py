@@ -13,10 +13,12 @@ def fetch_files_from_runs(
 ):
     api = wandb.Api()
     runs = api.runs(
-        f"{project}", filters={"group": f"{group}", "state": f"{state}"}
+        f"{project}", filters={"state": f"{state}"}
     )
 
     def download_files(run):
+        if group not in run.group:
+            return
         if (name_substr is not None) and (name_substr not in run.name):
             return
         for file in run.files():

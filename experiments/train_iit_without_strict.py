@@ -4,8 +4,8 @@ from utils import *
 from utils.wandb_calls import get_runs_with_substr
 # join the commands using && and wrap them in bash -c "..."
 # command = ["bash", "-c", f"{' '.join(ae_command)} && {' '.join(command)}"]
-weight = "510"
-s = "0.4"
+weight = "110"
+s = "0"
 iit = "1"
 b = "1"
 
@@ -16,11 +16,11 @@ def clean_runs():
 
 def build_commands():
     cases = working_cases
-    command_template = """python main.py train iit -i {} --epochs 2000 --device cpu -iit 1 -s 0.4 --use-wandb --wandb-suffix strict_{} --save-model-wandb"""
+    command_template = """python main.py train iit -i {} --epochs 500 --device cpu -iit {} -s {} -b {} --use-wandb --wandb-suffix iit_{} --save-model-wandb"""
 
     commands = []
     for case in cases:
-        command = command_template.format(case, case).split()
+        command = command_template.format(case, iit, s, b, case).split()
         commands.append(command)
 
     return commands

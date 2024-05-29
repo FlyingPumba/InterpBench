@@ -6,7 +6,7 @@ import wandb
 
 
 def build_commands():
-    cases = [2, 3, 4, 13, 21, 24, 27, 38, 8]  # 1, 19, 32
+    cases = working_cases
     iit = 0.0
     strict = 0.0
     behavior = 1.0
