@@ -33,6 +33,7 @@ from circuits_benchmark.commands.evaluation.iit.iit_acdc_eval import (
     evaluate_acdc_circuit,
 )
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+import pickle
 
 
 def setup_args_parser(subparsers):
@@ -181,7 +182,7 @@ def run_sp(
 
     metric_name = args.metric
     zero_ablation = True if args.zero_ablation else False
-    using_wandb = args.using_wandb == 1
+    using_wandb = args.using_wandb
     device = args.device
     edgewise = args.edgewise
     use_pos_embed = True
@@ -353,6 +354,8 @@ def run_sp(
                 full_circuit=full_circuit,
                 verbose=False,
             )
+            # save results
+            pickle.dump(result, open(f"{output_dir}/result.pkl", "wb"))
     else:
         result = {}
 
@@ -378,7 +381,7 @@ def run_sp(
                 "percentage_binary": percentage_binary,
             }
         )
-        wandb.save(f"{output_dir}/edges.pkl")
+        wandb.save(f"{output_dir}/*", base_path=args.output_dir)
         wandb.finish()
     # print("Done running sp: ")
     # print(result["edges"])
