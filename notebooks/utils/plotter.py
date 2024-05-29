@@ -43,12 +43,18 @@ def plot_roc_curve(tprs, fprs, title, labels=None):
     plt.ylabel('True Positive Rate', fontsize=14)
     plt.show()
 
-def get_roc_curves_from_df(df, title, nodes=True):
+def get_roc_curves_from_df(df, title, nodes=True, algorithm="acdc"):
+    if algorithm == "acdc":
+        sort_key = "threshold"
+        ascending = False
+    elif "sp" in algorithm:
+        sort_key = "lambda"
+        ascending = True
     tprs = []
     fprs = []
     labels = []
     for run, entries in df.groupby("run"):
-        entries = entries.sort_values("threshold", ascending=False)
+        entries = entries.sort_values(sort_key, ascending=ascending)
         tpr = entries["node_tpr"].tolist().copy() if nodes else entries["edge_tpr"].tolist().copy()
         fpr = entries["node_fpr"].tolist().copy() if nodes else entries["edge_fpr"].tolist().copy()
         if len(tpr) < 2:

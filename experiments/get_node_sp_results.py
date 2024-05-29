@@ -39,11 +39,11 @@ def build_commands():
     strict = 0.4
     behavior = 1.0
     weight = int(strict * 1000 + behavior * 100 + iit * 10)
-    lambda_regs = [0.0, ]
-            #        1e-5, 1e-4, 1e-3, 1e-2, 
-            #   0.025, 0.05, 0.1, 0.2, 0.5, 0.8, 1.0, 10.0, 20.0, 50.0, 100.0]
+    lambda_regs = [0.0, 
+              1e-5, 1e-4, 1e-3, 1e-2, 
+              0.025, 0.05, 0.1, 0.2, 0.5, 0.8, 1.0, 10.0, 20.0, 50.0, 100.0]
 
-    sp_command_template = """python main.py run sp -i {} --metric {} --torch-num-threads 4 --device cuda --lambda-reg {} --epochs 500 --load-from-wandb -w {} --use-wandb --wandb-project circuit_discovery --wandb-group node_sp_{}_{} --wandb-run-name {}"""
+    sp_command_template = """python main.py run sp -i {} --metric {} --torch-num-threads 4 --device cuda --lambda-reg {} --epochs 500 --load-from-wandb -w {} --using-wandb --wandb-project circuit_discovery --wandb-group node_sp_{}_{} --wandb-run-name {}"""
     circuit_score_command_template = """python main.py eval node_realism -i {} --algorithm node_sp --mean --relative 0 -w {} --lambda-reg {} --use-wandb --load-from-wandb"""
     commands = []
     for case in cases:
