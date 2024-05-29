@@ -136,7 +136,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             f"--metric={metric}",
             wandb_str,
             "--wandb-entity-name=cybershiptrooper",
-            f"--wandb-project-name=acdc_{case.get_index()}",
+            f"--wandb-project-name=acdc_{case.get_index()}_{weight}",
         ]
     )  #'--data_size=1000'])
 
@@ -189,7 +189,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     if args.using_wandb:
         import wandb
         wandb.init(project=f"circuit_discovery", 
-                   group=f"{args.algorithm}_{case.get_index()}_{args.weights}", 
-                   name=f"case_{case_num}")
+                   group=f"acdc_{case.get_index()}_{args.weights}", 
+                   name=f"{args.threshold}")
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)
     return result

@@ -1,7 +1,7 @@
 import wandb
 
 def load_model_from_wandb(
-        case_index: int,
+        case_index,
         weights: str = "510",
         output_dir: str = "./results",
         return_file_without_downloading: bool = False
@@ -20,5 +20,5 @@ def load_model_from_wandb(
                 if not return_file_without_downloading:
                     file.download(replace=True, root=output_dir)
                 return file
-    raise FileNotFoundError(f"Could not find model file {model_file_name} in run {run.name}")
+    raise FileNotFoundError(f"Could not find model file {model_file_name} in run {name}")
         
