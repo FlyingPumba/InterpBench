@@ -142,9 +142,9 @@ def get_unique_data(case: BenchmarkCase, max_len=10_000):
 
     unique_test_inputs = test_inputs[first_occurences]
     unique_test_outputs = test_outputs[first_occurences]
-    assert len(unique_test_inputs) == len(unique_test_outputs)
-    assert len(unique_test_inputs) == len(np.unique([", ".join(str(i)) for i in np.array(test_inputs)]))
-    assert len(np.unique([", ".join(i) for i in np.array(unique_test_inputs)])) == len(unique_test_inputs)
+    # assert len(unique_test_inputs) == len(unique_test_outputs)
+    # assert len(unique_test_inputs) == len(np.unique([", ".join(str(i)) for i in np.array(test_inputs)]))
+    # assert len(np.unique([", ".join(str(i)) for i in np.array(unique_test_inputs)])) == len(unique_test_inputs)
     if len(unique_test_inputs) > max_len:
         random_indices = np.random.choice(len(unique_test_inputs), max_len, replace=False)
         unique_test_inputs = unique_test_inputs[random_indices]

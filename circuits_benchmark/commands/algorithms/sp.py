@@ -55,7 +55,6 @@ def setup_args_parser(subparsers):
         help="Value for wandb_run_name",
     )
     parser.add_argument("--lr", type=float, default=0.01)
-    parser.add_argument("--loss-type", type=str, required=True)
     parser.add_argument("--epochs", type=int, default=300)
     parser.add_argument("--verbose", type=int, default=1)
     parser.add_argument("--lambda-reg", type=float, default=1)
@@ -84,6 +83,7 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
     )
+    parser.add_argument("-w", "--weight", type=str, default="510")
 
 
 def eval_fn(
@@ -132,15 +132,19 @@ def run_sp(
     case: BenchmarkCase,
     args,
     calculate_fpr_tpr: bool = True,
-    output_suffix: str = "",
 ):
     print(args)
     if args.compressed_model:
+        output_suffix = "compressed"
         raise NotImplementedError("Compressed model not implemented")
     if args.tracr:
         tl_model = case.get_tl_model(
             device=args.device, remove_extra_tensor_cloning=False
         )
+        hl_ll_corr = TracrCorrespondence.make_identity_corr(
+            tracr_output=case.get_tracr_output()
+        )
+        output_suffix = "weight_tracr"
     else:
         hl_model = case.build_transformer_lens_model(
             remove_extra_tensor_cloning=False
@@ -160,12 +164,11 @@ def run_sp(
         )
         tl_model.to(args.device)
         if args.load_from_wandb:
-            load_model_from_wandb(case.get_index(), "510", args.output_dir)
+            load_model_from_wandb(case.get_index(), weights=args.weight, output_dir=args.output_dir)
         tl_model.load_weights_from_file(
-            f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_510.pth"
+            f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_{args.weight}.pth"
         )
-        if output_suffix == "":
-            output_suffix = f"weight_510"
+        output_suffix = f"weight_{args.weight}"
 
     # Check that dot program is in path
     if not shutil.which("dot"):
@@ -214,14 +217,19 @@ def run_sp(
         kl_metric = lambda x, y: torch.nn.functional.kl_div(
             torch.nn.functional.log_softmax(x, dim=-1),
             torch.nn.functional.softmax(y, dim=-1),
-            reduction="mean",
-        )
+            reduction="none",
+        ).sum(dim=-1).mean()
+
         validation_metric = partial(
             kl_metric, y = baseline_output
         )
         test_loss_metric = partial(
             kl_metric, y = test_baseline_output
         )
+        test_accuracy_fn = (
+            lambda x, y: (x.argmax(dim=-1) == y.argmax(dim=-1)).float().mean()
+        )
+        test_accuracy_metric = partial(test_accuracy_fn, test_baseline_output)
     else:
         raise NotImplementedError(f"Metric {metric_name} not implemented")
     test_metrics = {"loss": test_loss_metric, "accuracy": test_accuracy_metric}
@@ -241,7 +249,10 @@ def run_sp(
     )
 
     output_dir = os.path.join(
-        args.output_dir, f"{'edge_' if args.edgewise else 'node_'}sp_{case.get_index()}", output_suffix
+        args.output_dir, 
+        f"{'edge_' if args.edgewise else 'node_'}sp_{case.get_index()}", 
+        output_suffix,
+        f"lambda_{args.lambda_reg}",
     )
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)

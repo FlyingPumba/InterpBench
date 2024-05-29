@@ -141,13 +141,13 @@ def replace_inputs_and_qkv_edges_with_outputs(circuit: Circuit) -> Circuit:
         or (from_node_name_suffix == "hook_mlp_in") # Direct computation: hook_mlp_in -> hook_mlp_out
         ):
             # Ignore direct computation and placeholder edges
-            if (
+            if not (
                 (to_node_name_suffix in qkv_outs)
                 or (to_node_name_suffix == "hook_result")
                 or (to_node_name_suffix == "hook_mlp_out")
             ):
                 print(
-                    f"!!! WARNING: Received an innvalid edge:", 
+                    f"!!! WARNING: Received an invalid edge:", 
                     f"{from_node.name} -> {to_node.name}"
                 )
             continue  

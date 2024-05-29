@@ -40,6 +40,7 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "-t", "--threshold", type=float, default=0.025, help="Threshold"
     )
+    parser.add_argument("--lambda-reg", type=float, default=1.0, help="Regularization")
     parser.add_argument(
         "--use-compressed", action="store_true", help="Use compressed models"
     )
@@ -54,7 +55,10 @@ def setup_args_parser(subparsers):
         help="Algorithm to use",
     )
     parser.add_argument(
-        "-wandb", "--use-wandb", action="store_true", help="Use wandb for logging"
+        "-wandb",
+        "--use-wandb",
+        action="store_true",
+        help="Use wandb for logging",
     )
     parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
@@ -70,7 +74,9 @@ def make_edges_path(case: BenchmarkCase, args: Namespace):
             root_dir += f"/weight_{args.weights}"
     if args.algorithm == "acdc":
         return f"{root_dir}/threshold_{args.threshold}/edges.pkl"
-    return f"{root_dir}/edges.pkl"
+    elif args.algorithm in ["edge_sp", "node_sp"]:
+        return f"{root_dir}/lambda_{args.lambda_reg}/edges.pkl"
+    raise ValueError(f"Invalid algorithm: {args.algorithm}")
 
 
 def make_nodes_to_ablate(
@@ -168,7 +174,13 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     print(f"Score: {score}")
 
     if use_wandb:
-        wandb.init(project="node_realism", 
-                   group= f"{args.algorithm}_{case.get_index()}_{args.weights}",
-                   name=str(args.threshold))
+        group = (
+            f"{args.algorithm}_{case.get_index()}_{args.weights}"
+            if not args.tracr
+            else f"{args.algorithm}_{case.get_index()}_tracr"
+        )
+        name = f"{args.threshold}" if args.algorithm == "acdc" else f"{args.lambda_reg}" if args.algorithm in ["edge_sp", "node_sp"] else ""
+        wandb.init(
+            project="node_realism", group=group, name=name
+        )
         wandb.log({"score": score})
