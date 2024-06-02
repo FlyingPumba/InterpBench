@@ -26,7 +26,7 @@ def append_row(table, row):
                 pd.DataFrame([row], columns=row.index)]
         ).reset_index(drop=True)
 
-def get_acdc_scores(weight = 510):
+def get_acdc_scores(weight):
     # make an empty table with columns: run, threshold, tpr, fpr
     df = pd.DataFrame(columns=["run", "threshold", "node_tpr", "node_fpr", "edge_tpr", "edge_fpr"])
 
@@ -60,7 +60,7 @@ def get_acdc_scores(weight = 510):
             df = append_row(df, entry)
     return df
 
-def get_sp_scores(weight = 510, algorithm = "node_sp"):
+def get_sp_scores(weight, algorithm):
     df = pd.DataFrame(columns=["run", "lambda", "node_tpr", "node_fpr", "edge_tpr", "edge_fpr"])
     for folder in os.listdir("results"):
         if algorithm not in folder:
