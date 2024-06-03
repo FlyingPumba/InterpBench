@@ -3,6 +3,7 @@ import unittest
 from circuits_benchmark.benchmark.cases.case_16 import make_lexical_density_calculator
 from circuits_benchmark.benchmark.cases.case_27 import make_token_positional_balance_analyzer
 from circuits_benchmark.benchmark.cases.case_28 import make_token_mirroring
+from circuits_benchmark.benchmark.cases.case_32 import make_token_boundary_detector
 from circuits_benchmark.benchmark.cases.case_38 import make_token_alternation_checker
 from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor
 from tracr.rasp import rasp
@@ -45,3 +46,10 @@ class ProgramsTest(unittest.TestCase):
     program = make_token_mirroring(rasp.tokens)
 
     assert program(["abc", "def", "ghi"]) == ["cba", "fed", "ihg"]
+
+  def test_make_token_boundary_detector(self):
+    program = make_token_boundary_detector(rasp.tokens)
+
+    assert program(["apple", "banana", "apple", "orange"]) == [None, True, True, True]
+    assert program(["apple", "banana", "banana", "orange"]) == [None, True, False, True]
+    assert program(["apple", "apple", "banana", "orange"]) == [None, False, True, True]
