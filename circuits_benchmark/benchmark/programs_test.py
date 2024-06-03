@@ -1,6 +1,7 @@
 import unittest
 
 from circuits_benchmark.benchmark.cases.case_16 import make_lexical_density_calculator
+from circuits_benchmark.benchmark.cases.case_27 import make_token_positional_balance_analyzer
 from circuits_benchmark.benchmark.cases.case_38 import make_token_alternation_checker
 from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor
 from tracr.rasp import rasp
@@ -34,4 +35,7 @@ class ProgramsTest(unittest.TestCase):
     assert program(["cat", "cat", "dog", "dog"]) == [None, False, False, None]
     assert program(["cat", "cat", "cat", "cat"]) == [None, False, False, None]
 
+  def test_make_token_positional_balance_analyzer(self):
+    program = make_token_positional_balance_analyzer(rasp.tokens)
 
+    assert program(["a", "b", "c", "d", "e"]) == ["front", "front", "center", "center", "rear"]
