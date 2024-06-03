@@ -1,7 +1,7 @@
 def make_ll_cfg(hl_model):
     ll_cfg = hl_model.cfg.to_dict().copy()
     n_heads = max(4, ll_cfg["n_heads"])
-    d_head = ll_cfg["d_head"] // 2
+    d_head = max(1, ll_cfg["d_head"] // 2)
     d_model = n_heads * d_head
     d_mlp = d_model * 4
     cfg_dict = {
