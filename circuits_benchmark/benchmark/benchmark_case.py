@@ -93,6 +93,8 @@ class BenchmarkCase(object):
     else:
       input_data, output_data = self.sample_data(count, min_seq_len, max_seq_len)
 
+    assert len(set([tuple(o) for o in output_data])) > 1, "All outputs are the same for this case"
+
     unique_inputs = set()
     if remove_duplicates:
       # remove duplicates from input_data
