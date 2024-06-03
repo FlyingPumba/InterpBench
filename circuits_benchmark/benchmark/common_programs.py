@@ -256,10 +256,22 @@ def make_unique_token_extractor(sop: rasp.SOp) -> rasp.SOp:
       A SOp that maps an input sequence to another sequence containing only 
       the first occurrence of each unique token, with the rest as None.
     """
-    is_first_occurrence = rasp.Aggregate(
-        rasp.Select(rasp.indices, rasp.indices, rasp.Comparison.EQ),
-        sop, default=None).named("is_first_occurrence")
-    return is_first_occurrence
+    tokens_with_indices = rasp.SequenceMap(lambda x, i: (x, i), sop, rasp.indices)
+
+    # make a selector that counts how many times a (token, index) pair is the same as another pair when the token is the same
+    # and the index is less than or equal to the other index
+    occurrences_selector = rasp.Select(tokens_with_indices,
+                                       tokens_with_indices,
+                                       lambda k, q: k[0] == q[0] and k[1] <= q[1])
+
+    # Map the number of occurrences of each token to the indices
+    # We only retain the indices where the token occurs exactly once
+    occurrences_per_row = rasp.SelectorWidth(occurrences_selector)
+    first_occurrences_indices = rasp.SequenceMap(lambda count, i: i if count == 1 else -1, occurrences_per_row, rasp.indices)
+
+    # Select the indices where the token occurs exactly once
+    tokens_selector = rasp.Select(first_occurrences_indices, rasp.indices, rasp.Comparison.EQ).named("unique_tokens_selector")
+    return rasp.Aggregate(tokens_selector, sop, default=None).named("unique_tokens")
 
 @only_non_causal
 def make_reverse(sop: rasp.SOp) -> rasp.SOp:
