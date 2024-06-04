@@ -37,14 +37,14 @@ def get_acdc_scores(weight):
         weight_folder = os.path.join("results", folder, f"weight_{weight}")
         if not os.path.exists(weight_folder):
             continue
+        run = folder.split("_")[-1]
+        if run in bad_runs:
+            print(f"Skipping {run}")
+            continue
         print(weight_folder)
         for thresholds_folder in os.listdir(weight_folder):
             results_file = os.path.join(weight_folder, thresholds_folder, "result.pkl")
             if not os.path.exists(results_file):
-                continue
-            run = folder.split("_")[-1]
-            if run in bad_runs:
-                print(f"Skipping {run}")
                 continue
             threshold = float(thresholds_folder.split("_")[-1])
             result = pickle.load(open(results_file, "rb"))
@@ -68,15 +68,16 @@ def get_sp_scores(weight, algorithm):
         weight_folder = os.path.join("results", folder, f"weight_{weight}")
         if not os.path.exists(weight_folder):
             continue
+        run = folder.split("_")[-1]
+        if run in bad_runs:
+            print(f"Skipping {run}")
+            continue
         print(weight_folder)
         for lambda_folder in os.listdir(weight_folder):
             results_file = os.path.join(weight_folder, lambda_folder, "result.pkl")
             if not os.path.exists(results_file):
                 continue
-            run = folder.split("_")[-1]
-            if run in bad_runs:
-                print(f"Skipping {run}")
-                continue
+            
             threshold = float(lambda_folder.split("_")[-1])
             result = pickle.load(open(results_file, "rb"))
             entry = {"run": run, "lambda": threshold, 

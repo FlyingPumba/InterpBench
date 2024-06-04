@@ -1,4 +1,3 @@
-from sklearn import metrics
 import matplotlib.pyplot as plt
 import numpy as np
 from .node_effect_utils import get_circuit_lists
@@ -17,6 +16,21 @@ def pessimistic_auc(xs, ys):
     xs = np.array(xs, dtype=np.float64)[i]
     ys = np.array(ys, dtype=np.float64)[i]
 
+    # remove x and y values where y is not increasing
+    while True:
+        indices_to_remove = []
+        for i in range(1, len(ys)):
+            if ys[i] < ys[i - 1]:
+                indices_to_remove.append(i)
+        if len(indices_to_remove) == 0:
+            break
+        for i in indices_to_remove[::-1]:
+            xs = np.delete(xs, i)
+            ys = np.delete(ys, i)
+    # prepend 0 and append 1
+    xs = np.concatenate([[0], xs], [1])
+    ys = np.concatenate([[0], ys], [1])
+
     dys = np.diff(ys)
     assert np.all(np.diff(xs) >= 0), "not sorted"
     assert np.all(dys >= 0), "not monotonically increasing"
@@ -32,29 +46,7 @@ def plot_roc_curve(tprs, fprs, title, labels=None):
     for i, rates in enumerate(zip(tprs, fprs)):
         i += 1
         tpr_list, fpr_list = rates
-        try:
-            auc = metrics.auc(fpr_list, tpr_list)
-        except ValueError:
-            # make the list non-increasing by removing elements that are less than the previous
-            # get indices where the list is decreasing
-            tpr_indices = [
-                idx
-                for idx in range(1, len(tpr_list))
-                if tpr_list[idx] > tpr_list[idx - 1]
-            ]
-            fpr_indices = [
-                idx
-                for idx in range(1, len(fpr_list))
-                if fpr_list[idx] > fpr_list[idx - 1]
-            ]
-            all_indices = list(set(tpr_indices + fpr_indices))
-            # sort descending so we can remove from the end
-            all_indices.sort(reverse=True)
-            for idx in all_indices:
-                del tpr_list[idx]
-                del fpr_list[idx]
-            auc = metrics.auc(fpr_list, tpr_list)
-            auc = metrics.auc(fpr_list, tpr_list)
+        auc = pessimistic_auc(fpr_list, tpr_list)
         # plot with colorscheme viridis
         cmap = plt.get_cmap("OrRd")
         label = labels[i - 1] if labels is not None else f"ROC curve {i}"
