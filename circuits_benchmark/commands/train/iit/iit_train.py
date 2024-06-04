@@ -17,20 +17,6 @@ def setup_args_parser(subparsers):
     add_common_args(parser)
 
     parser.add_argument(
-        "--residual-stream-compression-size",
-        type=str,
-        default="auto",
-        help="A list of comma separated sizes for the compressed residual stream, or 'auto' to find the "
-        "optimal size.",
-    )
-    parser.add_argument(
-        "--auto-compression-accuracy",
-        type=float,
-        default=0.95,
-        help="The desired test accuracy when using 'auto' compression size.",
-    )
-
-    parser.add_argument(
         "-iit", "--iit_weight", type=float, default=1.0, help="IIT weight"
     )
     parser.add_argument(
@@ -54,7 +40,7 @@ def setup_args_parser(subparsers):
         "--wandb-suffix", type=str, default="", help="Wandb suffix"
     )
     parser.add_argument(
-        "--epochs", type=int, default=50, help="Number of epochs"
+        "--epochs", type=int, default=2000, help="Number of epochs"
     )
     parser.add_argument(
         "--sweep-config-file", type=str, help="Sweep config file", default=None
@@ -137,7 +123,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
     else:
         config = {
             "atol": 0.05,
-            "lr": 1e-2,
+            "lr": 1e-3,
             "use_single_loss": False,
             "iit_weight": args.iit_weight,
             "behavior_weight": args.behavior_weight,
@@ -146,7 +132,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "act_fn": "gelu",
             "wandb_suffix": args.wandb_suffix,
             "device": "cpu" if args.device == "cpu" else "cuda",
-            "clip_grad_norm": 1.0,
+            "clip_grad_norm": 0.1,
             "lr_scheduler": "",
         }
 
