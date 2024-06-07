@@ -1,6 +1,6 @@
 # A benchmark for mechanistic discovery of circuits in Transformers
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11518575.svg)](https://doi.org/10.5281/zenodo.11518575)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11518575.svg)](https://zenodo.org/doi/10.5281/zenodo.11518575)
 
 
 ## Setup
