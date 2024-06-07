@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from argparse import Namespace
+import pickle
 
 import torch as t
 import wandb
@@ -52,6 +53,15 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--wandb-suffix", type=str, default="", help="Wandb suffix"
     )
+    parser.add_argument(
+        "--epochs", type=int, default=50, help="Number of epochs"
+    )
+    parser.add_argument(
+        "--sweep-config-file", type=str, help="Sweep config file", default=None
+    )
+    parser.add_argument(
+        "--save-model-wandb", action="store_true", help="Save model to wandb"
+    )
 
 
 def config_is_bad(config):
@@ -87,6 +97,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
     )
 
     use_wandb = args.use_wandb
+    save_model_to_wandb = args.save_model_wandb
     output_dir = args.output_dir
 
     def main():
@@ -96,6 +107,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         config = {
             **wandb.config,
             "wandb_suffix": args.wandb_suffix,
+            "device": "cpu" if args.device == "cpu" else "cuda",
         }
         train_model(config, case, tracr_output, hl_model, use_wandb=True)
 
@@ -105,18 +117,20 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "method": "grid",
             "parameters": {
                 "atol": {"values": [0.05]},
-                "lr": {"values": [1e-3, 1e-4, 1e-5]},
+                "lr": {"values": [1e-2, 1e-3, 1e-4, 1e-5]},
                 "use_single_loss": {"values": [True, False]},
-                "iit_weight": {"values": [0.5, 1.0, 1.5]},
-                "behavior_weight": {"values": [0.5, 1.0, 1.5]},
-                "strict_weight": {"values": [0.0, 0.5, 1.0, 1.5]},
-                "epochs": {"values": [50]},
+                "iit_weight": {"values": [0.4, 0.5, 0.6, 1.0]},
+                "behavior_weight": {"values": [0.5, 1.0]},
+                "strict_weight": {"values": [0.0, 0.2, 0.5, 1.0, 1.5]},
+                "epochs": {"values": [args.epochs]},
                 "act_fn": {"values": ["relu", "gelu"]},
+                "clip_grad_norm": {"values": [10, 1.0, 0.1, 0.05]},
+                "lr_scheduler": {"values": ["plateau", ""]},
             },
         }
         sweep_id = wandb.sweep(
             sweep_config,
-            project="iit",
+            project=f"iit_{case.get_index()}",
             entity=args.wandb_entity,
         )
         wandb.agent(sweep_id, main)
@@ -128,9 +142,12 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "iit_weight": args.iit_weight,
             "behavior_weight": args.behavior_weight,
             "strict_weight": args.strict_weight,
-            "epochs": 50,
+            "epochs": args.epochs,
             "act_fn": "gelu",
             "wandb_suffix": args.wandb_suffix,
+            "device": "cpu" if args.device == "cpu" else "cuda",
+            "clip_grad_norm": 1.0,
+            "lr_scheduler": "",
         }
 
         args = argparse.Namespace(**config)
@@ -158,8 +175,16 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             json.dump(config, f)
 
         # TODO: save the config
-        # ll_model_cfg = model_pair.ll_model.cfg
-        # ll_model_cfg_dict = ll_model_cfg.to_dict()
-
-        # with open(f"{save_dir}/ll_model_cfg_{weight_int}.json", "w") as f:
-        #     json.dump(ll_model_cfg_dict, f)
+        ll_model_cfg = model_pair.ll_model.cfg
+        ll_model_cfg_dict = ll_model_cfg.to_dict()
+        
+        pickle.dump(ll_model_cfg_dict, open(f"{save_dir}/ll_model_cfg_{weight_int}.pkl", "wb"))
+        if use_wandb:
+            wandb.finish()
+        if save_model_to_wandb:
+            wandb.init(
+                project="iit_models",
+                name=f"case_{case.get_index()}_weight_{weight_int}"
+            )
+            wandb.save(f"{save_dir}/*", base_path=output_dir)
+            wandb.finish()

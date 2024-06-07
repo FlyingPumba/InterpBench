@@ -3,12 +3,16 @@ from transformer_lens import HookedTransformer
 import torch
 
 
-def make_iit_hl_model(hl_model):
+def make_iit_hl_model(hl_model, eval_mode=False):
     class IITHLModel:
         """A wrapper class to make tracr models compatible with IITModelPair"""
 
         def __init__(self, hl_model: HookedTransformer):
             self.hl_model = hl_model
+            self.hl_model.to(hl_model.device)
+            for p in hl_model.parameters():
+                p.requires_grad = False
+                p.to(hl_model.device)
 
         def __getattr__(self, name: str):
             if hasattr(self.hl_model, name):
@@ -20,19 +24,26 @@ def make_iit_hl_model(hl_model):
 
         def create_hl_output(self, y):
             if self.hl_model.is_categorical():
-                # convert to one-hot
-                return torch.nn.functional.one_hot(
-                    y.argmax(dim=-1), num_classes=y.shape[-1]
-                ).float()
+                y = y.argmax(dim=-1)
+                if eval_mode:
+                    y = torch.nn.functional.one_hot(y, num_classes=self.hl_model.cfg.d_vocab_out)
             return y
-
+        
+        def get_correct_input(self, input):
+            if isinstance(input, tuple):
+                return input[0]
+            elif isinstance(input, torch.Tensor):
+                return input
+            else:
+                raise ValueError(f"Invalid input type: {type(input)}")
+        
         def forward(self, input):
-            x, _, _ = input
+            x = self.get_correct_input(input)
             out = self.hl_model(x)
             return self.create_hl_output(out)
 
         def run_with_hooks(self, input, *args, **kwargs):
-            x, _, _ = input
+            x = self.get_correct_input(input)
             out = self.hl_model.run_with_hooks(x, *args, **kwargs)
             # if self.hl_model.is_categorical():
             #     return out.argmax(dim=1)

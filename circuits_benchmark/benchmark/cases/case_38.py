@@ -26,8 +26,8 @@ def make_token_alternation_checker(sop: rasp.SOp) -> rasp.SOp:
     prev_token = shift_by(1, sop)
     next_token = shift_by(-1, sop)
 
-    alternation_checker = rasp.SequenceMap(lambda x, y: x != y, prev_token, sop)
-    alternation_checker = rasp.SequenceMap(lambda x, y: x != y, sop, next_token)
-    alternation_checker = rasp.SequenceMap(lambda x, y: x == y, alternation_checker, alternation_checker)
-
+    prev_token_neq_orig = rasp.SequenceMap(lambda x, y: x != y, prev_token, sop).named("prev_token_neq_orig")
+    next_token_neq_orig = rasp.SequenceMap(lambda x, y: x != y, sop, next_token).named("next_token_neq_orig")
+    alternation_checker = rasp.SequenceMap(lambda x, y: x and y,
+                                           prev_token_neq_orig, next_token_neq_orig).named("alternation_checker")
     return alternation_checker

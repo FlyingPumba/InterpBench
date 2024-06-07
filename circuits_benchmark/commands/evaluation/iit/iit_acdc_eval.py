@@ -16,9 +16,9 @@ from circuits_benchmark.transformers.acdc_circuit_builder import (
     build_acdc_circuit,
 )
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
-from circuits_benchmark.utils.iit.tracr_ll_corrs import get_tracr_ll_corr
 from typing import Optional
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 
 
 def setup_args_parser(subparsers):
@@ -42,6 +42,9 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "-wandb", "--using_wandb", action="store_true", help="Use wandb"
     )
+    parser.add_argument(
+        "--load-from-wandb", action="store_true", help="Load model from wandb"
+    )
 
 
 def evaluate_acdc_circuit(
@@ -64,11 +67,6 @@ def evaluate_acdc_circuit(
 
 
 def run_acdc_eval(case: BenchmarkCase, args: Namespace):
-    if not case.supports_causal_masking():
-        raise NotImplementedError(
-            f"Case {case.get_index()} does not support causal masking"
-        )
-
     case_num = case.get_index()
 
     weight = args.weights
@@ -90,16 +88,21 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     if os.path.exists(clean_dirname):
         shutil.rmtree(clean_dirname)
 
+    ll_cfg = hl_model.cfg.to_dict().copy()
+    n_heads = max(4, ll_cfg["n_heads"])
+    d_head = ll_cfg["d_head"] // 2
+    d_model = n_heads * d_head
+    d_mlp = d_model * 4
     cfg_dict = {
-        "n_layers": 2,
-        "n_heads": 4,
-        "d_head": 4,
-        "d_model": 8,
-        "d_mlp": 16,
+        "n_layers": max(2, ll_cfg["n_layers"]),
+        "n_heads": n_heads,
+        "d_head": d_head,
+        "d_model": d_model,
+        "d_mlp": d_mlp,
         "seed": 0,
         "act_fn": "gelu",
+        # "initializer_range": 0.02,
     }
-    ll_cfg = hl_model.cfg.to_dict().copy()
     ll_cfg.update(cfg_dict)
 
     ll_model = HookedTracrTransformer(
@@ -110,6 +113,8 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         remove_extra_tensor_cloning=False,
     )
     if weight != "tracr":
+        if args.load_from_wandb:
+            load_model_from_wandb(case_num, weight, args.output_dir)
         ll_model.load_weights_from_file(
             f"{args.output_dir}/ll_models/{case_num}/ll_model_{weight}.pth"
         )
@@ -131,7 +136,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             f"--metric={metric}",
             wandb_str,
             "--wandb-entity-name=cybershiptrooper",
-            f"--wandb-project-name=acdc_{case.get_index()}",
+            f"--wandb-project-name=acdc_{case.get_index()}_{weight}",
         ]
     )  #'--data_size=1000'])
 
@@ -181,4 +186,10 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     print(
         f"Saved result to {clean_dirname}/result.txt and {clean_dirname}/result.pkl"
     )
+    if args.using_wandb:
+        import wandb
+        wandb.init(project=f"circuit_discovery", 
+                   group=f"acdc_{case.get_index()}_{args.weights}", 
+                   name=f"{args.threshold}")
+        wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)
     return result

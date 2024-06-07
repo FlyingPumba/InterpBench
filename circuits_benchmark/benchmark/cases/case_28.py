@@ -10,7 +10,7 @@ class Case28(BenchmarkCase):
     return make_token_mirroring(rasp.tokens)
 
   def get_vocab(self) -> Set:
-    return vocabs.get_words_vocab()
+    return vocabs.get_words_vocab(min_chars=4, max_words=50)
 
 
 def make_token_mirroring(sop: rasp.SOp) -> rasp.SOp:
