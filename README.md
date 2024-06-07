@@ -1,5 +1,8 @@
 # A benchmark for mechanistic discovery of circuits in Transformers
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11518576.svg)](https://doi.org/10.5281/zenodo.11518576)
+
+
 ## Setup
 
 This project uses [Poetry](https://python-poetry.org/) to manage the dependencies. To install Poetry, you can follow the instructions [here](https://python-poetry.org/docs/#installation).
