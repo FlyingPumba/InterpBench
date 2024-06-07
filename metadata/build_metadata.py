@@ -2,6 +2,7 @@ import os
 import json
 import pickle
 
+import mlcroissant as mlc
 import pandas as pd
 import huggingface_hub as hf
 
@@ -9,6 +10,13 @@ from circuits_benchmark.utils.get_cases import get_cases
 
 hf_fs = hf.HfFileSystem()
 hf_repo_id = "cybershiptrooper/InterpBench"
+
+PANDAS_TO_CROISSANT_VALUE_TYPE = {
+    "string": mlc.DataType.TEXT,
+    "int64": mlc.DataType.INTEGER,
+    "float64": mlc.DataType.FLOAT,
+    "bool": mlc.DataType.BOOL
+}
 
 
 def build_metadata():
@@ -25,7 +33,9 @@ def build_metadata():
 
   metadata["cases"] = cases_info
   write_benchmark_metadata_json(metadata)
-  write_cases_metadata(cases_info)
+  df_cases_info = write_cases_metadata(cases_info)
+  write_benchmark_metadata_croissant(metadata, df_cases_info)
+
 
 def write_cases_metadata(cases_info):
   # flatten transformer_cfg and training_args, and remove files and vocab
@@ -50,8 +60,19 @@ def write_cases_metadata(cases_info):
 
   # convert cases_info to pandas dataframe, and output to csv and parquet
   df = pd.DataFrame(cases_info)
+
+  # fix object columns type
+  case_example = cases_info[0]
+  for col in df.select_dtypes(include=['object']).columns:
+    if isinstance(case_example[col], str):
+      df[col] = df[col].astype("string")
+    elif isinstance(case_example[col], bool):
+      df[col] = df[col].astype(bool)
+
   df.to_csv('benchmark_cases_metadata.csv', index=False)
   df.to_parquet('benchmark_cases_metadata.parquet', index=False)
+
+  return df
 
 
 def build_case_info(case_id, files_per_case):
@@ -136,6 +157,95 @@ def write_benchmark_metadata_json(metadata):
   with open('benchmark_metadata.json', 'w') as f:
     json.dump(metadata, f, indent=2)
 
+
+def write_benchmark_metadata_croissant(metadata, df_cases_info):
+  distribution = [
+    mlc.FileObject(
+      id="hf-repository",
+      name="hf-repository",
+      description="The Hugging Face git repository.",
+      content_url="https://huggingface.co/cybershiptrooper/InterpBench",
+      encoding_format="git+https",
+      sha256="main",
+    ),
+    mlc.FileObject(
+      id="benchmark-cases-parquet",
+      name="benchmark-cases-parquet",
+      description="Parquet file describing all the cases in the benchmark.",
+      contained_in=["hf-repository"],
+      encoding_format="application/x-parquet",
+    ),
+    mlc.FileSet(
+      id="training-args",
+      name="training-args",
+      description="Training arguments.",
+      contained_in=["hf-repository"],
+      encoding_format="application/json",
+      includes="*/meta_[0-9]*.json",
+    ),
+    mlc.FileSet(
+      id="circuits",
+      name="circuits",
+      description="Ground truth circuits (Pickle).",
+      contained_in=["hf-repository"],
+      encoding_format="application/octet-stream",
+      includes="*/edges.pkl",
+    ),
+    mlc.FileSet(
+      id="weights",
+      name="weights",
+      description="Serialized PyTorch state dictionaries (Pickle).",
+      contained_in=["hf-repository"],
+      encoding_format="application/octet-stream",
+      includes="*/ll_model_[0-9]*.pkl",
+    ),
+    mlc.FileSet(
+      id="cfgs",
+      name="cfgs",
+      description="Architecture configs (Pickle).",
+      contained_in=["hf-repository"],
+      encoding_format="application/octet-stream",
+      includes="*/ll_model_cfg_[0-9]*.pkl",
+    ),
+  ]
+
+  cases_fields = []
+  for column, dtype in df_cases_info.dtypes.to_dict().items():
+    cases_fields.append(
+      mlc.Field(
+        id=column,
+        name=column,
+        description=f"Column '{column}' from the parquet file describing all the cases in the benchmark.",
+        data_types=PANDAS_TO_CROISSANT_VALUE_TYPE.get(str(dtype)),
+        source=mlc.Source(
+          file_set="benchmark-cases-parquet",
+          extract=mlc.Extract(
+            column=column,
+          ),
+        ),
+      )
+    )
+
+  record_sets = [
+    mlc.RecordSet(
+      id="cases",
+      name="cases",
+      fields=cases_fields,
+    )
+  ]
+
+  cr_metadata = mlc.Metadata(
+    name=metadata["name"],
+    description=metadata["description"],
+    url=metadata["url"],
+    license=metadata["license"],
+    version=metadata["version"],
+    distribution=distribution,
+    record_sets=record_sets,
+  )
+
+  with open('benchmark_metadata_croissant.json', 'w') as f:
+    json.dump(cr_metadata.to_json(), f, indent=2)
 
 if __name__ == '__main__':
     build_metadata()
