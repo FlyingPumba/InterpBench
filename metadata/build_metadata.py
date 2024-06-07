@@ -53,13 +53,14 @@ def write_cases_metadata(cases_info):
   df.to_csv('benchmark_cases_metadata.csv', index=False)
   df.to_parquet('benchmark_cases_metadata.parquet', index=False)
 
+
 def build_case_info(case_id, files_per_case):
   case_info = {
     "case_id": case_id,
-    "files": files_per_case[case_id]
+    "url": f"https://huggingface.co/{hf_repo_id}/tree/main/{case_id}",
   }
 
-  # Case description
+  # Case description and basic info
   cases = get_cases(indices=[case_id])
   if len(cases) == 0:
     if "ioi" in case_id:
@@ -74,6 +75,14 @@ def build_case_info(case_id, files_per_case):
     case_info["vocab"] = list(case.get_vocab())
     case_info["max_seq_len"] = case.get_max_seq_len()
     case_info["min_seq_len"] = case.get_min_seq_len()
+
+  # Files
+  case_info["files"] = []
+  for file in files_per_case[case_id]:
+    case_info["files"].append({
+      "file_name": file,
+      "url": f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{file}",
+    })
 
   # Model architecture info
   cfg_pkl = [f for f in files_per_case[case_id] if "_cfg_" in f and f.endswith(".pkl")]
