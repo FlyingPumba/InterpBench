@@ -62,7 +62,12 @@ def build_case_info(case_id, files_per_case):
   # Case description
   cases = get_cases(indices=[case_id])
   if len(cases) == 0:
-    print(f"WARNING: No case found for case {case_id}")
+    if "ioi" in case_id:
+      case_info["task_description"] = "Indirect object identification"
+      case_info["max_seq_len"] = 16
+      case_info["min_seq_len"] = 16
+    else:
+      print(f"WARNING: No case found for case {case_id}")
   else:
     case = cases[0]
     case_info["task_description"] = case.get_task_description()
