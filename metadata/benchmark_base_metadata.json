@@ -1,5 +1,7 @@
 {
   "name": "InterpBench",
   "version": "1.0.0",
-  "description": "A benchmark of transformers with known circuits for evaluating mechanistic interpretability techniques."
+  "description": "A benchmark of transformers with known circuits for evaluating mechanistic interpretability techniques.",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "url": "https://huggingface.co/cybershiptrooper/InterpBench",
 }
