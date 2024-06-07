@@ -10,6 +10,9 @@ class Case22(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_sorting_by_length(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Sort words in a sequence by their length."
+
   def supports_causal_masking(self) -> bool:
     return False
 

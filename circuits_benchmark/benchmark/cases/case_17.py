@@ -10,6 +10,9 @@ class Case17(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_palindrome_detection(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Detect if input sequence is a palindrome."
+
   def supports_causal_masking(self) -> bool:
     return False
 

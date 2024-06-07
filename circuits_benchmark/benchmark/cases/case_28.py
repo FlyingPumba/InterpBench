@@ -9,6 +9,9 @@ class Case28(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_mirroring(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Mirrors each word in the sequence around its central axis."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab(min_chars=4, max_words=50)
 

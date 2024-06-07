@@ -9,6 +9,9 @@ class Case33(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_length_parity_checker(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Checks if each token's length is odd or even."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 

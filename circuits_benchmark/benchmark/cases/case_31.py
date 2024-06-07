@@ -9,6 +9,9 @@ class Case31(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_anagram_identifier(rasp.tokens, "listen")
 
+  def get_task_description(self) -> str:
+    return "Identify if tokens in the sequence are anagrams of the word 'listen'."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab().union({"listen"})
 

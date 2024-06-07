@@ -10,6 +10,9 @@ class Case19(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_sequential_duplicate_removal(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Removes consecutive duplicate tokens from a sequence."
+
   def get_vocab(self) -> Set:
     return vocabs.get_ascii_letters_vocab(count=3)
 

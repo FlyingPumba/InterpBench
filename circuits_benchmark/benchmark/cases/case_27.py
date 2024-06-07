@@ -10,6 +10,9 @@ class Case27(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_positional_balance_analyzer(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Analyzes whether tokens are more towards the start ('front'), end ('rear'), or balanced ('center')."
+
   def supports_causal_masking(self) -> bool:
     return False
 

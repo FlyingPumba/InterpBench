@@ -9,6 +9,9 @@ class Case35(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_capitalization_alternator(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Alternates capitalization of each character in words."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 
