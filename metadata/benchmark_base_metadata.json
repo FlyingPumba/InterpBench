@@ -1,0 +1,5 @@
+{
+  "name": "InterpBench",
+  "version": "1.0.0",
+  "description": "A benchmark of transformers with known circuits for evaluating mechanistic interpretability techniques."
+}
