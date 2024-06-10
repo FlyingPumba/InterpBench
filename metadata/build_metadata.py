@@ -93,13 +93,13 @@ def build_case_info(case_id, files_per_case):
   else:
     case = cases[0]
     case_info["task_description"] = case.get_task_description()
-    case_info["vocab"] = list(case.get_vocab())
+    case_info["vocab"] = list(sorted(case.get_vocab()))
     case_info["max_seq_len"] = case.get_max_seq_len()
     case_info["min_seq_len"] = case.get_min_seq_len()
 
   # Files
   case_info["files"] = []
-  for file in files_per_case[case_id]:
+  for file in sorted(files_per_case[case_id]):
     case_info["files"].append({
       "file_name": file,
       "url": f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{file}",
@@ -116,6 +116,7 @@ def build_case_info(case_id, files_per_case):
 
     cfg_dict["dtype"] = str(cfg_dict["dtype"])
     case_info["transformer_cfg"] = cfg_dict
+    case_info["transformer_cfg_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{cfg_pkl_file_name}"
 
   # Training info
   meta_json = [f for f in files_per_case[case_id] if f.startswith("meta_") and f.endswith(".json")]
@@ -130,6 +131,21 @@ def build_case_info(case_id, files_per_case):
     del training_args["wandb_suffix"]
 
     case_info["training_args"] = training_args
+    case_info["training_args_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{meta_json_file_name}"
+
+  weights_pkl = [f for f in files_per_case[case_id] if f.startswith("ll_model_") and f.endswith(".pth")]
+  if len(weights_pkl) == 0:
+    print(f"WARNING: No weights pkl file found for case {case_id}")
+  else:
+    weights_pkl_file_name = weights_pkl[0]
+    case_info["weights_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{weights_pkl_file_name}"
+
+  edges_pkl = [f for f in files_per_case[case_id] if f.endswith("edges.pkl")]
+  if len(edges_pkl) == 0:
+    print(f"WARNING: No edges pkl file found for case {case_id}")
+  else:
+    edges_pkl_file_name = edges_pkl[0]
+    case_info["circuit_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{edges_pkl_file_name}"
 
   return case_info
 
