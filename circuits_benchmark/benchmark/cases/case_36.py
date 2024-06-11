@@ -8,6 +8,9 @@ class Case36(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_emoji_sentiment_classifier(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Classifies each token as 'positive', 'negative', or 'neutral' based on emojis."
+
   def get_vocab(self) -> Set:
     return {"😊", "😢", "📘"}
 

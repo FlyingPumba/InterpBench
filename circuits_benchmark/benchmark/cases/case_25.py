@@ -10,6 +10,9 @@ class Case25(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_frequency_normalization()
 
+  def get_task_description(self) -> str:
+    return "Normalizes token frequencies in a sequence to a range between 0 and 1."
+
   def supports_causal_masking(self) -> bool:
     return False
 

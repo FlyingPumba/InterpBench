@@ -9,6 +9,9 @@ class Case20(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_spam_message_detector(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Detect spam messages based on appearance of spam keywords."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab().union({"spam", "offer", "click", "now"})
 

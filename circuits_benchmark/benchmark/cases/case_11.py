@@ -9,6 +9,9 @@ class Case11(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_word_count_by_length(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Counts the number of words in a sequence based on their length."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 

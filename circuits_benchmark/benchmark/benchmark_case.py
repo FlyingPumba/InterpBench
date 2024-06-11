@@ -65,6 +65,10 @@ class BenchmarkCase(object):
     """
     return True
 
+  def get_task_description(self) -> str:
+    """Returns the task description for the benchmark case."""
+    return ""
+
   def get_clean_data(self,
                      count: Optional[int] = 10,
                      seed: Optional[int] = 42,

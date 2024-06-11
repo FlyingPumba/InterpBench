@@ -10,6 +10,9 @@ class Case15(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_nary_sequencemap(lambda x, y, z: x + y - z, rasp.tokens, rasp.tokens, rasp.indices)
 
+  def get_task_description(self) -> str:
+    return "Returns each token multiplied by two and subtracted by its index."
+
   def get_vocab(self) -> Set:
     return vocabs.get_int_digits_vocab(count=5)
 

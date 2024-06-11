@@ -9,6 +9,9 @@ class Case24(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_leading_token_identification(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Identifies the first occurrence of each token in a sequence."
+
   def get_vocab(self) -> Set:
     return vocabs.get_ascii_letters_vocab(count=3)
 

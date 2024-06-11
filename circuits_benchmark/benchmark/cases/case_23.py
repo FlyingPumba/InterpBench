@@ -9,6 +9,9 @@ class Case23(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_palindrome_word_spotter(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Returns palindrome words in a sequence."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab().union({"racecar", "noon"})
 

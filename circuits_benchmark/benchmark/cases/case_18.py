@@ -10,6 +10,9 @@ class Case18(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_frequency_classifier(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Classify each token based on its frequency as 'rare', 'common', or 'frequent'."
+
   def supports_causal_masking(self) -> bool:
     return False
 

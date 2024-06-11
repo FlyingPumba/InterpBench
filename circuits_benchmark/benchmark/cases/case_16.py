@@ -10,6 +10,9 @@ class Case16(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_lexical_density_calculator(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Calculates the lexical density of a text (unique words to total words ratio)."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 

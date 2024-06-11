@@ -9,6 +9,9 @@ class Case37(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_reversal_with_exclusion(rasp.tokens, "nochange")
 
+  def get_task_description(self) -> str:
+    return "Reverses each word in the sequence except for specified exclusions."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 

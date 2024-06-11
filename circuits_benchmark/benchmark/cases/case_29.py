@@ -9,6 +9,9 @@ class Case29(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_abbreviation(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Creates abbreviations for each token in the sequence."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 
