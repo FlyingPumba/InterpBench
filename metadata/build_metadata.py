@@ -5,6 +5,7 @@ import pickle
 import mlcroissant as mlc
 import pandas as pd
 import huggingface_hub as hf
+from transformer_lens import HookedTransformerConfig
 
 from circuits_benchmark.utils.get_cases import get_cases
 
@@ -43,7 +44,11 @@ def write_cases_metadata(cases_info):
     if "training_args" in case_info:
       training_arg_keys = case_info["training_args"].keys()
       for key in training_arg_keys:
-        case_info[f"training_args.{key}"] = case_info["training_args"][key]
+        if key == "scheduler_val_metric":
+          # convert to comma separated string
+          case_info[f"training_args.{key}"] = ",".join(case_info["training_args"][key])
+        else:
+          case_info[f"training_args.{key}"] = case_info["training_args"][key]
       del case_info["training_args"]
 
     if "transformer_cfg" in case_info:
@@ -58,15 +63,31 @@ def write_cases_metadata(cases_info):
     if "vocab" in case_info:
       del case_info["vocab"]
 
+  # delete keys that have None value in all cases
+  keys_to_delete = []
+  for key in set([key for case_info in cases_info for key in case_info.keys()]):
+    if all(key not in case_info or case_info.get(key) is None for case_info in cases_info):
+      keys_to_delete.append(key)
+  for key in keys_to_delete:
+    for case_info in cases_info:
+      if key in case_info:
+        del case_info[key]
+
   # convert cases_info to pandas dataframe, and output to csv and parquet
   df = pd.DataFrame(cases_info)
 
   # fix object columns type
-  case_example = cases_info[0]
   for col in df.select_dtypes(include=['object']).columns:
-    if isinstance(case_example[col], str):
+    non_none_values = [case_info[col] for case_info in cases_info if col in case_info and case_info[col] is not None]
+    if len(non_none_values) == 0:
+      continue
+
+    # assert they all have the same type
+    assert all(isinstance(value, type(non_none_values[0])) for value in non_none_values)
+
+    if isinstance(non_none_values[0], str):
       df[col] = df[col].astype("string")
-    elif isinstance(case_example[col], bool):
+    elif isinstance(non_none_values[0], bool):
       df[col] = df[col].astype(bool)
 
   df.to_csv('benchmark_cases_metadata.csv', index=False)
@@ -106,45 +127,55 @@ def build_case_info(case_id, files_per_case):
     })
 
   # Model architecture info
-  cfg_pkl = [f for f in files_per_case[case_id] if "_cfg_" in f and f.endswith(".pkl")]
-  if len(cfg_pkl) == 0:
+  cfg_pkl_file_name = "ll_model_cfg.pkl"
+  if cfg_pkl_file_name not in files_per_case[case_id]:
     print(f"WARNING: No cfg pkl file found for case {case_id}")
   else:
-    cfg_pkl_file_name = cfg_pkl[0]
     with hf_fs.open(f"{hf_repo_id}/{case_id}/{cfg_pkl_file_name}", 'rb') as f:
-      cfg_dict = pickle.load(f)
+      cfg = pickle.load(f)
+      if isinstance(cfg, dict):
+        cfg_dict = cfg
+      elif isinstance(cfg, HookedTransformerConfig):
+        cfg_dict = cfg.to_dict()
+      else:
+        raise ValueError(f"Unknown type for cfg: {type(cfg)}")
 
     cfg_dict["dtype"] = str(cfg_dict["dtype"])
+    if "original_architecture" in cfg_dict and cfg_dict["original_architecture"] is not None:
+      cfg_dict["original_architecture"] = str(cfg_dict["original_architecture"])
+    if "device" in cfg_dict:
+      del cfg_dict["device"]
+
     case_info["transformer_cfg"] = cfg_dict
     case_info["transformer_cfg_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{cfg_pkl_file_name}"
 
   # Training info
-  meta_json = [f for f in files_per_case[case_id] if f.startswith("meta_") and f.endswith(".json")]
-  if len(meta_json) == 0:
+  meta_json_file_name = "meta.json"
+  if meta_json_file_name not in files_per_case[case_id]:
     print(f"WARNING: No meta json file found for case {case_id}")
   else:
-    meta_json_file_name = meta_json[0]
     training_args_str = hf_fs.read_text(f"{hf_repo_id}/{case_id}/{meta_json_file_name}")
     training_args = json.loads(training_args_str)
 
-    del training_args["device"]
-    del training_args["wandb_suffix"]
+    if "device" in training_args:
+      del training_args["device"]
+
+    if "wandb_suffix" in training_args:
+      del training_args["wandb_suffix"]
 
     case_info["training_args"] = training_args
     case_info["training_args_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{meta_json_file_name}"
 
-  weights_pkl = [f for f in files_per_case[case_id] if f.startswith("ll_model_") and f.endswith(".pth")]
-  if len(weights_pkl) == 0:
+  weights_pkl_file_name = "ll_model.pth"
+  if weights_pkl_file_name not in files_per_case[case_id]:
     print(f"WARNING: No weights pkl file found for case {case_id}")
   else:
-    weights_pkl_file_name = weights_pkl[0]
     case_info["weights_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{weights_pkl_file_name}"
 
-  edges_pkl = [f for f in files_per_case[case_id] if f.endswith("edges.pkl")]
-  if len(edges_pkl) == 0:
+  edges_pkl_file_name = "edges.pkl"
+  if edges_pkl_file_name not in files_per_case[case_id]:
     print(f"WARNING: No edges pkl file found for case {case_id}")
   else:
-    edges_pkl_file_name = edges_pkl[0]
     case_info["circuit_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{edges_pkl_file_name}"
 
   return case_info
