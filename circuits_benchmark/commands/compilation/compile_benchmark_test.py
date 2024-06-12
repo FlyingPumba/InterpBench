@@ -31,6 +31,7 @@ class CompileBenchmarkTest(unittest.TestCase):
       case.run_case_tests_on_tl_model(tl_model=tl_model)
 
       # print some stats about the model
+      print(f"Is categorical status: {tl_model.is_categorical()}")
       print(f"Number of layers: {len(tl_model.blocks)}")
       max_heads = max([len(b.attn.W_Q) for b in tl_model.blocks])
       print(f"Max number of attention heads: {max_heads}")
