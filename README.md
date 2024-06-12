@@ -15,15 +15,6 @@ poetry install
 
 Then, to activate the virtual environment: `poetry shell`
 
-## Contents
-
-- `main.py`: Main file to interact with the benchmark.
-- `commands/`:  Directory containing the CLI commands that can be used.
-- `benchmark/`: Directory containing the cases for the benchmark. Each folder has a `rasp.py` file that contains the RASP code for the case.
-- `submodules/`: Directory containing the Git submodules used by the benchmark.
-- `tracr/`: A symlink to the `tracr` submodule.
-- `acdc/`: A symlink to the `acdc` submodule.
-
 ## How to use it
 
 The benchmark is a CLI tool that can be used to run the benchmark on a specific case, or on all the cases. For example, running ACDC on cases with index 1 and 2 can be done with the following command:
