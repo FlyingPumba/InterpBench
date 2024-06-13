@@ -10,7 +10,7 @@ from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg
+from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.dataset import (
     get_unique_data,
     TracrIITDataset,
@@ -83,10 +83,13 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
             tracr_output=tracr_output
         )
     else:
+        if weight == "best":
+            from circuits_benchmark.utils.iit.best_weights import get_best_weight
+            weight = get_best_weight(case.get_index())
         hl_ll_corr = correspondence.TracrCorrespondence.from_output(
             case=case, tracr_output=tracr_output
         )
-        ll_cfg = make_ll_cfg(hl_model)
+        ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
         ll_model = HookedTracrTransformer(
             ll_cfg,
             hl_model.tracr_input_encoder,

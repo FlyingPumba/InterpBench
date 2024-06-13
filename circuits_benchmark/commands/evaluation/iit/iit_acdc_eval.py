@@ -19,6 +19,7 @@ from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
 from typing import Optional
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from circuits_benchmark.utils.iit.ll_cfg import make_ll_cfg_for_case
 
 
 def setup_args_parser(subparsers):
@@ -88,23 +89,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     if os.path.exists(clean_dirname):
         shutil.rmtree(clean_dirname)
 
-    ll_cfg = hl_model.cfg.to_dict().copy()
-    n_heads = max(4, ll_cfg["n_heads"])
-    d_head = ll_cfg["d_head"] // 2
-    d_model = n_heads * d_head
-    d_mlp = d_model * 4
-    cfg_dict = {
-        "n_layers": max(2, ll_cfg["n_layers"]),
-        "n_heads": n_heads,
-        "d_head": d_head,
-        "d_model": d_model,
-        "d_mlp": d_mlp,
-        "seed": 0,
-        "act_fn": "gelu",
-        # "initializer_range": 0.02,
-    }
-    ll_cfg.update(cfg_dict)
-
+    ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
     ll_model = HookedTracrTransformer(
         ll_cfg,
         hl_model.tracr_input_encoder,
