@@ -19,7 +19,7 @@ poetry install
 
 Then, to activate the virtual environment: `poetry shell`
 
-## Usage
+## How to use it
 
 You can either use InterpBench by downloading the pre-trained models from [the Hugging Face repository](https://huggingface.co/cybershiptrooper/InterpBench) (see an example [here](DEMO_InterpBench.ipynb)), or by running the commands available in the Python framework.
 
