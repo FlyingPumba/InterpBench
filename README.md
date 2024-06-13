@@ -19,6 +19,12 @@ poetry install
 
 Then, to activate the virtual environment: `poetry shell`
 
+## Usage
+
+You can either use InterpBench by downloading the pre-trained models from [the Hugging Face repository](https://huggingface.co/cybershiptrooper/InterpBench) (see an example [here](https://colab.research.google.com)), or by running the commands available in the Python framework.
+
+See [EXPERIMENTS.md](EXPERIMENTS.md) for a list of the commands used in the paper's empirical study.
+
 ## Tests
 
 To run the tests, you can just run `pytest` in the root directory of the project. The tests for submodules are ignored by default.
