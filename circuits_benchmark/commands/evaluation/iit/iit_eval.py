@@ -70,7 +70,9 @@ def setup_args_parser(subparsers, return_namespace=False):
     # }
     # parser.add_argument('-mp', '--model_pair', type=str, default="strict", help="Model pair class to use")
     if return_namespace:
-        return parser.parse_args()
+        # return the default namespace without parsing any arguments
+        args = parser.parse_args([])
+        return args
 
 def get_node_effects(case: BenchmarkCase, args: Namespace, model_pair: mp.BaseModelPair, use_mean_cache: bool): 
     np.random.seed(0)

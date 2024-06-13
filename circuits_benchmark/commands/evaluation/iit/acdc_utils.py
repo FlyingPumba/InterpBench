@@ -228,5 +228,5 @@ class ACDCRunner:
     def make_default_runner(cls, task: str):
         parser = argparse.ArgumentParser()
         cls.add_args_to_parser(parser)
-        args = parser.parse_args()
+        args = parser.parse_args([])
         return cls(task, args)

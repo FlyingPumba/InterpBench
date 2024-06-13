@@ -25,7 +25,7 @@ def setup_args_parser(subparsers, return_namespace=False):
         parser = subparsers.add_parser("ioi_acdc")
     ACDCRunner.add_args_to_parser(parser)
     if return_namespace:
-        return parser.parse_args()
+        return parser.parse_args([])
 
 
 def evaluate_acdc_circuit(
