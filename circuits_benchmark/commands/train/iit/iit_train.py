@@ -48,6 +48,13 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--save-model-wandb", action="store_true", help="Save model to wandb"
     )
+    parser.add_argument(
+        "--use-single-loss", action="store_true", help="Use single loss"
+    )
+    parser.add_argument(
+        "--model-pair", choices=["freeze", "strict", "stop_grad"], default="strict"
+    )
+
 
 
 def config_is_bad(config):
@@ -112,6 +119,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "act_fn": {"values": ["relu", "gelu"]},
                 "clip_grad_norm": {"values": [10, 1.0, 0.1, 0.05]},
                 "lr_scheduler": {"values": ["plateau", ""]},
+                "model_pair": {"values": ["freeze", "strict_iit", "stop_grad"]},
             },
         }
         sweep_id = wandb.sweep(
@@ -123,8 +131,8 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
     else:
         config = {
             "atol": 0.05,
-            "lr": 1e-3,
-            "use_single_loss": False,
+            "lr": 1e-2,
+            "use_single_loss": args.use_single_loss,
             "iit_weight": args.iit_weight,
             "behavior_weight": args.behavior_weight,
             "strict_weight": args.strict_weight,
@@ -134,6 +142,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "device": "cpu" if args.device == "cpu" else "cuda",
             "clip_grad_norm": 0.1,
             "lr_scheduler": "",
+            "model_pair": args.model_pair,
         }
 
         args = argparse.Namespace(**config)

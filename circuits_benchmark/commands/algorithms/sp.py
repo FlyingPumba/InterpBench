@@ -17,7 +17,7 @@ from subnetwork_probing.train import NodeLevelMaskedTransformer
 
 # from acdc.acdc_utils import kl_divergence
 from functools import partial
-from circuits_benchmark.utils.iit import make_ll_cfg
+from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.node_sp import train_sp
 from circuits_benchmark.metrics.validation_metrics import l2_metric
@@ -154,7 +154,7 @@ def run_sp(
             case, tracr_output=case.get_tracr_output()
         )
 
-        ll_cfg = make_ll_cfg(hl_model)
+        ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
 
         tl_model = HookedTracrTransformer(
             ll_cfg,
