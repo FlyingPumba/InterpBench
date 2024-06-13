@@ -5,45 +5,60 @@ from circuits_benchmark.utils.get_cases import get_cases
 import wandb 
 
 all_case_objs = get_cases()
-is_categoricals = [case_obj.build_transformer_lens_model().is_categorical() for case_obj in all_case_objs]
-metrics = ["l2" if is_categorical else "l2" for is_categorical in is_categoricals]
-project = "circuit_discovery"
+is_categoricals = [
+    case_obj.build_transformer_lens_model().is_categorical()
+    for case_obj in all_case_objs
+]
+metrics = ["kl" if is_categorical else "l2" for is_categorical in is_categoricals]
 group = "edge_sp"
+cases = all_working_cases
+iit = 1.0
+strict = 0.4
+behavior = 1.0
+weight = int(strict * 1000 + behavior * 100 + iit * 10)
+
 
 def clean_wandb():
+    print()
     try:
-        print("Deleting sp runs.")
+        print("Deleting node sp runs.")
         api = wandb.Api()
-        runs = api.runs(f'{project}')
+        project = "circuit_discovery"
+        runs = api.runs(f"{project}")
         # clean all runs in the group
         for run in runs:
-            if group in run.group:
-                print(f"Deleting run {run.name}")
+            if (
+                group in run.group
+                and any(str(case) in run.group for case in cases)
+                and (str(weight) in run.group or "tracr" in run.group)
+            ):
+                print(f"Deleting run {run.name}, {run.group}")
                 run.delete(delete_artifacts=True)
     except Exception as e:
         print("No runs found to delete.")
+    print()
     try:
         print("Deleting node_realism runs.")
-        runs = api.runs('node_realism')
+        project = "node_realism"
+        runs = api.runs(f"{project}")
         # clean all runs in the group
         for run in runs:
-            if 'edge_sp' in run.group:
-                print(f"Deleting run {run.name}")
+            if (
+                group in run.group
+                and any("_" + str(case) + "_" in run.group for case in cases)
+                and (str(weight) in run.group or "tracr" in run.group)
+            ):
+                print(f"Deleting run {run.name}, {run.group}")
                 run.delete(delete_artifacts=True)
     except Exception as e:
         print("No runs found to delete.")
 
 def build_commands():
-    cases = working_cases
-    iit = 1.0
-    strict = 0.4
-    behavior = 1.0
-    weight = int(strict * 1000 + behavior * 100 + iit * 10)
     lambda_regs = [0.0, 
               1e-5, 1e-4, 1e-3, 1e-2, 
               0.025, 0.05, 0.1, 0.2, 0.5, 0.8, 1.0, 10.0, 20.0, 50.0, 100.0]
 
-    sp_command_template = """python main.py run sp -i {} --metric {} --torch-num-threads 4 --device cuda --lambda-reg {} --epochs 2000 --load-from-wandb -w {} --using-wandb --wandb-project circuit_discovery --wandb-group edge_sp_{}_{} --wandb-run-name {} --edgewise"""
+    sp_command_template = """python main.py run sp -i {} --metric {} --torch-num-threads 4 --device cuda --lambda-reg {} --epochs 3000 --load-from-wandb -w {} --using-wandb --wandb-project circuit_discovery --wandb-group edge_sp_{}_{} --wandb-run-name {} --edgewise"""
     circuit_score_command_template = """python main.py eval node_realism -i {} --algorithm edge_sp --mean --relative 0 -w {} --lambda-reg {} --use-wandb --load-from-wandb"""
     commands = []
     for case in cases:

@@ -16,7 +16,11 @@ def make_combined_realism_df(acdc_realism, node_sp_realism):
     for k, v in acdc_realism.items():
         run = k
         acdc_realism_entry = v
-        node_sp_realism_entry = node_sp_realism[k]
+        try:
+            node_sp_realism_entry = node_sp_realism[k]
+        except KeyError:
+            print(f"Node sp realism not found for run {run}")
+            continue
         entry = {"run": run, "acdc": acdc_realism_entry, "node_sp": node_sp_realism_entry}
         combined_realism_df = append_row(combined_realism_df, pd.Series(entry))
     return combined_realism_df
@@ -31,9 +35,14 @@ def make_combined_realism_df_from_list(list_of_realism_dfs, list_of_labels):
         realism_label = list_of_labels[0]
         entry = {"run": run, realism_label: realism_entry}
         for i in range(1, len(list_of_realism_dfs)):
-            realism_entry = list_of_realism_dfs[i][k]
-            realism_label = list_of_labels[i]
-            entry[realism_label] = realism_entry
-        
+            try:
+                realism_entry = list_of_realism_dfs[i][k]
+                realism_label = list_of_labels[i]
+                entry[realism_label] = realism_entry
+            except KeyError:
+                print(f"Realism not found for run {run}")
+                realism_entry = "N/A"
+                realism_label = list_of_labels[i]
+                entry[realism_label] = realism_entry
         combined_realism_df = append_row(combined_realism_df, pd.Series(entry))
     return combined_realism_df

@@ -19,11 +19,14 @@ def clean_runs():
     runs = get_runs_with_substr("supervised")
     for run in tqdm(runs):
         for case in cases:
-            if str(case) in run.name:
+            if f"supervised_{case}" in run.name:
+                print(f"Deleting run {run.name}")
                 run.delete(delete_artifacts=True)
     model_runs = get_runs_with_substr("100", project="iit_models")
     for run in tqdm(model_runs):
-        run.delete(delete_artifacts=True)
+        if any([f"case_{x}_" in run.name for x in cases]):
+            print(f"Deleting run {run.name}")
+            run.delete(delete_artifacts=True)
 
 def build_commands():
     command_template = """python main.py train iit -i {} --epochs 2000 --device cpu -iit 0 -s 0 --use-wandb --wandb-suffix supervised_{} --save-model-wandb"""

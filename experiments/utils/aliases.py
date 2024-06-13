@@ -21,7 +21,7 @@ class AliasDict(dict):
 
 important_args_aliases = AliasDict({
       "main.py": "",
-      "threshold": "",
+      "-t": "",
       "-i": "case",
       "--wandb-suffix": "",
       "random_suffix": create_random_str,

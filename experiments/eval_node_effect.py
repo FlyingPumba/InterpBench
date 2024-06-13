@@ -20,6 +20,7 @@ def clean_wandb():
         for case in cases:
             for run in runs:
                 if str(case) in run.name and str(weight) in run.name:
+                    print(f"Deleting run {run.name}")
                     run.delete(delete_artifacts=True)
     except Exception as e:
         print("No runs found to delete.")

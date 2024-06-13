@@ -28,8 +28,8 @@ def pessimistic_auc(xs, ys):
             xs = np.delete(xs, i)
             ys = np.delete(ys, i)
     # prepend 0 and append 1
-    xs = np.concatenate([[0], xs], [1])
-    ys = np.concatenate([[0], ys], [1])
+    xs = np.concatenate([[0], xs, [1]])
+    ys = np.concatenate([[0], ys, [1]])
 
     dys = np.diff(ys)
     assert np.all(np.diff(xs) >= 0), "not sorted"

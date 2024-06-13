@@ -5,6 +5,12 @@ from circuits_benchmark.transformers.circuit_node import CircuitNode
 import iit.utils.index as index
 
 
+def get_circuit_list_by_status(df_: pd.DataFrame) -> tuple[list, list]:
+    df = df_.copy()
+    in_circuit_list = [run_df[run_df["status"] == "in_circuit"] for run, run_df in df.groupby("run")]
+    not_in_circuit_list = [run_df[run_df["status"] == "not_in_circuit"] for run, run_df in df.groupby("run")]
+    return in_circuit_list, not_in_circuit_list
+
 def get_circuit_lists(
     df_combined: pd.DataFrame,
     df_combined_tracr: pd.DataFrame,

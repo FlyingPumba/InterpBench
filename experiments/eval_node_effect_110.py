@@ -20,7 +20,8 @@ def clean_wandb():
         for case in cases:
             for run in runs:
                 if str(case) in run.name and str(weight) in run.name:
-                    run.delete(delete_artifacts=True)
+                    print(f"Deleting run {run.name}")
+                    # run.delete(delete_artifacts=True)
     except Exception as e:
         print("No runs found to delete.")
 
@@ -43,6 +44,7 @@ def build_commands():
 
 if __name__ == "__main__":
     print_commands(build_commands)
+    clean_wandb()
     for arg in sys.argv:
         if arg in ["-d", "--dry-run"]:
             sys.exit(0)
@@ -54,7 +56,6 @@ if __name__ == "__main__":
         if arg in ["-c", "--clean"]:
             clean_wandb()
             sys.exit(0)
-    clean_wandb()
     launch_kubernetes_jobs(
         build_commands, memory="12Gi", priority="high-batch"
     )

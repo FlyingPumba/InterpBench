@@ -8,14 +8,16 @@ weight = "110"
 s = "0"
 iit = "1"
 b = "1"
+cases = working_cases
 
 def clean_runs():
     runs = get_runs_with_substr(weight, project="iit_models")
     for run in runs:
-        run.delete(delete_artifacts=True)
+        if any([f"case_{x}_" in run.name for x in cases]):
+            print(f"Deleting run {run.name}")
+            run.delete(delete_artifacts=True)
 
 def build_commands():
-    cases = working_cases
     command_template = """python main.py train iit -i {} --epochs 500 --device cpu -iit {} -s {} -b {} --use-wandb --wandb-suffix iit_{} --save-model-wandb"""
 
     commands = []

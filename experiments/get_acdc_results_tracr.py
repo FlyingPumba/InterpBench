@@ -3,12 +3,10 @@ from utils import *
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.utils.get_cases import get_cases
 import wandb
-from circuits_benchmark.utils.iit.best_weights import get_best_weight
 
+weight = "tracr"
 cases = all_working_cases
-weights = []
-for case in cases:
-    weights.append(get_best_weight(case))
+
 
 def clean_wandb():
     print()
@@ -22,8 +20,8 @@ def clean_wandb():
         for run in runs:
             if (
                 group in run.group
-                and any(str(case) in run.group for case in cases)
-                and (get_best_weight(case) in run.group or "tracr" in run.group)
+                and any(f"_{case}_" in run.group for case in cases)
+                and (str(weight) in run.group)
             ):
                 print(f"Deleting run {run.name}, {run.group}")
                 run.delete(delete_artifacts=True)
@@ -38,8 +36,8 @@ def clean_wandb():
         for run in runs:
             if (
                 "acdc" in run.group
-                and any(str(case) in run.group for case in cases)
-                and (get_best_weight(case) in run.group or "tracr" in run.group)
+                and any(f"_{case}_" in run.group for case in cases)
+                and (str(weight) in run.group)
             ):
                 print(f"Deleting run {run.name}, {run.group}")
                 run.delete(delete_artifacts=True)
@@ -67,21 +65,12 @@ def build_commands():
         100.0,
     ]
 
-    acdc_command_template = """python main.py eval iit_acdc -i {} -w {} -t {} -wandb --load-from-wandb --abs-value-threshold"""
+    acdc_command_template = """python main.py eval iit_acdc -i {} -w {} -t {} -wandb --load-from-wandb"""
     circuit_score_command_template = """python main.py eval node_realism -i {} --mean --relative 1 -w {} -t {} --use-wandb --load-from-wandb"""
     commands = []
     for case in cases:
-        commands_to_run = []
         tracr_commands_to_run = []
-        weight = get_best_weight(case)
         for threshold in thresholds:
-            acdc_command = acdc_command_template.format(case, weight, threshold)
-            circuit_score_command = circuit_score_command_template.format(
-                case, weight, threshold
-            )
-            commands_to_run.append(acdc_command)
-            commands_to_run.append(circuit_score_command)
-
             tracr_command = acdc_command_template.format(case, "tracr", threshold)
             tracr_circuit_score_command = (
                 circuit_score_command_template.format(case, "tracr", threshold)
@@ -89,10 +78,7 @@ def build_commands():
             )
             tracr_commands_to_run.append(tracr_command)
             tracr_commands_to_run.append(tracr_circuit_score_command)
-
-        command = ["bash", "-c", " && ".join(commands_to_run)]
         tracr_command = ["bash", "-c", " && ".join(tracr_commands_to_run)]
-        commands.append(command)
         commands.append(tracr_command)
     return commands
 

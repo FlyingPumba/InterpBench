@@ -14,7 +14,7 @@ def clean_runs():
     for run in runs:
         if any([f"case_{x}_" in run.name for x in cases]):
             print(f"Deleting run {run.name}")
-            # run.delete(delete_artifacts=True)
+            run.delete(delete_artifacts=True)
 
 def build_commands(): 
     command_template = """python main.py train iit -i {} --epochs 2000 --device cpu -iit 1 -s 0.4 --use-wandb --wandb-suffix strict_{} --save-model-wandb"""

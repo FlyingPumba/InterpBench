@@ -2,6 +2,7 @@ import os
 import pickle
 import pandas as pd
 from utils.bad_runs import bad_runs
+from circuits_benchmark.utils.iit.best_weights import get_best_weight
 
 def walk_dirs_and_get_scores(weight = 510, algorithm = "acdc"):
     if algorithm == "acdc":
@@ -34,12 +35,16 @@ def get_acdc_scores(weight):
     for folder in os.listdir("results"):
         if "acdc" not in folder:
             continue
-        weight_folder = os.path.join("results", folder, f"weight_{weight}")
-        if not os.path.exists(weight_folder):
-            continue
         run = folder.split("_")[-1]
         if run in bad_runs:
             print(f"Skipping {run}")
+            continue
+        
+        if weight == "best":
+            weight = get_best_weight(run)
+
+        weight_folder = os.path.join("results", folder, f"weight_{weight}")
+        if not os.path.exists(weight_folder):
             continue
         print(weight_folder)
         for thresholds_folder in os.listdir(weight_folder):
@@ -65,12 +70,16 @@ def get_sp_scores(weight, algorithm):
     for folder in os.listdir("results"):
         if algorithm not in folder:
             continue
-        weight_folder = os.path.join("results", folder, f"weight_{weight}")
-        if not os.path.exists(weight_folder):
-            continue
         run = folder.split("_")[-1]
         if run in bad_runs:
             print(f"Skipping {run}")
+            continue
+        
+        if weight == "best":
+            weight = get_best_weight(run)
+
+        weight_folder = os.path.join("results", folder, f"weight_{weight}")
+        if not os.path.exists(weight_folder):
             continue
         print(weight_folder)
         for lambda_folder in os.listdir(weight_folder):
@@ -100,12 +109,17 @@ def get_acdc_realism_scores(weight = ""):
     df = pd.DataFrame(columns = ["run", "threshold", "score", "weights"])
     for run in runs:
         if "acdc" in run.group:
-            if weight not in run.group:
-                continue
             case = run.group.split("_")[1]
             if case in bad_runs:
                 continue
-            weights = (run.group.split("_")[-1])
+            if weight == "best":
+                weight_to_load = get_best_weight(case)
+            else:
+                weight_to_load = weight
+            if weight_to_load not in run.group:
+                continue
+            
+            weights = (run.group.split("_")[-1]) if weight != "best" else "best"
             threshold = float(run.name)
             score = run.summary["score"]
             entry = pd.Series({"run": case, "threshold": threshold, "score": score, "weights": weights})

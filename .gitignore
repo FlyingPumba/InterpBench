@@ -12,3 +12,5 @@ rough_*
 *.csv
 .DS_Store
 wandb
+*.pdf
+notebooks/ll_models
