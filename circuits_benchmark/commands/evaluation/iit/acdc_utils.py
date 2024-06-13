@@ -17,11 +17,95 @@ from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circ
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from argparse import Namespace
 from copy import deepcopy
+import argparse
 
 class ACDCRunner:
     def __init__(self, task: str, args: Namespace):
         self.task = task
         self.setup_acdc_args(args)
+
+    @staticmethod
+    def add_args_to_parser(parser):
+        parser.add_argument(
+        "-w",
+        "--weights",
+        type=str,
+        default="100_100_40",
+        help="IIT, behavior, strict weights",
+        )
+        parser.add_argument(
+            "--output-dir", type=str, default="./results", help="Output directory"
+        )
+        parser.add_argument(
+            "--device",
+            type=str,
+            default="cuda" if torch.cuda.is_available() else "cpu",
+            help="Device to use", 
+        )
+        parser.add_argument(
+            "-t",
+            "--threshold",
+            type=float,
+            default=0.025,
+            help="Threshold for ACDC",
+        )
+        parser.add_argument("--data-size", type=int, required=False, default=1000, help="How many samples to use")
+        parser.add_argument(
+            "-wandb", "--using_wandb", action="store_true", help="Use wandb"
+        )
+        parser.add_argument(
+            "--load-from-wandb", action="store_true", help="Load model from wandb"
+        )
+        parser.add_argument(
+            "--include-mlp", action="store_true", help="Evaluate group 'with_mlp'"
+        )
+        parser.add_argument(
+            "--next-token", action="store_true", help="Use next token model"
+        )
+        parser.add_argument(
+            "--use-pos-embed", action="store_true", help="Use positional embeddings"
+        )
+
+        parser.add_argument(
+            "--first-cache-cpu",
+            type=str,
+            required=False,
+            default="True",
+            help="Value for first_cache_cpu (the old name for the `online_cache`)",
+        )
+        parser.add_argument(
+            "--second-cache-cpu",
+            type=str,
+            required=False,
+            default="True",
+            help="Value for second_cache_cpu (the old name for the `corrupted_cache`)",
+        )
+        parser.add_argument("--zero-ablation", action="store_true", help="Use zero ablation")
+        parser.add_argument("--using-wandb", action="store_true", help="Use wandb")
+        parser.add_argument(
+            "--wandb-entity-name",
+            type=str,
+            required=False,
+            default="remix_school-of-rock",
+            help="Value for wandb_entity_name",
+        )
+        parser.add_argument(
+            "--wandb-group-name", type=str, required=False, default="default", help="Value for wandb_group_name"
+        )
+        parser.add_argument(
+            "--wandb-project-name", type=str, required=False, default="acdc", help="Value for wandb_project_name"
+        )
+        parser.add_argument("--wandb-run-name", type=str, required=False, default=None, help="Value for wandb_run_name")
+        parser.add_argument("--wandb-dir", type=str, default="/tmp/wandb")
+        parser.add_argument("--wandb-mode", type=str, default="online")
+        parser.add_argument("--indices-mode", type=str, default="normal")
+        parser.add_argument("--names-mode", type=str, default="normal")
+        parser.add_argument("--torch-num-threads", type=int, default=0, help="How many threads to use for torch (0=all)")
+        parser.add_argument("--max-num-epochs", type=int, default=100_000)
+        parser.add_argument("--single-step", action="store_true", help="Use single step, mostly for testing")
+        parser.add_argument(
+            "--abs-value-threshold", action="store_true", help="Use the absolute value of the result to check threshold"
+        )
 
     def setup_acdc_args(self, _args):
         args = deepcopy(_args)
@@ -139,3 +223,10 @@ class ACDCRunner:
         acdc_circuit = build_acdc_circuit(exp.corr)
         acdc_circuit.save(f"{output_dir}/final_circuit.pkl")
         return acdc_circuit, exp
+    
+    @classmethod
+    def make_default_runner(cls, task: str):
+        parser = argparse.ArgumentParser()
+        cls.add_args_to_parser(parser)
+        args = parser.parse_args()
+        return cls(task, args)

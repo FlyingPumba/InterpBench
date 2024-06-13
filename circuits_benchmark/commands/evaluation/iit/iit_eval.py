@@ -24,10 +24,13 @@ from iit.utils.eval_ablations import (
     Categorical_Metric,
 )
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+import argparse
 
-
-def setup_args_parser(subparsers):
-    parser = subparsers.add_parser("iit")
+def setup_args_parser(subparsers, return_namespace=False):
+    if return_namespace:
+        parser = argparse.ArgumentParser()
+    else:
+        parser = subparsers.add_parser("iit")
     add_common_args(parser)
 
     parser.add_argument(
@@ -66,49 +69,13 @@ def setup_args_parser(subparsers):
     #     "stop_grad": mp.StopGradModelPair
     # }
     # parser.add_argument('-mp', '--model_pair', type=str, default="strict", help="Model pair class to use")
+    if return_namespace:
+        return parser.parse_args()
 
-
-def run_iit_eval(case: BenchmarkCase, args: Namespace):
-    output_dir = "./results"
-    weight = args.weights
-    use_mean_cache = args.mean
-
-    hl_model = case.build_transformer_lens_model()
-    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
-    tracr_output = case.get_tracr_output()
-
-    if weight == "tracr":
-        ll_model = case.get_tl_model()
-        hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
-            tracr_output=tracr_output
-        )
-    else:
-        if weight == "best":
-            from circuits_benchmark.utils.iit.best_weights import get_best_weight
-            weight = get_best_weight(case.get_index())
-        hl_ll_corr = correspondence.TracrCorrespondence.from_output(
-            case=case, tracr_output=tracr_output
-        )
-        ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
-        ll_model = HookedTracrTransformer(
-            ll_cfg,
-            hl_model.tracr_input_encoder,
-            hl_model.tracr_output_encoder,
-            hl_model.residual_stream_labels,
-            remove_extra_tensor_cloning=True,
-        )
-        if args.load_from_wandb:
-            load_model_from_wandb(case.get_index(), weight, output_dir)
-        ll_model.load_weights_from_file(
-            f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth"
-        )
-        ll_model.eval()
-        ll_model.requires_grad_(False)
-
-    model_pair = mp.IITBehaviorModelPair(hl_model, ll_model, hl_ll_corr)
-
+def get_node_effects(case: BenchmarkCase, args: Namespace, model_pair: mp.BaseModelPair, use_mean_cache: bool): 
     np.random.seed(0)
     t.manual_seed(0)
+    hl_model = model_pair.hl_model
     unique_test_data = get_unique_data(case, max_len=args.max_len)
     test_set = TracrIITDataset(
         unique_test_data, unique_test_data, hl_model, every_combination=True
@@ -155,6 +122,48 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         za_result_in_circuit,
         use_mean_cache=use_mean_cache,
     )
+    return df, metric_collection
+
+def run_iit_eval(case: BenchmarkCase, args: Namespace):
+    output_dir = "./results"
+    weight = args.weights
+    use_mean_cache = args.mean
+
+    hl_model = case.build_transformer_lens_model()
+    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
+    tracr_output = case.get_tracr_output()
+
+    if weight == "tracr":
+        ll_model = case.get_tl_model()
+        hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
+            tracr_output=tracr_output
+        )
+    else:
+        if weight == "best":
+            from circuits_benchmark.utils.iit.best_weights import get_best_weight
+            weight = get_best_weight(case.get_index())
+        hl_ll_corr = correspondence.TracrCorrespondence.from_output(
+            case=case, tracr_output=tracr_output
+        )
+        ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
+        ll_model = HookedTracrTransformer(
+            ll_cfg,
+            hl_model.tracr_input_encoder,
+            hl_model.tracr_output_encoder,
+            hl_model.residual_stream_labels,
+            remove_extra_tensor_cloning=True,
+        )
+        if args.load_from_wandb:
+            load_model_from_wandb(case.get_index(), weight, output_dir)
+        ll_model.load_weights_from_file(
+            f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth"
+        )
+        ll_model.eval()
+        ll_model.requires_grad_(False)
+
+    model_pair = mp.IITBehaviorModelPair(hl_model, ll_model, hl_ll_corr)
+
+    df, metric_collection = get_node_effects(case, args, model_pair, use_mean_cache)
 
     save_dir = f"{output_dir}/ll_models/{case.get_index()}/results_{weight}"
     suffix = f"_{args.categorical_metric}" if hl_model.is_categorical() else ""
