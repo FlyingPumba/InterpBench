@@ -38,6 +38,15 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--include-mlp", action="store_true", help="Evaluate group 'with_mlp'"
     )
+    parser.add_argument(
+        "--use-wandb", action="store_true", help="Use wandb for logging"
+    )
+    parser.add_argument(
+        "--categorical-metric",
+        choices=["accuracy", "kl_div", "kl_div_self"],
+        default="accuracy",
+        help="Categorical metric to use",
+    )
 
 def run_eval_ioi(args):
     eval_ioi(args)

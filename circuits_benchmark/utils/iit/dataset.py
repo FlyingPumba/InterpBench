@@ -97,7 +97,7 @@ def get_total_len(case: BenchmarkCase):
         total_len += len(vals) ** l
     return total_len
 
-def create_dataset(case: BenchmarkCase, hl_model, test_frac=0.2, min_train_count=20000, max_train_count=100_000):
+def create_dataset(case: BenchmarkCase, hl_model, test_frac=0.2, min_train_count=20000, max_train_count=120_000):
     total_len = get_total_len(case)
     # get all data if in the range of min_train_count and max_train_count
     count = int(min_train_count * (1 + test_frac)) if total_len < min_train_count \

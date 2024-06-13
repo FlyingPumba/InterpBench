@@ -114,6 +114,9 @@ def evaluate_acdc_circuit(
             head = index.as_index[2]
             node_name = ll_node.name.replace("hook_z", "hook_result")
             return CircuitNode(node_name, head)
+        if "mlp" in ll_node.name:
+            node_name = ll_node.name.replace("mlp.hook_post", "hook_mlp_out")
+            return CircuitNode(node_name, None)
         return CircuitNode(ll_node.name, None)
         
     edges = make_ll_edges(corr)
@@ -146,7 +149,7 @@ def run_ioi_acdc(args: Namespace):
     output_suffix = f"weight_{weights}/threshold_{threshold}"
     clean_dirname = f"{args.output_dir}/acdc_ioi/{output_suffix}"
     load_dir = os.path.join(
-        args.output_dir, f"ioi" if not args.next_token else "ioi_next_token"
+        args.output_dir, "ll_models", f"ioi" if not args.next_token else "ioi_next_token"
     )
     # remove everything in the directory
     if os.path.exists(clean_dirname):
@@ -166,7 +169,7 @@ def run_ioi_acdc(args: Namespace):
             weights,
             args.next_token,
             [f"ll_model_{weights}.pth", f"corr_{weights}.json"],
-            load_dir,
+            args.output_dir,
             include_mlp=args.include_mlp,
         )
     try:

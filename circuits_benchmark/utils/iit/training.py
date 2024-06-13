@@ -3,7 +3,7 @@ import numpy as np
 from transformer_lens import HookedTransformer
 import iit.model_pairs as mp
 from circuits_benchmark.utils.iit import make_iit_hl_model, create_dataset
-from circuits_benchmark.utils.iit.ll_cfg import make_ll_cfg
+from circuits_benchmark.utils.iit.ll_cfg import make_ll_cfg_for_case
 import circuits_benchmark.utils.iit.correspondence as correspondence
 import random
 
@@ -20,7 +20,7 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
     iit_hl_model = make_iit_hl_model(hl_model)
     train_data, test_data = create_dataset(case, iit_hl_model)
     # make model
-    ll_cfg = make_ll_cfg(hl_model)
+    ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
     print(ll_cfg)
     model = HookedTransformer(ll_cfg)
     model.to(config.device)
@@ -28,6 +28,12 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
     lr_scheduler_map = {
         "" : None,
         "plateau" : t.optim.lr_scheduler.ReduceLROnPlateau,
+    }
+
+    mp_map = {
+        "freeze": mp.FreezedModelPair,
+        "strict": mp.StrictIITModelPair,
+        "stop_grad": mp.StopGradModelPair,
     }
 
     # make model pair
@@ -45,7 +51,7 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
     hl_ll_corr = correspondence.TracrCorrespondence.from_output(
         case, tracr_output
     )
-    model_pair = mp.StrictIITModelPair(
+    model_pair = mp_map[config.model_pair](
         hl_model=iit_hl_model,
         ll_model=model,
         corr=hl_ll_corr,
