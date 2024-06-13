@@ -12,6 +12,7 @@ We use [Poetry](https://python-poetry.org/) to manage the dependencies, which yo
 Run the following Bash commands to download the project and its dependencies:
 ```bash
 git clone --recurse-submodules git@github.com:FlyingPumba/circuits-benchmark.git
+cd circuits-benchmark
 poetry env use 3
 poetry install
 ```
