@@ -1,12 +1,12 @@
 [submodule "submodules/tracr"]
 	path = submodules/tracr
-	url = git@github.com:FlyingPumba/tracr.git
+	url = https://github.com/FlyingPumba/tracr.git
 	ignore = untracked
 [submodule "submodules/Automatic-Circuit-Discovery"]
 	path = submodules/Automatic-Circuit-Discovery
-	url = git@github.com:FlyingPumba/Automatic-Circuit-Discovery.git
+	url = https://github.com/FlyingPumba/Automatic-Circuit-Discovery.git
 	ignore = untracked
 [submodule "submodules/iit"]
 	path = submodules/iit
-	url = git@github.com:cybershiptrooper/iit.git
+	url = https://github.com/cybershiptrooper/iit.git
 	ignore = untracked
