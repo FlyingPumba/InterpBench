@@ -30,7 +30,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                autoencoders_dict: Dict[str, AutoEncoder],
                args: TrainingArgs,
                output_dir: str | None = None,
-               freeze_ae_weights: bool = False,
                ae_training_epochs_gap: int = 10,
                ae_desired_test_mse: float = 1e-3,
                ae_max_training_epochs: int = 15,
@@ -47,29 +46,8 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     self.ae_train_loss_weight = ae_train_loss_weight
 
     parameters = list(new_tl_model.parameters())
-    self.freeze_ae_weights = freeze_ae_weights
-    if self.freeze_ae_weights:
-      self.autoencoder_trainers_dict = None
-      for ae in self.autoencoders_dict.values():
-        ae.freeze_all_weights()
-    else:
-      # We will train the autoencoder every fixed number of epochs for the transformer training.
-      for ae in self.autoencoders_dict.values():
-        parameters += list(ae.parameters())
-      self.ae_training_epochs_gap = ae_training_epochs_gap
-      self.ae_max_training_epochs = ae_max_training_epochs
-      self.ae_desired_test_mse = ae_desired_test_mse
-      self.epochs_since_last_ae_training = ae_training_epochs_gap  # This forces the autoencoders to be trained at the start
-
-      # make a copy of the training args for non-linear compression if AE specific training args were not provided
-      self.ae_training_args = ae_training_args
-      assert self.ae_training_args is not None, "AE training args must be provided."
-
-      for ae_key, ae in self.autoencoders_dict.items():
-        ae_trainer = AutoEncoderTrainer(case, ae, self.old_tl_model, self.ae_training_args,
-                                     hook_name_filter_for_input_activations=ae_key,
-                                     output_dir=output_dir)
-        self.autoencoder_trainers_dict[ae_key] = ae_trainer
+    for ae in self.autoencoders_dict.values():
+      parameters += list(ae.parameters())
 
     super().__init__(case,
                      parameters,
@@ -80,49 +58,66 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
 
     # make a first pass of AE training before starting the transformer training
     print(" >>> Training the autoencoders before starting the transformer training.")
+
+    self.ae_training_epochs_gap = ae_training_epochs_gap
+    self.ae_max_training_epochs = ae_max_training_epochs
+    self.ae_desired_test_mse = ae_desired_test_mse
+    self.epochs_since_last_ae_training = ae_training_epochs_gap  # This forces the autoencoders to be trained at the start
+
+    # make a copy of the training args for non-linear compression if AE specific training args were not provided
+    self.ae_training_args = ae_training_args
+    assert self.ae_training_args is not None, "AE training args must be provided."
+
+    for ae_key, ae in self.autoencoders_dict.items():
+      ae_trainer = AutoEncoderTrainer(case, ae, self.old_tl_model, self.ae_training_args,
+                                      hook_name_filter_for_input_activations=ae_key,
+                                      output_dir=output_dir)
+      self.autoencoder_trainers_dict[ae_key] = ae_trainer
+
     self.train_autoencoders(self.ae_training_args.epochs)
 
   def training_epoch(self):
-    if not self.freeze_ae_weights and self.ae_training_epochs_gap is not None:
-        if self.epochs_since_last_ae_training >= self.ae_training_epochs_gap:
-          self.epochs_since_last_ae_training = 0
-          self.train_autoencoders(self.ae_max_training_epochs)
+    if self.ae_training_epochs_gap is not None:
+      if self.epochs_since_last_ae_training >= self.ae_training_epochs_gap:
+        self.epochs_since_last_ae_training = 0
+        self.train_autoencoders(self.ae_max_training_epochs)
 
     super().training_epoch()
 
-    if not self.freeze_ae_weights and self.ae_training_epochs_gap is not None:
+    if self.ae_training_epochs_gap is not None:
       self.epochs_since_last_ae_training += 1
 
   def train_autoencoders(self, max_epochs: int):
     avg_ae_train_loss = None
 
     for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
+      ae_trainer.compute_test_metrics()
+      ae_training_epoch = 0
+      while (ae_trainer.test_metrics["test_mse"] > self.ae_desired_test_mse and
+             ae_training_epoch < max_epochs):
+        ae_train_losses = []
+        for i, batch in enumerate(ae_trainer.train_loader):
+          ae_train_loss = ae_trainer.training_step(batch)
+          ae_train_losses.append(ae_train_loss)
+
+        avg_ae_train_loss = t.mean(t.stack(ae_train_losses))
+
         ae_trainer.compute_test_metrics()
-        ae_training_epoch = 0
-        while (ae_trainer.test_metrics["test_mse"] > self.ae_desired_test_mse and
-               ae_training_epoch < max_epochs):
-          ae_train_losses = []
-          for i, batch in enumerate(ae_trainer.train_loader):
-            ae_train_loss = ae_trainer.training_step(batch)
-            ae_train_losses.append(ae_train_loss)
+        ae_training_epoch += 1
 
-          avg_ae_train_loss = t.mean(t.stack(ae_train_losses))
+      print(
+        f"AutoEncoder {ae_key} trained for {ae_training_epoch} epochs, and achieved train loss of {avg_ae_train_loss}.")
+      print(f"AutoEncoder {ae_key} test metrics: {ae_trainer.test_metrics}")
 
-          ae_trainer.compute_test_metrics()
-          ae_training_epoch += 1
-
-        print(f"AutoEncoder {ae_key} trained for {ae_training_epoch} epochs, and achieved train loss of {avg_ae_train_loss}.")
-        print(f"AutoEncoder {ae_key} test metrics: {ae_trainer.test_metrics}")
-
-        if self.use_wandb and avg_ae_train_loss is not None:
-          # We performed training for the AutoEncoder. Log average train loss and test metrics
-          wandb.log({f"ae_{ae_key}_train_loss": avg_ae_train_loss}, step=self.step)
-          wandb.log({f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}, step=self.step)
+      if self.use_wandb and avg_ae_train_loss is not None:
+        # We performed training for the AutoEncoder. Log average train loss and test metrics
+        wandb.log({f"ae_{ae_key}_train_loss": avg_ae_train_loss}, step=self.step)
+        wandb.log({f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}, step=self.step)
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
     train_loss = super().compute_train_loss(batch)
 
-    if not self.freeze_ae_weights and self.ae_training_epochs_gap is None:
+    if self.ae_training_epochs_gap is None:
       # We compute the training loss and add the AEs reconstruction loss to it
       for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
         ae_train_losses = []
@@ -143,7 +138,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     super().compute_test_metrics()
 
     # add AEs test metrics
-    if not self.freeze_ae_weights and self.ae_training_epochs_gap is None:
+    if self.ae_training_epochs_gap is None:
       if self.use_wandb:
         for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
           ae_trainer.compute_test_metrics()
@@ -193,9 +188,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
 
   def get_wandb_config(self):
     cfg = super().get_wandb_config()
-    cfg.update({
-      "freeze_ae_weights": self.freeze_ae_weights,
-    })
     for ae_key, ae in self.autoencoders_dict.items():
       cfg.update({
         f"ae_{ae_key}_input_size": ae.input_size,
@@ -205,13 +197,12 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
         f"ae_{ae_key}_use_bias": ae.use_bias,
       })
 
-    if not self.freeze_ae_weights:
-      cfg.update({
-        "ae_training_epochs_gap": self.ae_training_epochs_gap,
-        "ae_max_training_epochs": self.ae_max_training_epochs,
-        "ae_desired_test_mse": self.ae_desired_test_mse,
-      })
-      cfg.update({f"ae_training_args_{k}": v for k, v in dataclasses.asdict(self.ae_training_args).items()})
+    cfg.update({
+      "ae_training_epochs_gap": self.ae_training_epochs_gap,
+      "ae_max_training_epochs": self.ae_max_training_epochs,
+      "ae_desired_test_mse": self.ae_desired_test_mse,
+    })
+    cfg.update({f"ae_training_args_{k}": v for k, v in dataclasses.asdict(self.ae_training_args).items()})
 
     return cfg
 
@@ -223,7 +214,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       prefix = f"case-{self.case.get_index()}-multi-aes"
     else:
       prefix = f"case-{self.case.get_index()}-resid-{list(self.autoencoders_dict.values())[0].compression_size}"
-
 
     # save the weights of the model using state_dict
     weights_path = os.path.join(self.output_dir, f"{prefix}-non-linear-compression-weights.pt")
@@ -240,13 +230,12 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       artifact.add_file(model_path)
       self.wandb_run.log_artifact(artifact)
 
-    if not self.freeze_ae_weights:
-      # The autoencoders have changed during the non-linear compression training, so we will save it.
-      for ae_key, ae in self.autoencoders_dict.items():
-        safe_ae_key = (ae_key
-                       .replace('*', '.')
-                       .replace('[', '.')
-                       .replace(']', '.')
-                       .replace("|", "."))
-        prefix = f"case-{self.case.get_index()}-ae-{safe_ae_key}-size-{ae.compression_size}-final"
-        ae.save(self.output_dir, prefix, self.wandb_run)
+    # The autoencoders have changed during the non-linear compression training, so we will save it.
+    for ae_key, ae in self.autoencoders_dict.items():
+      safe_ae_key = (ae_key
+                     .replace('*', '.')
+                     .replace('[', '.')
+                     .replace(']', '.')
+                     .replace("|", "."))
+      prefix = f"case-{self.case.get_index()}-ae-{safe_ae_key}-size-{ae.compression_size}-final"
+      ae.save(self.output_dir, prefix, self.wandb_run)

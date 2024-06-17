@@ -47,8 +47,6 @@ def setup_args_parser(subparsers):
   parser.add_argument("--ae-lr-start", type=float, default=0.01,
                       help="The number of epochs to use for initial autoencoder training.")
 
-  parser.add_argument("--freeze-ae-weights", action="store_true", default=False,
-                      help="Freeze the weights of the autoencoder during the non-linear compression training.")
   parser.add_argument("--ae-training-epochs-gap", type=int, default=None,
                       help="The number of epochs to wait before training the autoencoder again.")
   parser.add_argument("--ae-max-training-epochs", type=int, default=15,
@@ -115,7 +113,6 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                                        autoencoders_dict,
                                                        training_args,
                                                        output_dir=args.output_dir,
-                                                       freeze_ae_weights=args.freeze_ae_weights,
                                                        ae_training_args=ae_training_args,
                                                        ae_training_epochs_gap=args.ae_training_epochs_gap,
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
