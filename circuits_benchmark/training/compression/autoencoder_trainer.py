@@ -5,6 +5,7 @@ import wandb
 from jaxtyping import Float
 from torch import Tensor
 from torch.utils.data import DataLoader
+from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
@@ -21,38 +22,41 @@ class AutoEncoderTrainer(GenericTrainer):
                autoencoder: AutoEncoder,
                tl_model: HookedTracrTransformer,
                args: TrainingArgs,
+               activations_cache: ActivationCache | None = None,
                hook_name_filter_for_input_activations: str | None = None,
                output_dir: str | None = None):
     self.autoencoder = autoencoder
     self.tl_model = tl_model
     self.tl_model_n_layers = tl_model.cfg.n_layers
     self.tl_model.freeze_all_weights()
+    self.activations_cache = activations_cache
     self.hook_name_for_input_activations = hook_name_filter_for_input_activations
     super().__init__(case, list(autoencoder.parameters()), args, output_dir=output_dir)
 
   def setup_dataset(self):
-    tl_dataset = self.case.get_clean_data(count=self.args.train_data_size)
-    tl_inputs = tl_dataset.get_inputs()
-    _, tl_cache = self.tl_model.run_with_cache(tl_inputs)
+    if self.activations_cache is None:
+      tl_dataset = self.case.get_clean_data(count=self.args.train_data_size)
+      tl_inputs = tl_dataset.get_inputs()
+      _, self.activations_cache = self.tl_model.run_with_cache(tl_inputs)
 
     named_data = {}
 
     if self.hook_name_for_input_activations is None:
       # collect the output of the attention and mlp components from all layers
       for layer in range(self.tl_model_n_layers):
-        named_data[f"layer_{layer}_attn_out"] = tl_cache["attn_out", layer]
-        named_data[f"layer_{layer}_mlp_out"] = tl_cache["mlp_out", layer]
+        named_data[f"layer_{layer}_attn_out"] = self.activations_cache["attn_out", layer]
+        named_data[f"layer_{layer}_mlp_out"] = self.activations_cache["mlp_out", layer]
 
       # collect the embeddings, but repeat the data self.tl_model_n_layers times
-      named_data["embed"] = tl_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
-      named_data["pos_embed"] = tl_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
+      named_data["embed"] = self.activations_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
+      named_data["pos_embed"] = self.activations_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
 
     else:
       str_for_regex = self.hook_name_for_input_activations.split("[")[0]
       regex = re.compile(f"^{str_for_regex}$")
       for hook_name in self.tl_model.hook_dict.keys():
         if regex.match(hook_name):
-          data = tl_cache[hook_name]
+          data = self.activations_cache[hook_name]
           if "[" in self.hook_name_for_input_activations:
             # extract the head index
             head_index = int(self.hook_name_for_input_activations.split("[")[1].split("]")[0])
