@@ -119,7 +119,7 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                                        ae_max_training_epochs=args.ae_max_training_epochs,
                                                        ae_train_loss_weight=args.ae_train_loss_weight)
   final_metrics = trainer.train(finish_wandb_run=False)
-  print(f" >>> Final metrics for {case}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
+  print(f"\n >>> Final metrics for {case.get_index()}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
 

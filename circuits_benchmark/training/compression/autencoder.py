@@ -37,7 +37,8 @@ class AutoEncoder(nn.Module):
     size `encoder_output_size`.
     """
     assert n_layers > 0, "The number of layers must be greater than 0"
-    assert encoder_input_size > encoder_output_size, "The input size must be greater than the output size"
+    assert encoder_input_size > encoder_output_size, "The input size must be greater than the output size. " \
+      f"Got input size {encoder_input_size} and output size {encoder_output_size}."
 
     input_size = encoder_input_size
     current_layer = 0

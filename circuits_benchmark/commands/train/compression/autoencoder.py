@@ -44,5 +44,5 @@ def train_autoencoder(case: BenchmarkCase, args: Namespace):
     f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
   trainer = AutoEncoderTrainer(case, autoencoder, tl_model, training_args, output_dir=args.output_dir)
   final_metrics = trainer.train()
-  print(f" >>> Final metrics for {case}'s autoencoder with residual stream compression size {compression_size}: ")
+  print(f"\n >>> Final metrics for {case.get_index()}'s autoencoder with residual stream compression size {compression_size}: ")
   print(final_metrics)
