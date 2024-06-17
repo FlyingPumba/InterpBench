@@ -3,7 +3,6 @@ import os
 from typing import Dict
 
 import torch as t
-import transformer_lens.utils as utils
 import wandb
 from jaxtyping import Float
 from torch import Tensor
@@ -30,9 +29,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                autoencoders_dict: Dict[str, AutoEncoder],
                args: TrainingArgs,
                output_dir: str | None = None,
-               ae_training_epochs_gap: int = 10,
                ae_desired_test_mse: float = 1e-3,
-               ae_max_training_epochs: int = 15,
                ae_training_args: TrainingArgs = None,
                ae_train_loss_weight: int = 100):
     self.old_tl_model: HookedTracrTransformer = old_tl_model
@@ -42,8 +39,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     self.autoencoders_dict: Dict[str, AutoEncoder] = autoencoders_dict
     self.autoencoder_trainers_dict: Dict[str, AutoEncoderTrainer] = {}
     self.device = old_tl_model.device
-
-    self.ae_train_loss_weight = ae_train_loss_weight
 
     parameters = list(new_tl_model.parameters())
     for ae in self.autoencoders_dict.values():
@@ -56,13 +51,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                      new_tl_model.cfg.n_layers,
                      output_dir=output_dir)
 
-    # make a first pass of AE training before starting the transformer training
-    print(" >>> Training the autoencoders before starting the transformer training.")
-
-    self.ae_training_epochs_gap = ae_training_epochs_gap
-    self.ae_max_training_epochs = ae_max_training_epochs
-    self.ae_desired_test_mse = ae_desired_test_mse
-    self.epochs_since_last_ae_training = ae_training_epochs_gap  # This forces the autoencoders to be trained at the start
 
     # make a copy of the training args for non-linear compression if AE specific training args were not provided
     self.ae_training_args = ae_training_args
@@ -74,27 +62,22 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                                       output_dir=output_dir)
       self.autoencoder_trainers_dict[ae_key] = ae_trainer
 
-    self.train_autoencoders(self.ae_training_args.epochs)
+    # make a first pass of AE training before starting the transformer training
+    self.ae_desired_test_mse = ae_desired_test_mse
+    self.ae_train_loss_weight = ae_train_loss_weight
+    self.init_autoencoders()
 
-  def training_epoch(self):
-    if self.ae_training_epochs_gap is not None:
-      if self.epochs_since_last_ae_training >= self.ae_training_epochs_gap:
-        self.epochs_since_last_ae_training = 0
-        self.train_autoencoders(self.ae_max_training_epochs)
+  def init_autoencoders(self):
+    """Perform initial training for the AutoEncoders."""
+    print(" >>> Training the autoencoders before starting the transformer training.")
 
-    super().training_epoch()
-
-    if self.ae_training_epochs_gap is not None:
-      self.epochs_since_last_ae_training += 1
-
-  def train_autoencoders(self, max_epochs: int):
     avg_ae_train_loss = None
 
     for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
       ae_trainer.compute_test_metrics()
       ae_training_epoch = 0
       while (ae_trainer.test_metrics["test_mse"] > self.ae_desired_test_mse and
-             ae_training_epoch < max_epochs):
+             ae_training_epoch < self.ae_training_args.epochs):
         ae_train_losses = []
         for i, batch in enumerate(ae_trainer.train_loader):
           ae_train_loss = ae_trainer.training_step(batch)
@@ -115,18 +98,17 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
         wandb.log({f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}, step=self.step)
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
+    """Computes the training loss and adds the AEs reconstruction loss to it."""
     train_loss = super().compute_train_loss(batch)
 
-    if self.ae_training_epochs_gap is None:
-      # We compute the training loss and add the AEs reconstruction loss to it
-      for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
-        ae_train_losses = []
-        for i, batch in enumerate(ae_trainer.train_loader):
-          ae_train_loss = ae_trainer.compute_train_loss(batch)
-          ae_train_losses.append(ae_train_loss)
+    for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
+      ae_train_losses = []
+      for i, batch in enumerate(ae_trainer.train_loader):
+        ae_train_loss = ae_trainer.compute_train_loss(batch)
+        ae_train_losses.append(ae_train_loss)
 
-        avg_ae_train_loss = t.mean(t.stack(ae_train_losses))
-        train_loss += self.ae_train_loss_weight * avg_ae_train_loss
+      avg_ae_train_loss = t.mean(t.stack(ae_train_losses))
+      train_loss += self.ae_train_loss_weight * avg_ae_train_loss
 
       if self.use_wandb and avg_ae_train_loss is not None:
         # We performed training for the AutoEncoder. Log average train loss and test metrics
@@ -138,11 +120,10 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     super().compute_test_metrics()
 
     # add AEs test metrics
-    if self.ae_training_epochs_gap is None:
-      if self.use_wandb:
-        for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
-          ae_trainer.compute_test_metrics()
-          wandb.log({f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}, step=self.step)
+    if self.use_wandb:
+      for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
+        ae_trainer.compute_test_metrics()
+        wandb.log({f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}, step=self.step)
 
     # log norm of all params individually
     if self.use_wandb:
@@ -198,8 +179,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       })
 
     cfg.update({
-      "ae_training_epochs_gap": self.ae_training_epochs_gap,
-      "ae_max_training_epochs": self.ae_max_training_epochs,
       "ae_desired_test_mse": self.ae_desired_test_mse,
     })
     cfg.update({f"ae_training_args_{k}": v for k, v in dataclasses.asdict(self.ae_training_args).items()})
