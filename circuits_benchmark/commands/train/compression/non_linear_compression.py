@@ -1,13 +1,13 @@
 import dataclasses
 from argparse import Namespace
-from math import ceil
 
 import pandas as pd
 import wandb
+from argparse_dataclass import ArgumentParser
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.commands.train.compression.auto_compression import run_auto_compression_training
+from circuits_benchmark.commands.train.compression.compression_training_utils import parse_d_model, parse_d_head
 from circuits_benchmark.metrics.iia import evaluate_iia_on_all_ablation_types
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
@@ -22,11 +22,16 @@ def setup_args_parser(subparsers):
   parser = subparsers.add_parser("non-linear-compression")
   add_common_args(parser)
 
-  parser.add_argument("--residual-stream-compression-size", type=str, default="auto",
-                      help="A list of comma separated sizes for the compressed residual stream, or 'auto' to find the "
-                           "optimal size.")
-  parser.add_argument("--auto-compression-accuracy", type=float, default=0.95,
-                      help="The desired test accuracy when using 'auto' compression size.")
+  parser.add_argument("--d-model", type=int, default=None,
+                      help="The size of compressed residual stream.")
+  parser.add_argument("--d-model-compression-ratio", type=float, default=None,
+                      help="The size of compressed residual stream, expressed as a fraction of the original size.")
+  parser.add_argument("--d-head", type=int, default=None,
+                      help="The size of compressed internal head dimension.")
+  parser.add_argument("--d-head-compression-ratio", type=float, default=None,
+                      help="The size of compressed internal head dimension, expressed as a fraction of the original "
+                           "size.")
+
   parser.add_argument("--train-loss", type=str, default="intervention", choices=compression_train_loss_level_options,
                       help="The train loss level for the compression training.")
   parser.add_argument("--ae-path", type=str, default=None,
@@ -57,22 +62,22 @@ def setup_args_parser(subparsers):
                       help="The weight for the autoencoder training loss in the total loss.")
 
 
-def run_single_non_linear_compression_training(case: BenchmarkCase,
-                                               tl_model: HookedTracrTransformer,
-                                               args: Namespace,
-                                               training_args: TrainingArgs,
-                                               compression_size: int):
+def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
+  """Compresses the residual stream of a Tracr model using a linear compression."""
+  tl_model: HookedTracrTransformer = case.get_tl_model()
   original_d_model_size = tl_model.cfg.d_model
   original_d_head_size = tl_model.cfg.d_head
 
-  compressed_d_model_size = ceil(original_d_model_size / 2) # compression_size
-  compressed_d_head_size = ceil(original_d_head_size / 2)
+  training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
+
+  compressed_d_model_size = parse_d_model(args, tl_model)
+  compressed_d_head_size = parse_d_head(args, tl_model)
 
   new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
     tl_model,
     overwrite_cfg_dict={
       "d_model": compressed_d_model_size,
-      # "d_head": compressed_d_head_size,
+      "d_head": compressed_d_head_size,
     },
     init_params_fn=wang_init_method(tl_model.cfg.n_layers, compressed_d_model_size),
   )
@@ -151,9 +156,3 @@ def run_single_non_linear_compression_training(case: BenchmarkCase,
     wandb.finish()
 
   return final_metrics
-
-
-def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
-  """Compresses the residual stream of a Tracr model using a linear compression."""
-  tl_model: HookedTracrTransformer = case.get_tl_model()
-  run_auto_compression_training(case, tl_model, args, run_single_non_linear_compression_training)
