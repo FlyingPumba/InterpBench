@@ -120,10 +120,22 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     super().compute_test_metrics()
 
     # add AEs test metrics
+    for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
+      ae_trainer.compute_test_metrics()
+      ae_specific_test_metrics = {f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}
+      self.test_metrics.update(ae_specific_test_metrics)
+
+      if self.use_wandb:
+        wandb.log(ae_specific_test_metrics, step=self.step)
+
+    # Calculate average AE test MSE
+    avg_ae_test_mse = 0
+    for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
+      avg_ae_test_mse += ae_trainer.test_metrics["test_mse"]
+    avg_ae_test_mse /= len(self.autoencoder_trainers_dict)
+    self.test_metrics["avg_ae_test_mse"] = avg_ae_test_mse
     if self.use_wandb:
-      for ae_key, ae_trainer in self.autoencoder_trainers_dict.items():
-        ae_trainer.compute_test_metrics()
-        wandb.log({f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}, step=self.step)
+      wandb.log({"avg_ae_test_mse": avg_ae_test_mse}, step=self.step)
 
     # log norm of all params individually
     if self.use_wandb:
@@ -155,6 +167,10 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
   def get_activation_mapper(self) -> MultiHookActivationMapper | ActivationMapper | None:
     mappers_dict = {k: AutoEncoderMapper(v) for k, v in self.autoencoders_dict.items()}
     return MultiHookActivationMapper(mappers_dict)
+
+  def build_test_metrics_string(self):
+    return (f", iia: {self.test_metrics.get('iia', 0):.3f}, "
+            f"avg_ae_test_mse: {self.test_metrics.get('avg_ae_test_mse', 0):.3f}")
 
   def build_wandb_name(self):
     if len(self.autoencoders_dict) > 1:
