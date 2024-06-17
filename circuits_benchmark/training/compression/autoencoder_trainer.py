@@ -8,7 +8,6 @@ from torch.utils.data import DataLoader
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
-from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
@@ -22,14 +21,12 @@ class AutoEncoderTrainer(GenericTrainer):
                autoencoder: AutoEncoder,
                tl_model: HookedTracrTransformer,
                args: TrainingArgs,
-               train_loss_level: CompressionTrainLossLevel = "layer",
                hook_name_filter_for_input_activations: str | None = None,
                output_dir: str | None = None):
     self.autoencoder = autoencoder
     self.tl_model = tl_model
     self.tl_model_n_layers = tl_model.cfg.n_layers
     self.tl_model.freeze_all_weights()
-    self.train_loss_level = train_loss_level
     self.hook_name_for_input_activations = hook_name_filter_for_input_activations
     super().__init__(case, list(autoencoder.parameters()), args, output_dir=output_dir)
 
@@ -41,26 +38,16 @@ class AutoEncoderTrainer(GenericTrainer):
     named_data = {}
 
     if self.hook_name_for_input_activations is None:
-      if self.train_loss_level == "layer":
-        # collect the residual stream activations from all layers
-        for layer in range(self.tl_model_n_layers):
-          named_data[f"layer_{layer}_resid_pre"] = tl_cache["resid_pre", layer]
-        named_data[f"layer_{self.tl_model_n_layers-1}_resid_post"] = tl_cache["resid_post", self.tl_model_n_layers-1]
+      # collect the output of the attention and mlp components from all layers
+      for layer in range(self.tl_model_n_layers):
+        named_data[f"layer_{layer}_attn_out"] = tl_cache["attn_out", layer]
+        named_data[f"layer_{layer}_mlp_out"] = tl_cache["mlp_out", layer]
 
-      elif self.train_loss_level == "component" or self.train_loss_level == "intervention":
-        # collect the output of the attention and mlp components from all layers
-        for layer in range(self.tl_model_n_layers):
-          named_data[f"layer_{layer}_attn_out"] = tl_cache["attn_out", layer]
-          named_data[f"layer_{layer}_mlp_out"] = tl_cache["mlp_out", layer]
-
-        # collect the embeddings, but repeat the data self.tl_model_n_layers times
-        named_data["embed"] = tl_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
-        named_data["pos_embed"] = tl_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
-      else:
-        raise ValueError(f"Invalid train_loss_level: {self.train_loss_level}")
+      # collect the embeddings, but repeat the data self.tl_model_n_layers times
+      named_data["embed"] = tl_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
+      named_data["pos_embed"] = tl_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
 
     else:
-      assert self.train_loss_level == "intervention", "Only intervention level is supported with hook_name_for_input_activations"
       str_for_regex = self.hook_name_for_input_activations.split("[")[0]
       regex = re.compile(f"^{str_for_regex}$")
       for hook_name in self.tl_model.hook_dict.keys():
@@ -163,7 +150,6 @@ class AutoEncoderTrainer(GenericTrainer):
   def get_wandb_config(self):
     cfg = super().get_wandb_config()
     cfg.update({
-      "train_loss_level": self.train_loss_level,
       "ae_input_size": self.autoencoder.input_size,
       "ae_compression_size": self.autoencoder.compression_size,
       "ae_layers": self.autoencoder.n_layers,

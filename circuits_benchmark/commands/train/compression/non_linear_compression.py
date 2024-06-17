@@ -10,7 +10,6 @@ from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.compression.compression_training_utils import parse_d_model, parse_d_head
 from circuits_benchmark.metrics.iia import evaluate_iia_on_all_ablation_types
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
-from circuits_benchmark.training.compression.compression_train_loss_level import compression_train_loss_level_options
 from circuits_benchmark.training.compression.non_linear_compressed_tracr_transformer_trainer import \
   NonLinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
@@ -32,8 +31,6 @@ def setup_args_parser(subparsers):
                       help="The size of compressed internal head dimension, expressed as a fraction of the original "
                            "size.")
 
-  parser.add_argument("--train-loss", type=str, default="intervention", choices=compression_train_loss_level_options,
-                      help="The train loss level for the compression training.")
   parser.add_argument("--ae-path", type=str, default=None,
                       help="Path to trained AutoEncoder model.")
 
@@ -83,31 +80,25 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
   )
   # new_tl_model.normalize_output = True
 
+  # Set up autoencoders
   autoencoders_dict = {}
-  if args.train_loss == "intervention":
-    # Set up autoencoders for compression training
-    if case.get_index() == "5":
-      autoencoders_dict["blocks.*.hook_mlp_out"] = AutoEncoder(original_d_model_size,
-                                                               compressed_d_model_size,
-                                                               args.ae_layers,
-                                                               args.ae_first_hidden_layer_shape)
-      for layer in range(tl_model.cfg.n_layers):
-        for head in range(tl_model.cfg.n_heads):
-          autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
-                                                                                      compressed_d_model_size,
-                                                                                      args.ae_layers,
-                                                                                      args.ae_first_hidden_layer_shape)
-    else:
-      ae = AutoEncoder(original_d_model_size,
-                       compressed_d_model_size,
-                       args.ae_layers,
-                       args.ae_first_hidden_layer_shape)
-      autoencoders_dict["hook_embed|hook_pos_embed|.*hook_attn_out|.*hook_mlp_out"] = ae
+  if case.get_index() == "5":
+    autoencoders_dict["blocks.*.hook_mlp_out"] = AutoEncoder(original_d_model_size,
+                                                             compressed_d_model_size,
+                                                             args.ae_layers,
+                                                             args.ae_first_hidden_layer_shape)
+    for layer in range(tl_model.cfg.n_layers):
+      for head in range(tl_model.cfg.n_heads):
+        autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
+                                                                                    compressed_d_model_size,
+                                                                                    args.ae_layers,
+                                                                                    args.ae_first_hidden_layer_shape)
   else:
-    autoencoders_dict[".*"] = AutoEncoder(original_d_model_size,
-                                         compressed_d_model_size,
-                                         args.ae_layers,
-                                         args.ae_first_hidden_layer_shape)
+    ae = AutoEncoder(original_d_model_size,
+                     compressed_d_model_size,
+                     args.ae_layers,
+                     args.ae_first_hidden_layer_shape)
+    autoencoders_dict["hook_embed|hook_pos_embed|.*hook_attn_out|.*hook_mlp_out"] = ae
 
   ae_training_args = dataclasses.replace(training_args,
                                          wandb_project=None,
@@ -123,7 +114,6 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                                        new_tl_model,
                                                        autoencoders_dict,
                                                        training_args,
-                                                       train_loss_level=args.train_loss,
                                                        output_dir=args.output_dir,
                                                        freeze_ae_weights=args.freeze_ae_weights,
                                                        ae_training_args=ae_training_args,

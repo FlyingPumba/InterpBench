@@ -44,7 +44,6 @@ def train_linear_compression(case: BenchmarkCase, args: Namespace):
     tl_model.device)
 
   trainer = LinearCompressedTracrTransformerTrainer(case, tl_model, compressed_tracr_transformer, training_args,
-                                                    train_loss_level="layer",
                                                     output_dir=args.output_dir)
   final_metrics = trainer.train()
   print(f" >>> Final metrics for {case} with residual stream compression size {compressed_d_model_size}:")
