@@ -31,7 +31,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                output_dir: str | None = None,
                ae_desired_test_mse: float = 1e-3,
                ae_training_args: TrainingArgs = None,
-               ae_train_loss_weight: int = 100):
+               ae_train_loss_weight: int = 10):
     self.old_tl_model: HookedTracrTransformer = old_tl_model
     self.old_tl_model.freeze_all_weights()
 
@@ -44,6 +44,11 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     for ae in self.autoencoders_dict.values():
       parameters += list(ae.parameters())
 
+    # define this before calling the super constructor, since its needed for the wandb config
+    self.ae_desired_test_mse = ae_desired_test_mse
+    self.ae_train_loss_weight = ae_train_loss_weight
+    self.ae_training_args = ae_training_args if ae_training_args is not None else args
+
     super().__init__(case,
                      parameters,
                      args,
@@ -51,25 +56,18 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                      new_tl_model.cfg.n_layers,
                      output_dir=output_dir)
 
-
-    # make a copy of the training args for non-linear compression if AE specific training args were not provided
-    self.ae_training_args = ae_training_args
-    assert self.ae_training_args is not None, "AE training args must be provided."
-
-    for ae_key, ae in self.autoencoders_dict.items():
-      ae_trainer = AutoEncoderTrainer(case, ae, self.old_tl_model, self.ae_training_args,
-                                      hook_name_filter_for_input_activations=ae_key,
-                                      output_dir=output_dir)
-      self.autoencoder_trainers_dict[ae_key] = ae_trainer
-
     # make a first pass of AE training before starting the transformer training
-    self.ae_desired_test_mse = ae_desired_test_mse
-    self.ae_train_loss_weight = ae_train_loss_weight
     self.init_autoencoders()
 
   def init_autoencoders(self):
     """Perform initial training for the AutoEncoders."""
     print(" >>> Training the autoencoders before starting the transformer training.")
+
+    for ae_key, ae in self.autoencoders_dict.items():
+      ae_trainer = AutoEncoderTrainer(self.case, ae, self.old_tl_model, self.ae_training_args,
+                                      hook_name_filter_for_input_activations=ae_key,
+                                      output_dir=self.output_dir)
+      self.autoencoder_trainers_dict[ae_key] = ae_trainer
 
     avg_ae_train_loss = None
 
@@ -196,6 +194,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
 
     cfg.update({
       "ae_desired_test_mse": self.ae_desired_test_mse,
+      "ae_train_loss_weight": self.ae_train_loss_weight,
     })
     cfg.update({f"ae_training_args_{k}": v for k, v in dataclasses.asdict(self.ae_training_args).items()})
 
