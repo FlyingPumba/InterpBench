@@ -37,7 +37,8 @@ def get_resample_ablation_loss_from_inputs(
     max_components: int = 1,
     is_categorical: bool = False,
     hypothesis_model_corrupted_cache: ActivationCache | None = None,
-    effect_diffs_by_node: Optional[Dict[str, float]] = None
+    effect_diffs_by_node: Optional[Dict[str, float]] = None,
+    verbose: bool = False,
   ) -> ResampleAblationLossOutput:
 
   # assert that clean_input and corrupted_input have the same length
@@ -60,7 +61,8 @@ def get_resample_ablation_loss_from_inputs(
                                     max_interventions=max_interventions,
                                     max_components=max_components,
                                     is_categorical=is_categorical,
-                                    effect_diffs_by_node=effect_diffs_by_node)
+                                    effect_diffs_by_node=effect_diffs_by_node,
+                                    verbose=verbose)
 
 
 def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
@@ -72,7 +74,9 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                max_components: int = 1,
                                is_categorical: bool = False,
                                use_node_effect_diff: bool = False,
-                               effect_diffs_by_node: Optional[Dict[str, float]] = None) -> ResampleAblationLossOutput:
+                               effect_diffs_by_node: Optional[Dict[str, float]] = None,
+                               verbose: bool = False,
+                               ) -> ResampleAblationLossOutput:
   # This is a memory intensive operation, so we will garbage collect before starting.
   gc.collect()
   t.cuda.empty_cache()
@@ -118,7 +122,9 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
                                         max_components,
                                         effect_diffs_by_node):
 
-    print(f"\nRunning intervention {intervention.node_intervention_types[0]} on node {intervention.node_names[0]}")
+    if verbose:
+      print(f"\nRunning intervention {intervention.node_intervention_types[0]} on node {intervention.node_names[0]}")
+
     for node_name in intervention.get_intervened_nodes():
       if node_name in interventions_per_node:
         interventions_per_node[node_name] += 1

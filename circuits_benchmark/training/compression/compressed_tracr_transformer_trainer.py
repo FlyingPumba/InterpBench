@@ -250,7 +250,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         iia = iia + same_outputs_between_both_models_after_intervention.mean().item()
 
     # return average over sampled nodes
-    return iia / len(nodes_to_sample)
+    iia = iia / len(nodes_to_sample)
+    return iia
 
   def evaluate_node_effect(self, model, clean_data, corrupted_data):
     effect_by_node = {}
@@ -296,6 +297,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
   def get_lr_validation_metric(self):
     return self.test_metrics["iia"]
+
+  def build_test_metrics_string(self):
+    return f", iia: {self.test_metrics.get('iia', 0):.3f}"
 
   def define_wandb_metrics(self):
     super().define_wandb_metrics()

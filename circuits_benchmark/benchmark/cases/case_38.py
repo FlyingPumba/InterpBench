@@ -10,6 +10,9 @@ class Case38(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_alternation_checker(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Checks if tokens alternate between two types."
+
   def get_vocab(self) -> Set:
     return vocabs.get_ascii_letters_vocab(count=3)
 

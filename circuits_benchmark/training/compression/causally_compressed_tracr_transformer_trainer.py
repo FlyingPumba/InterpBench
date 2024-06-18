@@ -14,7 +14,6 @@ from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss 
   get_resample_ablation_loss_from_inputs
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
   CompressedTracrTransformerTrainer
-from circuits_benchmark.training.compression.compression_train_loss_level import CompressionTrainLossLevel
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
@@ -27,59 +26,34 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
                training_args: TrainingArgs,
                is_categorical: bool,
                n_layers: int,
-               train_loss_level: CompressionTrainLossLevel = "layer",
                output_dir: str | None = None):
-    self.train_loss_level = train_loss_level
     self.last_resample_ablation_loss = None
     self.interventions_per_node = {}
 
     super().__init__(case, parameters, training_args, is_categorical, n_layers, output_dir=output_dir)
 
-    if self.train_loss_level == "intervention":
-      self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
-    else:
-      assert self.args.resample_ablation_test_loss is False, "Resample ablation loss is only available for intervention."
+    self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
-    if self.train_loss_level == "layer" or self.train_loss_level == "component":
-      clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
+    clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
+    corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
 
-      original_model_logits, original_model_cache = self.get_logits_and_cache_from_original_model(clean_data.get_inputs())
-      compressed_model_logits, compressed_model_cache = self.get_logits_and_cache_from_compressed_model(clean_data.get_inputs())
+    # We calculate the output loss on the "corrupted data", which is the same as the clean data but generated on another seed,
+    # so we can reuse the activation cache for the resample ablation loss
+    original_model_logits = self.get_original_model()(corrupted_data.get_inputs())
+    compressed_model_logits, compressed_model_corrupted_cache = self.get_compressed_model().run_with_cache(corrupted_data.get_inputs())
 
-      # Independently of the train loss level, we always compute the output loss since we want the compressed model to
-      # have the same output as the original model.
-      loss = self.get_output_loss(compressed_model_logits, original_model_logits)
+    # Independently of the train loss level, we always compute the output loss since we want the compressed model to
+    # have the same output as the original model.
+    loss = self.get_output_loss(compressed_model_logits, original_model_logits)
 
-      if self.train_loss_level == "layer":
-        loss = loss + self.get_layer_level_loss(compressed_model_cache, original_model_cache)
+    if self.epochs_since_last_train_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
+      self.epochs_since_last_train_resample_ablation_loss = 0
 
-      else:
-        loss = loss + self.get_component_level_loss(compressed_model_cache, original_model_cache)
+      intervention_loss = self.get_intervention_level_loss(clean_data, corrupted_data, compressed_model_corrupted_cache)
+      loss = loss + self.args.resample_ablation_loss_weight * intervention_loss
 
-    elif self.train_loss_level == "intervention":
-      clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
-      corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
-
-      # We calculate the output loss on the "corrupted data", which is the same as the clean data but generated on another seed,
-      # so we can reuse the activation cache for the resample ablation loss
-      original_model_logits = self.get_original_model()(corrupted_data.get_inputs())
-      compressed_model_logits, compressed_model_corrupted_cache = self.get_compressed_model().run_with_cache(corrupted_data.get_inputs())
-
-      # Independently of the train loss level, we always compute the output loss since we want the compressed model to
-      # have the same output as the original model.
-      loss = self.get_output_loss(compressed_model_logits, original_model_logits)
-
-      if self.epochs_since_last_train_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
-        self.epochs_since_last_train_resample_ablation_loss = 0
-
-        intervention_loss = self.get_intervention_level_loss(clean_data, corrupted_data, compressed_model_corrupted_cache)
-        loss = loss + self.args.resample_ablation_loss_weight * intervention_loss
-
-      self.epochs_since_last_train_resample_ablation_loss += 1
-
-    else:
-      raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")
+    self.epochs_since_last_train_resample_ablation_loss += 1
 
     if self.use_wandb:
       wandb.log({"train_loss": loss}, step=self.step)
@@ -201,25 +175,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
   def define_wandb_metrics(self):
     super().define_wandb_metrics()
 
-    if self.train_loss_level == "layer":
-      wandb.define_metric("output_loss", summary="min")
-      for layer in range(self.n_layers):
-        wandb.define_metric(f"layer_{str(layer)}_loss", summary="min")
-
-    elif self.train_loss_level == "component":
-      wandb.define_metric("output_loss", summary="min")
-      for layer in range(self.n_layers):
-        for component in ["attn", "mlp"]:
-          wandb.define_metric(f"layer_{str(layer)}_{component}_loss", summary="min")
-      for component in ["embed", "pos_embed"]:
-        wandb.define_metric(f"hook_{component}_loss", summary="min")
-
-    elif self.train_loss_level == "intervention":
-      wandb.define_metric("train_resample_ablation_loss", summary="min")
-      wandb.define_metric("train_resample_ablation_var_exp", summary="max")
-
-    else:
-      raise NotImplementedError(f"Train loss level {self.train_loss_level} not implemented")
+    wandb.define_metric("train_resample_ablation_loss", summary="min")
+    wandb.define_metric("train_resample_ablation_var_exp", summary="max")
 
   def get_wandb_config(self):
     cfg = super().get_wandb_config()

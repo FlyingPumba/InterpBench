@@ -10,6 +10,9 @@ class Case10(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_symmetry_checker(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Check if each word in a sequence is symmetric around its center."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab().union({"radar", "rotor"})
 

@@ -153,7 +153,7 @@ class GenericTrainer:
     """Performs a gradient update step."""
     loss.backward()
 
-    if hasattr(self, "new_tl_model"):
+    if self.args.verbose and hasattr(self, "new_tl_model"):
       # print gradients descending by norm
       sorted_grads = sorted([(name, param.grad.norm()) for name, param in self.new_tl_model.named_parameters()
                              if param.grad is not None],

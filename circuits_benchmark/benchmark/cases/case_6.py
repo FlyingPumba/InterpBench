@@ -10,6 +10,9 @@ class Case6(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_oscillation_detector(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Detect oscillation patterns in a numeric sequence."
+
   def get_vocab(self) -> Set:
     return vocabs.get_int_digits_vocab()
 

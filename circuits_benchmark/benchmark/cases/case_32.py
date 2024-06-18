@@ -10,6 +10,9 @@ class Case32(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_boundary_detector(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Detects the boundaries between different types of tokens in a sequence."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab(min_chars=4, max_words=10)
 

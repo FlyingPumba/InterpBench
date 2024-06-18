@@ -10,6 +10,9 @@ class Case9(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_sort(rasp.tokens, rasp.tokens, 10, 1)
 
+  def get_task_description(self) -> str:
+    return "Sort a list of integers in ascending order."
+
   def supports_causal_masking(self) -> bool:
     return False
 

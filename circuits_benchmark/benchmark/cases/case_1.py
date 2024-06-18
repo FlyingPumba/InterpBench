@@ -14,6 +14,9 @@ class Case1(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_rotation_identifier(rasp.tokens, 2)
 
+  def get_task_description(self) -> str:
+    return "Identify if tokens are rotations of each other by a specified number."
+
   def get_vocab(self) -> Set:
     return vocabs.get_ascii_letters_vocab(count=5)
 

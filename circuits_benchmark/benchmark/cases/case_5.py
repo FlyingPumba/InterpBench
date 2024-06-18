@@ -12,6 +12,9 @@ class Case5(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_shuffle_dyck(pairs=["()", "{}"])
 
+  def get_task_description(self) -> str:
+    return "Returns 1 if a set of parentheses are balanced, 0 else."
+
   def get_vocab(self) -> Set:
     return {"(", ")", "{", "}", "x"}
 

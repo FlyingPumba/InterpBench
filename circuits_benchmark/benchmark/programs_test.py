@@ -5,7 +5,7 @@ from circuits_benchmark.benchmark.cases.case_27 import make_token_positional_bal
 from circuits_benchmark.benchmark.cases.case_28 import make_token_mirroring
 from circuits_benchmark.benchmark.cases.case_32 import make_token_boundary_detector
 from circuits_benchmark.benchmark.cases.case_38 import make_token_alternation_checker
-from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor
+from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor, detect_pattern
 from tracr.rasp import rasp
 
 
@@ -53,3 +53,14 @@ class ProgramsTest(unittest.TestCase):
     assert program(["apple", "banana", "apple", "orange"]) == [None, True, True, True]
     assert program(["apple", "banana", "banana", "orange"]) == [None, True, False, True]
     assert program(["apple", "apple", "banana", "orange"]) == [None, False, True, True]
+
+  def test_detect_pattern(self):
+    program = detect_pattern(rasp.tokens, "abc")
+
+    assert program("abcabc") == [None, None, True, False, False, True]
+    assert program("abcab") == [None, None, True, False, False]
+    assert program("ab") == [None, None]
+    assert program("abc") == [None, None, True]
+    assert program("abca") == [None, None, True, False]
+    assert program("cabca") == [None, None, False, True, False]
+    assert program("aaaaa") == [None, None, False, False, False]

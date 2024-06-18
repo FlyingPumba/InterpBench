@@ -10,6 +10,9 @@ class Case14(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_count(rasp.tokens, "a")
 
+  def get_task_description(self) -> str:
+    return "Returns the count of 'a' in the input sequence."
+
   def supports_causal_masking(self) -> bool:
     return False
 

@@ -9,6 +9,9 @@ class Case34(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_vowel_consonant_ratio(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Calculate the ratio of vowels to consonants in each word."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 

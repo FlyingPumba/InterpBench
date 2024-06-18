@@ -10,6 +10,9 @@ class Case13(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_trend_analysis(rasp.tokens)
 
+  def get_task_description(self) -> str:
+    return "Analyzes the trend (increasing, decreasing, constant) of numeric tokens."
+
   def supports_causal_masking(self) -> bool:
     return False
 

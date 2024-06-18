@@ -12,7 +12,8 @@ class AutoEncoder(nn.Module):
                encoder_output_size: int,
                n_layers: int,
                first_hidden_layer_shape: str = "wide",
-               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")):
+               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+               verbose: bool = True):
     """An autoencoder that compresses the input to `encoder_output_size` and then decompresses it back to
     `encoder_input_size`. The encoder and decoder are fully connected networks with `n_layers` layers each.
     """
@@ -27,17 +28,22 @@ class AutoEncoder(nn.Module):
     self.first_hidden_layer_shape = first_hidden_layer_shape
     self.use_bias = True
 
+    assert not self.first_hidden_layer_shape == "wide" or self.n_layers > 1, \
+      "Wide first hidden layer requires at least 2 layers."
+
     self.setup_encoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)
     self.setup_decoder(encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape)
 
-    self.print_architecture()
+    if verbose:
+      self.print_architecture()
 
   def setup_encoder(self, encoder_input_size, encoder_output_size, n_layers, first_hidden_layer_shape):
     """Set up the encoder layers. The encoder is a fully connected network with `n_layers` layers. The last layer has
     size `encoder_output_size`.
     """
     assert n_layers > 0, "The number of layers must be greater than 0"
-    assert encoder_input_size > encoder_output_size, "The input size must be greater than the output size"
+    assert encoder_input_size > encoder_output_size, "The input size must be greater than the output size. " \
+      f"Got input size {encoder_input_size} and output size {encoder_output_size}."
 
     input_size = encoder_input_size
     current_layer = 0

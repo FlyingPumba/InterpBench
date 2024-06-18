@@ -10,6 +10,9 @@ class Case8(BenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_sequential_gap_filler(rasp.tokens, "-")
 
+  def get_task_description(self) -> str:
+    return "Fills gaps between tokens with a specified filler."
+
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 

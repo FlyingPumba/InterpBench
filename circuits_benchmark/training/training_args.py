@@ -4,6 +4,7 @@ from typing import Optional
 
 @dataclass
 class TrainingArgs():
+  verbose: Optional[bool] = False
   # Wandb config
   wandb_project: Optional[str] = None
   wandb_name: Optional[str] = None
