@@ -41,7 +41,7 @@ def setup_args_parser(subparsers, return_namespace=False):
         help="IIT, behavior, strict weights",
     )
     parser.add_argument(
-        "-m", "--mean", type=bool, default=True, help="Use mean cache"
+        "-m", "--mean", type=int, default=1, help="Use mean cache"
     )
     parser.add_argument(
         "--save-to-wandb", action="store_true", help="Save results to wandb"
