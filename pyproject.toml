@@ -35,7 +35,7 @@ dataframe-image = "^0.2.3"
 ipython = "^8.24.0"
 torchvision = "^0.18.0"
 mlcroissant = "^1.0.5"
-auto-circuit = "^0.1.7"
+auto-circuit = {git = "git@github.com:FlyingPumba/auto-circuit.git"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
