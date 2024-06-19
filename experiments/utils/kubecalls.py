@@ -66,8 +66,8 @@ def build_job_name(command: List[str]):
                 break
         if not found:
             wandb_name += f"{alias}-"
-    # remove last dash from wandb_name
-    wandb_name = wandb_name[:-1]
+    # remove leading and trailing dashes
+    wandb_name = wandb_name.strip("-")
 
     assert wandb_name != "", f"wandb_name is empty. command: {split_command}"
 

@@ -10,14 +10,16 @@ def walk_dirs_and_get_scores(weight = 510, algorithm = "acdc"):
     elif "sp" in algorithm:
         return get_sp_scores(weight, algorithm)
 
-def get_realism_scores(weight, algorithm):
+def get_realism_scores(weight, algorithm, same_size = False):
     if weight is None:
         weight = ""
+    # if weight == "tracr":
+    #     same_size = False
     weight = str(weight)
     if algorithm == "acdc":
-        return get_acdc_realism_scores(weight)
+        return get_acdc_realism_scores(weight, same_size)
     elif "sp" in algorithm:
-        return get_sp_realism_scores(weight, algorithm)
+        return get_sp_realism_scores(weight, algorithm, same_size)
     else:
         raise ValueError(f"Unknown algorithm {algorithm}")
 
@@ -101,13 +103,15 @@ def get_sp_scores(weight, algorithm):
             df = append_row(df, entry)
     return df
     
-def get_acdc_realism_scores(weight = ""):
-    project = "node_realism"
+def get_acdc_realism_scores(weight = "", same_size = False):
+    project = f"node_realism{'_same_size' if same_size else ''}"
     import wandb 
     api = wandb.Api()
     runs = api.runs(f"{project}")
     df = pd.DataFrame(columns = ["run", "threshold", "score", "weights"])
     for run in runs:
+        if run.state != "finished":
+            continue
         if "acdc" in run.group:
             case = run.group.split("_")[1]
             if case in bad_runs:
@@ -126,8 +130,8 @@ def get_acdc_realism_scores(weight = ""):
             df = append_row(df, entry)
     return df
 
-def get_sp_realism_scores(weight = "", algorithm = "node_sp"):
-    project = "node_realism"
+def get_sp_realism_scores(weight = "", algorithm = "node_sp", same_size = False):
+    project = f"node_realism{'_same_size' if same_size else ''}"
     import wandb 
     api = wandb.Api()
     runs = api.runs(f"{project}", filters={"state": "finished"})
