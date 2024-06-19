@@ -54,6 +54,9 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--model-pair", choices=["freeze", "strict", "stop_grad"], default="strict"
     )
+    parser.add_argument(
+        "--same-size", action="store_true", help="Use same size for ll model"
+    )
 
 
 
@@ -120,6 +123,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "clip_grad_norm": {"values": [10, 1.0, 0.1, 0.05]},
                 "lr_scheduler": {"values": ["plateau", ""]},
                 "model_pair": {"values": ["freeze", "strict_iit", "stop_grad"]},
+                "same_size": {"values": [args.same_size]},
             },
         }
         sweep_id = wandb.sweep(
@@ -143,6 +147,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "clip_grad_norm": 0.1,
             "lr_scheduler": "",
             "model_pair": args.model_pair,
+            "same_size": args.same_size,
         }
 
         args = argparse.Namespace(**config)
@@ -178,7 +183,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             wandb.finish()
         if save_model_to_wandb:
             wandb.init(
-                project="iit_models",
+                project=f"iit_models{'_same_size' if args.same_size else ''}",
                 name=f"case_{case.get_index()}_weight_{weight_int}"
             )
             wandb.save(f"{save_dir}/*", base_path=output_dir)

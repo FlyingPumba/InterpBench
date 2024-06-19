@@ -20,14 +20,16 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
     iit_hl_model = make_iit_hl_model(hl_model)
     train_data, test_data = create_dataset(case, iit_hl_model)
     # make model
-    ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
+    ll_cfg = make_ll_cfg_for_case(
+        hl_model, case.get_index(), same_size=config.same_size
+    )
     print(ll_cfg)
     model = HookedTransformer(ll_cfg)
     model.to(config.device)
 
     lr_scheduler_map = {
-        "" : None,
-        "plateau" : t.optim.lr_scheduler.ReduceLROnPlateau,
+        "": None,
+        "plateau": t.optim.lr_scheduler.ReduceLROnPlateau,
     }
 
     mp_map = {
@@ -35,6 +37,14 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
         "strict": mp.StrictIITModelPair,
         "stop_grad": mp.StopGradModelPair,
     }
+
+    # make correspondence
+    if config.same_size:
+        hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
+            tracr_output=tracr_output
+        )
+    else:
+        hl_ll_corr = correspondence.TracrCorrespondence.from_output(case, tracr_output)
 
     # make model pair
     training_args = {
@@ -48,9 +58,6 @@ def train_model(config, case, tracr_output, hl_model, use_wandb=False):
         "clip_grad_norm": config.clip_grad_norm,
         "lr_scheduler": lr_scheduler_map[config.lr_scheduler],
     }
-    hl_ll_corr = correspondence.TracrCorrespondence.from_output(
-        case, tracr_output
-    )
     model_pair = mp_map[config.model_pair](
         hl_model=iit_hl_model,
         ll_model=model,

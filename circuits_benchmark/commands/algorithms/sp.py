@@ -345,7 +345,7 @@ def run_sp(
                 tl_model, use_pos_embed=True
             )
             full_circuit = build_acdc_circuit(corr=full_corr)
-            result = evaluate_acdc_circuit(
+            result = evaluate_hypothesis_circuit(
                 sp_circuit,
                 tl_model,
                 hl_ll_corr,

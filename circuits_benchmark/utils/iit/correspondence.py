@@ -131,9 +131,6 @@ class TracrCorrespondence(Correspondence):
             return index.Ix[[None]]
 
         if tracr_ll_corr is None:
-            print(
-                "WARNING: tracr_ll_corr is None, returning an Identity correspondence using HL Model"
-            )
             return cls(
                 {
                     TracrHLNode(
@@ -215,8 +212,6 @@ def make_edge_corr(tracr_edges, hl_ll_corr) -> list[EdgeCorr]:
                 index_from = ll_from.index
                 hookpoint_to = ll_to.name
                 index_to = ll_to.index
-                ll_edge = EdgeCorr(
-                    hookpoint_from, index_from, hookpoint_to, index_to
-                )
+                ll_edge = EdgeCorr(hookpoint_from, index_from, hookpoint_to, index_to)
                 ll_edges.append(ll_edge)
     return ll_edges

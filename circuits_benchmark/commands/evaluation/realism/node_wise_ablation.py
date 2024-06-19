@@ -14,7 +14,10 @@ import pickle
 import iit.model_pairs as mp
 from iit.utils import index
 import wandb
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb, load_circuit_from_wandb
+from circuits_benchmark.utils.iit.wandb_loader import (
+    load_model_from_wandb,
+    load_circuit_from_wandb,
+)
 from circuits_benchmark.transformers.circuit_node import CircuitNode
 from circuits_benchmark.transformers.circuit import Circuit
 
@@ -47,9 +50,7 @@ def setup_args_parser(subparsers):
         "--use-compressed", action="store_true", help="Use compressed models"
     )
     parser.add_argument("--tracr", action="store_true", help="Use tracr output")
-    parser.add_argument(
-        "--relative", type=int, default=1, help="Use relative scores"
-    )
+    parser.add_argument("--relative", type=int, default=1, help="Use relative scores")
     parser.add_argument(
         "--algorithm",
         choices=["acdc", "edge_sp", "node_sp"],
@@ -64,6 +65,9 @@ def setup_args_parser(subparsers):
     )
     parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
+    )
+    parser.add_argument(
+        "--same-size", action="store_true", help="Use same size for ll model"
     )
 
 
@@ -99,7 +103,7 @@ def make_nodes_to_ablate(
     nodes_to_ablate = Circuit()
     for node in attn + mlps:
         nodes_to_ablate.add_node(node)
-        
+
     for node in hypothesis_nodes:
         if node in nodes_to_ablate:
             show(f"Not ablating node: {node}")
@@ -109,14 +113,15 @@ def make_nodes_to_ablate(
             )
         else:
             show(f"Node {node} not in list")
-    
+
     ll_nodes_to_ablate = []
     for node in nodes_to_ablate:
-        if 'attn' in node.name:
+        if "attn" in node.name:
             ll_nodes_to_ablate.append(mp.LLNode(node.name, index.Ix[:, :, node.index]))
-        else: 
+        else:
             ll_nodes_to_ablate.append(mp.LLNode(node.name, index.Ix[[None]]))
     return ll_nodes_to_ablate
+
 
 def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     output_dir = args.output_dir
@@ -126,14 +131,27 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
 
     hl_model = case.build_transformer_lens_model()
     hl_model = make_iit_hl_model(hl_model, eval_mode=True)
-    tracr_output = case.get_tracr_output()
 
-    ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
     if args.tracr:
         model = case.get_tl_model()
     else:
         if args.load_from_wandb:
-            load_model_from_wandb(case.get_index(), weight, output_dir)
+            load_model_from_wandb(
+                case.get_index(), weight, output_dir, same_size=args.same_size
+            )
+        # make ll cfg
+        try:
+            ll_cfg = pickle.load(
+                open(
+                    f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_cfg_{weight}.pkl",
+                    "rb",
+                )
+            )
+        except FileNotFoundError:
+            ll_cfg = make_ll_cfg_for_case(
+                hl_model, case.get_index(), same_size=args.same_size
+            )
+        ll_cfg['device'] = args.device
         model = HookedTransformer(ll_cfg)
         model.load_state_dict(
             torch.load(
@@ -155,24 +173,29 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     )
     mean_cache = None
     if use_mean_cache:
-        mean_cache = get_mean_cache(
-            model_pair, test_set, batch_size=args.batch_size
-        )
+        mean_cache = get_mean_cache(model_pair, test_set, batch_size=args.batch_size)
     if args.load_from_wandb:
-        hyperparam = args.lambda_reg if args.algorithm in ["edge_sp", "node_sp"] else args.threshold
+        hyperparam = (
+            args.lambda_reg
+            if args.algorithm in ["edge_sp", "node_sp"]
+            else args.threshold
+        )
         result_file = load_circuit_from_wandb(
             case.get_index(),
             args.algorithm,
             hyperparam=str(hyperparam),
             weights=weight,
             output_dir=output_dir,
+            same_size=args.same_size,
         )
         result = pickle.load(open(output_dir + "/" + result_file.name, "rb"))
     else:
         result_path = make_result_path(case, args)
         # edges = pickle.load(open(edges_path, "rb"))
         result = pickle.load(open(result_path, "rb"))
-    nodes_in_hypothesis = list(result["nodes"]["true_positive"] | result["nodes"]["false_positive"])
+    nodes_in_hypothesis = list(
+        result["nodes"]["true_positive"] | result["nodes"]["false_positive"]
+    )
     nodes_to_ablate = make_nodes_to_ablate(model, nodes_in_hypothesis, args.threshold)
     print("Ablating nodes: ", *nodes_to_ablate, sep="\n")
     score = get_circuit_score(
@@ -193,8 +216,16 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
             if not args.tracr
             else f"{args.algorithm}_{case.get_index()}_tracr"
         )
-        name = f"{args.threshold}" if args.algorithm == "acdc" else f"{args.lambda_reg}" if args.algorithm in ["edge_sp", "node_sp"] else ""
+        name = (
+            f"{args.threshold}"
+            if args.algorithm == "acdc"
+            else (
+                f"{args.lambda_reg}" if args.algorithm in ["edge_sp", "node_sp"] else ""
+            )
+        )
         wandb.init(
-            project="node_realism", group=group, name=name
+            project=f"node_realism{'_same_size' if args.same_size else ''}",
+            group=group,
+            name=name,
         )
         wandb.log({"score": score})
