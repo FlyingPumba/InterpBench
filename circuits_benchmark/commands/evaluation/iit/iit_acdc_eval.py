@@ -46,6 +46,9 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
     )
+    parser.add_argument(
+        "--same-size", action="store_true", help="Use same size for ll model"
+    )
 
 
 def evaluate_acdc_circuit(
@@ -57,14 +60,10 @@ def evaluate_acdc_circuit(
     **kwargs,
 ):
     if full_circuit is None:
-        full_corr = TLACDCCorrespondence.setup_from_model(
-            ll_model, use_pos_embed=True
-        )
+        full_corr = TLACDCCorrespondence.setup_from_model(ll_model, use_pos_embed=True)
         full_circuit = build_acdc_circuit(corr=full_corr)
     gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads, case)
-    return calculate_fpr_and_tpr(
-        acdc_circuit, gt_circuit, full_circuit, **kwargs
-    )
+    return calculate_fpr_and_tpr(acdc_circuit, gt_circuit, full_circuit, **kwargs)
 
 
 def run_acdc_eval(case: BenchmarkCase, args: Namespace):
@@ -75,9 +74,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     using_wandb = args.using_wandb
 
     tracr_output = case.get_tracr_output()
-    hl_model = case.build_transformer_lens_model(
-        remove_extra_tensor_cloning=False
-    )
+    hl_model = case.build_transformer_lens_model(remove_extra_tensor_cloning=False)
 
     metric = "l2" if not hl_model.is_categorical() else "kl"
 
@@ -88,27 +85,6 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     # remove everything in the directory
     if os.path.exists(clean_dirname):
         shutil.rmtree(clean_dirname)
-
-    ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
-    ll_model = HookedTracrTransformer(
-        ll_cfg,
-        hl_model.tracr_input_encoder,
-        hl_model.tracr_output_encoder,
-        hl_model.residual_stream_labels,
-        remove_extra_tensor_cloning=False,
-    )
-    if weight != "tracr":
-        if args.load_from_wandb:
-            load_model_from_wandb(case_num, weight, args.output_dir)
-        ll_model.load_weights_from_file(
-            f"{args.output_dir}/ll_models/{case_num}/ll_model_{weight}.pth"
-        )
-
-    print(ll_model.device)
-    ll_model.to(ll_model.device)
-    for param in ll_model.parameters():
-        print(param.device)
-        break
 
     wandb_str = f"--using-wandb" if using_wandb else ""
     from circuits_benchmark.commands.build_main_parser import build_main_parser
@@ -130,6 +106,44 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             case, acdc_args, calculate_fpr_tpr=True, output_suffix=output_suffix
         )
     else:
+        # get best weight if needed
+        if weight == "best":
+            from circuits_benchmark.utils.iit.best_weights import get_best_weight
+            weight = get_best_weight(case.get_index())
+        
+        # load from wandb if needed
+        if args.load_from_wandb:
+            load_model_from_wandb(
+                case_num, weight, args.output_dir, same_size=args.same_size
+            )
+        # make ll cfg
+        try:
+            ll_cfg = pickle.load(
+                open(
+                    f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_cfg_{weight}.pkl",
+                    "rb",
+                )
+            )
+        except FileNotFoundError:
+            ll_cfg = make_ll_cfg_for_case(
+                hl_model, case.get_index(), same_size=args.same_size
+            )
+
+        # make ll model
+        ll_model = HookedTracrTransformer(
+            ll_cfg,
+            hl_model.tracr_input_encoder,
+            hl_model.tracr_output_encoder,
+            hl_model.residual_stream_labels,
+            remove_extra_tensor_cloning=False,
+        )
+        ll_model.load_weights_from_file(
+            f"{args.output_dir}/ll_models/{case_num}/ll_model_{weight}.pth"
+        )
+
+        ll_model.to(args.device)
+
+        # run acdc
         acdc_circuit, acdc_result = acdc.run_acdc(
             case,
             acdc_args,
@@ -141,18 +155,21 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         print(list(acdc_circuit.nodes), list(acdc_circuit.edges))
 
         # get the ll -> hl correspondence
-        hl_ll_corr = correspondence.TracrCorrespondence.from_output(
-            case=case, tracr_output=tracr_output
-        )
+        if args.same_size:
+            hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
+                tracr_output=tracr_output
+            )
+        else:
+            hl_ll_corr = correspondence.TracrCorrespondence.from_output(
+                case, tracr_output
+            )
         print("hl_ll_corr:", hl_ll_corr)
         hl_ll_corr.save(f"{clean_dirname}/hl_ll_corr.pkl")
         # evaluate the acdc circuit
         print("Calculating FPR and TPR for threshold", threshold)
         from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 
-        full_corr = TLACDCCorrespondence.setup_from_model(
-            ll_model, use_pos_embed=True
-        )
+        full_corr = TLACDCCorrespondence.setup_from_model(ll_model, use_pos_embed=True)
         full_circuit = build_acdc_circuit(full_corr)
         result = evaluate_acdc_circuit(
             acdc_circuit,
@@ -168,13 +185,14 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     with open(f"{clean_dirname}/result.txt", "w") as f:
         f.write(str(result))
     pickle.dump(result, open(f"{clean_dirname}/result.pkl", "wb"))
-    print(
-        f"Saved result to {clean_dirname}/result.txt and {clean_dirname}/result.pkl"
-    )
+    print(f"Saved result to {clean_dirname}/result.txt and {clean_dirname}/result.pkl")
     if args.using_wandb:
         import wandb
-        wandb.init(project=f"circuit_discovery", 
-                   group=f"acdc_{case.get_index()}_{args.weights}", 
-                   name=f"{args.threshold}")
+
+        wandb.init(
+            project=f"circuit_discovery{'_same_size' if args.same_size else ''}",
+            group=f"acdc_{case.get_index()}_{args.weights}",
+            name=f"{args.threshold}",
+        )
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)
     return result

@@ -10,11 +10,25 @@ compression_ratio_map = {
     "default": 2,
 }
 
-cases_with_resid_compression = ["5", "18", "21", "25", "26", "29", "34", "35", "36", "37"]
+cases_with_resid_compression = [
+    "5",
+    "18",
+    "21",
+    "25",
+    "26",
+    "29",
+    "34",
+    "35",
+    "36",
+    "37",
+]
 
 
 def make_ll_cfg_for_case(
-    hl_model, case_index: str, compression_ratio: float | None = None
+    hl_model,
+    case_index: str,
+    compression_ratio: float | None = None,
+    same_size: bool = False,
 ):
     compress_resid = case_index in cases_with_resid_compression
     if compression_ratio is None:
@@ -22,13 +36,21 @@ def make_ll_cfg_for_case(
             case_index, compression_ratio_map["default"]
         )
     return make_ll_cfg(
-        hl_model, compress_resid=compress_resid, compression_ratio=compression_ratio
+        hl_model,
+        compress_resid=compress_resid or same_size,
+        compression_ratio=compression_ratio,
+        same_size=same_size,
     )
 
 
-def make_ll_cfg(hl_model, compress_resid: bool, compression_ratio: float):
+def make_ll_cfg(
+    hl_model, compress_resid: bool, compression_ratio: float, same_size: bool
+):
     ll_cfg = hl_model.cfg.to_dict().copy()
-    n_heads = max(4, ll_cfg["n_heads"])
+    if same_size:
+        n_heads = ll_cfg["n_heads"]
+    else:
+        n_heads = max(4, ll_cfg["n_heads"])
     if compress_resid:
         d_model = int(hl_model.cfg.d_model // compression_ratio)
         d_model = max(2, d_model)
@@ -42,7 +64,7 @@ def make_ll_cfg(hl_model, compress_resid: bool, compression_ratio: float):
     assert d_head > 0
     assert d_mlp > 0
     cfg_dict = {
-        "n_layers": max(2, ll_cfg["n_layers"]),
+        "n_layers": max(2, ll_cfg["n_layers"]) if not same_size else ll_cfg["n_layers"],
         "n_heads": n_heads,
         "d_head": d_head,
         "d_model": d_model,
