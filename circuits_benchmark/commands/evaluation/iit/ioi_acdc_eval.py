@@ -18,14 +18,9 @@ import iit.model_pairs as mp
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 import argparse
 
-def setup_args_parser(subparsers, return_namespace=False):
-    if return_namespace:
-        parser = argparse.ArgumentParser()
-    else:
-        parser = subparsers.add_parser("ioi_acdc")
+def setup_args_parser(subparsers):
+    parser = subparsers.add_parser("ioi_acdc")
     ACDCRunner.add_args_to_parser(parser)
-    if return_namespace:
-        return parser.parse_args([])
 
 
 def evaluate_acdc_circuit(
