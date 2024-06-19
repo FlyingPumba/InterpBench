@@ -3,17 +3,15 @@ from argparse import Namespace, ArgumentParser
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
 from auto_circuit.prune_algos.edge_attribution_patching import edge_attribution_patching_prune_scores
+from auto_circuit.prune_algos.mask_gradient import mask_gradient_prune_scores
 from auto_circuit.types import PruneScores
 from auto_circuit.utils.graph_utils import patchable_model
 from auto_circuit.utils.tensor_ops import prune_scores_threshold
 
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 from circuits_benchmark.utils.auto_circuit_utils import build_circuit
-from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
 
 
 class EAPRunner:
@@ -23,9 +21,10 @@ class EAPRunner:
     self.data_size = args.data_size
     self.edge_count = args.edge_count
     self.threshold = args.threshold
+    self.integrated_grad_steps = args.integrated_grad_steps
 
-    assert self.edge_count is not None or self.threshold is not None, "Either edge_count or threshold must be provided"
-    assert self.edge_count is None or self.threshold is None, "Only one of edge_count or threshold must be provided"
+    assert (self.edge_count is not None) ^ (self.threshold is not None), \
+      "Either edge_count or threshold must be provided, but not both"
 
   def run_on_tracr_model(self):
     tl_model = self.case.get_tl_model()
@@ -81,26 +80,32 @@ class EAPRunner:
     )
     train_loader = PromptDataLoader(dataset, seq_len=self.case.get_max_seq_len(), diverge_idx=0)
 
+    eap_args = {
+      "model": auto_circuit_model,
+      "dataloader": train_loader,
+      "official_edges": None,
+      "grad_function": "logit",
+      "mask_val": None,
+      "integrated_grad_samples": None,
+    }
+
+    if self.integrated_grad_steps is not None:
+      eap_args["integrated_grad_samples"] = self.integrated_grad_steps
+    else:
+      eap_args["mask_val"] = 0.0
+
     if tl_model.is_categorical():
       # For categorical models we use as loss function the diff between the correct and wrong answers
-      attribution_scores: PruneScores = edge_attribution_patching_prune_scores(
-        model=auto_circuit_model,
-        dataloader=train_loader,
-        official_edges=None,
-        answer_diff=True,
-      )
+      eap_args["answer_function"] = "avg_diff"
     else:
       # Auto-circuit assumes that all models are categorical, so we need to provide a custom loss function for
       # regression ones
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
         return -t.mean(logits - batch.wrong_answers)
 
-      attribution_scores: PruneScores = edge_attribution_patching_prune_scores(
-        model=auto_circuit_model,
-        dataloader=train_loader,
-        official_edges=None,
-        loss_fn=loss_fn,
-      )
+      eap_args["answer_function"] = loss_fn
+
+    attribution_scores: PruneScores = mask_gradient_prune_scores(**eap_args)
 
     if self.edge_count is not None:
       # find the threshold for the top-k edges
@@ -127,6 +132,8 @@ class EAPRunner:
     parser.add_argument("--threshold", type=float, default=None,
                         help="Threshold of effect to keep an edge in the final circuit")
     parser.add_argument("--data-size", type=int, default=1000, help="Number of samples to use")
+    parser.add_argument("--integrated-grad-steps", type=int, default=None,
+                        help="Number of samples for integrated grad. If None, this is not used.")
 
   @classmethod
   def make_default_runner(cls, task: str):
