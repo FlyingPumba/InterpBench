@@ -26,7 +26,7 @@ def run(args):
         sp.run_sp(case, args)
       if args.algorithm == "eap":
         eap_runner = eap.EAPRunner(case, args)
-        eap_runner.run()
+        eap_runner.run_on_tracr_model()
     except Exception as e:
       print(f" >>> Failed to run {args.algorithm} on {case}:")
       traceback.print_exc()
