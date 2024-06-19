@@ -32,12 +32,12 @@ class EAPRunner:
     clean_dataset = self.case.get_clean_data(count=self.data_size)
     corrupted_dataset = self.case.get_corrupted_data(count=self.data_size)
 
-    return self.run_eap(tl_model, clean_dataset, corrupted_dataset)
+    return self.run(tl_model, clean_dataset, corrupted_dataset)
 
-  def run_eap(self,
-              tl_model: t.nn.Module,
-              clean_dataset: CaseDataset,
-              corrupted_dataset: CaseDataset):
+  def run(self,
+          tl_model: t.nn.Module,
+          clean_dataset: CaseDataset,
+          corrupted_dataset: CaseDataset):
     auto_circuit_model = patchable_model(
       tl_model,
       factorized=True,
@@ -111,13 +111,7 @@ class EAPRunner:
     eap_circuit = build_circuit(auto_circuit_model, attribution_scores, threshold)
     eap_circuit.save(f"{self.args.output_dir}/final_circuit.pkl")
 
-    print("Calculating FPR and TPR for threshold", threshold)
-    full_corr = TLACDCCorrespondence.setup_from_model(tl_model, use_pos_embed=True)
-    full_circuit = build_acdc_circuit(full_corr)
-    tracr_hl_circuit, tracr_ll_circuit, alignment = self.case.get_tracr_circuit(granularity="acdc_hooks")
-    result = calculate_fpr_and_tpr(eap_circuit, tracr_ll_circuit, full_circuit, verbose=True)
-
-    return eap_circuit, result
+    return eap_circuit
 
   @staticmethod
   def setup_subparser(subparsers):
@@ -127,22 +121,6 @@ class EAPRunner:
   @staticmethod
   def add_args_to_parser(parser):
     add_common_args(parser)
-
-    parser.add_argument("--using-wandb", action="store_true")
-    parser.add_argument(
-      "--wandb-project", type=str, default="subnetwork-probing"
-    )
-    parser.add_argument("--wandb-entity", type=str, required=False)
-    parser.add_argument("--wandb-group", type=str, required=False)
-    parser.add_argument("--wandb-dir", type=str, default="/tmp/wandb")
-    parser.add_argument("--wandb-mode", type=str, default="online")
-    parser.add_argument(
-      "--wandb-run-name",
-      type=str,
-      required=False,
-      default=None,
-      help="Value for wandb_run_name",
-    )
 
     parser.add_argument("--edge-count", type=int, default=None,
                         help="Number of edges to keep in the final circuit")

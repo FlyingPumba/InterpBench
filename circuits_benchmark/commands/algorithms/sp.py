@@ -9,6 +9,8 @@ import torch
 import shutil
 from acdc.docstring.utils import AllDataThings
 import os
+
+from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
 from subnetwork_probing.masked_transformer import (
     EdgeLevelMaskedTransformer,
     CircuitStartingPointType,
@@ -29,9 +31,6 @@ from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from subnetwork_probing.train import iterative_correspondence_from_mask
-from circuits_benchmark.commands.evaluation.iit.iit_acdc_eval import (
-    evaluate_acdc_circuit,
-)
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 import pickle
 
@@ -98,7 +97,7 @@ def eval_fn(
     )
     full_circuit = build_acdc_circuit(corr=full_corr)
     sp_circuit = build_acdc_circuit(corr=corr)
-    return evaluate_acdc_circuit(
+    return evaluate_hypothesis_circuit(
         sp_circuit,
         ll_model,
         hl_ll_corr,

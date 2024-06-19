@@ -7,19 +7,15 @@ import circuits_benchmark.commands.algorithms.acdc as acdc
 import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.transformers.hooked_tracr_transformer import (
-    HookedTracrTransformer,
-)
-from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
 from circuits_benchmark.transformers.acdc_circuit_builder import (
     build_acdc_circuit,
 )
-from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
-from typing import Optional
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from circuits_benchmark.transformers.hooked_tracr_transformer import (
+    HookedTracrTransformer,
+)
+from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
 from circuits_benchmark.utils.iit.ll_cfg import make_ll_cfg_for_case
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 
 
 def setup_args_parser(subparsers):
@@ -45,25 +41,6 @@ def setup_args_parser(subparsers):
     )
     parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
-    )
-
-
-def evaluate_acdc_circuit(
-    acdc_circuit: Circuit,
-    ll_model: HookedTracrTransformer,
-    hl_ll_corr: correspondence.TracrCorrespondence,
-    case: BenchmarkCase,
-    full_circuit: Optional[Circuit] = None,
-    **kwargs,
-):
-    if full_circuit is None:
-        full_corr = TLACDCCorrespondence.setup_from_model(
-            ll_model, use_pos_embed=True
-        )
-        full_circuit = build_acdc_circuit(corr=full_corr)
-    gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads, case)
-    return calculate_fpr_and_tpr(
-        acdc_circuit, gt_circuit, full_circuit, **kwargs
     )
 
 
@@ -103,12 +80,6 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         ll_model.load_weights_from_file(
             f"{args.output_dir}/ll_models/{case_num}/ll_model_{weight}.pth"
         )
-
-    print(ll_model.device)
-    ll_model.to(ll_model.device)
-    for param in ll_model.parameters():
-        print(param.device)
-        break
 
     wandb_str = f"--using-wandb" if using_wandb else ""
     from circuits_benchmark.commands.build_main_parser import build_main_parser
@@ -154,7 +125,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             ll_model, use_pos_embed=True
         )
         full_circuit = build_acdc_circuit(full_corr)
-        result = evaluate_acdc_circuit(
+        result = evaluate_hypothesis_circuit(
             acdc_circuit,
             ll_model,
             hl_ll_corr,

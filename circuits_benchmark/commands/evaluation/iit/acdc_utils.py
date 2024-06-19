@@ -1,37 +1,29 @@
+import argparse
 import datetime
-import gc
 import os
-import random
-import shutil
-import sys
+from argparse import Namespace
+from copy import deepcopy
 
-import numpy as np
 import torch
-import wandb
-from torch.nn import init
 
 from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
-from circuits_benchmark.commands.analysis.acdc_circuit import calculate_fpr_and_tpr
 from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-from argparse import Namespace
-from copy import deepcopy
-import argparse
+
 
 class ACDCRunner:
     def __init__(self, task: str, args: Namespace):
         self.task = task
-        self.setup_acdc_args(args)
+        self.configure_acdc(args)
 
     @staticmethod
     def add_args_to_parser(parser):
         parser.add_argument(
-        "-w",
-        "--weights",
-        type=str,
-        default="100_100_40",
-        help="IIT, behavior, strict weights",
+            "-w",
+            "--weights",
+            type=str,
+            default="100_100_40",
+            help="IIT, behavior, strict weights",
         )
         parser.add_argument(
             "--output-dir", type=str, default="./results", help="Output directory"
@@ -107,7 +99,7 @@ class ACDCRunner:
             "--abs-value-threshold", action="store_true", help="Use the absolute value of the result to check threshold"
         )
 
-    def setup_acdc_args(self, _args):
+    def configure_acdc(self, _args):
         args = deepcopy(_args)
         if args.first_cache_cpu is None:
             self.online_cache_cpu = True
