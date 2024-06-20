@@ -37,6 +37,7 @@ class EAPRunner:
           tl_model: t.nn.Module,
           clean_dataset: CaseDataset,
           corrupted_dataset: CaseDataset):
+    tl_model.to(self.args.device)
     auto_circuit_model = patchable_model(
       tl_model,
       factorized=True,
