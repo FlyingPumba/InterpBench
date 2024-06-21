@@ -1,5 +1,6 @@
 import numpy as np
 import torch as t
+from torch.utils.data import DataLoader
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.benchmark.tracr_encoded_dataset import TracrEncodedDataset
@@ -27,6 +28,23 @@ class TracrDataset(CaseDataset):
 
   def get_targets(self):
     return self.targets
+
+  @staticmethod
+  def collate_fn(batch):
+    inputs = [x[0] for x in batch]
+    targets = [x[1] for x in batch]
+    return inputs, targets
+
+  def make_loader(
+      self,
+      batch_size,
+  ) -> DataLoader:
+    return DataLoader(
+      self,
+      batch_size=batch_size,
+      shuffle=True,
+      collate_fn=lambda x: self.collate_fn(x),
+    )
 
   def get_encoded_dataset(
       self,

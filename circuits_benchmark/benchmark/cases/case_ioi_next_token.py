@@ -8,6 +8,10 @@ from iit.utils.correspondence import Correspondence
 
 
 class CaseIOI_Next_Token(CaseIOI):
+  def get_task_description(self) -> str:
+    """Returns the task description for the benchmark case."""
+    return "Indirect Object Identification (IOI) task, trained using next token prediction."
+
   def build_model_pair(
       self,
       model_pair_name: str | None = None,

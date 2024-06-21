@@ -91,7 +91,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     corrupted_data = None
 
     inputs = clean_data.get_inputs()
-    expected_outputs = clean_data.get_correct_outputs()
+    expected_outputs = clean_data.get_targets()
     predicted_outputs = self.get_decoded_outputs_from_compressed_model(inputs)
 
     correct_predictions = []

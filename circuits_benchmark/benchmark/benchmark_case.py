@@ -41,7 +41,7 @@ class BenchmarkCase(object):
                          unique_data: Optional[bool] = False) -> CaseDataset:
     raise NotImplementedError()
 
-  def get_validation_metric(self) -> Callable[[Tensor], Float[Tensor, ""]]:
+  def get_validation_metric(self, *args, **kwargs) -> Callable[[Tensor], Float[Tensor, ""]]:
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
 

@@ -177,7 +177,7 @@ def run_sp(
     base = case.get_clean_data(max_samples=int(1.2 * data_size))
     source = case.get_corrupted_data(max_samples=int(1.2 * data_size))
     toks_int_values = base.get_inputs()
-    toks_int_labels = base.get_correct_outputs()
+    toks_int_labels = base.get_targets()
     toks_int_values_other = source.get_inputs()
     # toks_int_labels_other = source.get_correct_outputs() # sp doesn't need this
 

@@ -7,8 +7,10 @@ import plotly.express as px
 import torch as t
 from torch.nn import init
 
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.benchmark.cases.case_3 import Case3
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
   get_resample_ablation_loss_from_inputs
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
@@ -79,16 +81,20 @@ class ResampleAblationLossTest(unittest.TestCase):
   def set_random_seed(self):
     self.set_fixed_seed(int(time.time()))
 
-  def get_fixed_clean_and_corrupted_data(self, case, data_sizes):
+  def get_fixed_clean_and_corrupted_data(self, case: BenchmarkCase, data_sizes):
     full_clean_data = case.get_clean_data(max_samples=None, seed=42*6)
     full_corrupted_data = case.get_corrupted_data(max_samples=None, seed=42*7)
     clean_datas = {}
     corrupted_datas = {}
     for data_size in data_sizes:
-      clean_datas[data_size] = CaseDataset(full_clean_data[:data_size][CaseDataset.INPUT_FIELD],
-                                           full_clean_data[:data_size][CaseDataset.CORRECT_OUTPUT_FIELD])
-      corrupted_datas[data_size] = CaseDataset(full_corrupted_data[:data_size][CaseDataset.INPUT_FIELD],
-                                               full_corrupted_data[:data_size][CaseDataset.CORRECT_OUTPUT_FIELD])
+      clean_datas[data_size] = TracrDataset(
+        full_clean_data.get_inputs()[:data_size],
+        full_clean_data.get_targets()[:data_size]
+      )
+      corrupted_datas[data_size] = TracrDataset(
+        full_corrupted_data.get_inputs()[:data_size],
+        full_corrupted_data.get_targets()[:data_size]
+      )
     return clean_datas, corrupted_datas
 
   def test_variance_to_random_weights_data_and_interventions(self):

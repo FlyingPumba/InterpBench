@@ -176,9 +176,6 @@ class TracrCorrespondence(Correspondence):
         tracr_ll_corr = get_tracr_ll_corr(case)
         return cls.make_hl_ll_corr(tracr_hl_corr, tracr_ll_corr)
 
-    def save(self, filename: str):
-        pickle.dump(self, open(filename, "wb"))
-
     @classmethod
     def load(cls, filename: str):
         return cls(pickle.load(open(filename, "rb")))

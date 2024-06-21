@@ -350,7 +350,7 @@ class TracrBenchmarkCase(BenchmarkCase):
     tracr_model = self.get_tracr_output().model
     dataset = self.get_clean_data(max_samples=data_size)
     inputs = dataset.get_inputs()
-    expected_outputs = dataset.get_correct_outputs()
+    expected_outputs = dataset.get_targets()
 
     is_categorical = isinstance(tracr_model.output_encoder, CategoricalEncoder)
 
@@ -378,9 +378,9 @@ class TracrBenchmarkCase(BenchmarkCase):
                                  fail_on_error: bool = True) -> float:
     hl_model = self.get_hl_model()
 
-    dataset = self.get_clean_data(n_samples=data_size)
+    dataset = self.get_clean_data(max_samples=data_size)
     inputs = dataset.get_inputs()
-    expected_outputs = dataset.get_correct_outputs()
+    expected_outputs = dataset.get_targets()
     decoded_outputs = hl_model(inputs, return_type="decoded")
 
     correct_count = 0
@@ -388,7 +388,7 @@ class TracrBenchmarkCase(BenchmarkCase):
       input = inputs[i]
       expected_output = expected_outputs[i]
       decoded_output = decoded_outputs[i]
-      correct = all(compare_valid_positions(expected_output, decoded_output, tl_model.is_categorical(), atol))
+      correct = all(compare_valid_positions(expected_output, decoded_output, hl_model.is_categorical(), atol))
 
       if not correct and fail_on_error:
         raise ValueError(f"Failed test for {self} on tl model."

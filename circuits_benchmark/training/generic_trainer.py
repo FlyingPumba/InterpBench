@@ -34,7 +34,7 @@ class GenericTrainer:
 
     self.step = 0
     self.epoch = 0
-    self.train_loss = np.nan
+    self.train_loss: Tensor = t.tensor(np.nan)
     self.test_metrics = {}
     self.training_progress_bar = None
 

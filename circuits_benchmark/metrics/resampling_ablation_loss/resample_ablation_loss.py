@@ -226,8 +226,8 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
 
 
 def get_batched_intervention_data(
-    clean_inputs: TracrDataset,
-    corrupted_inputs: TracrDataset,
+    clean_data: TracrDataset,
+    corrupted_data: TracrDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
@@ -237,11 +237,11 @@ def get_batched_intervention_data(
   data = []
   batches_count = 0
 
-  for clean_inputs_batch, corrupted_inputs_batch in zip(clean_inputs.get_inputs_loader(batch_size),
-                                                        corrupted_inputs.get_inputs_loader(batch_size)):
+  for clean_data_batch, corrupted_data_batch in zip(clean_data.make_loader(batch_size),
+                                                        corrupted_data.make_loader(batch_size)):
     batches_count += 1
-    clean_inputs_batch = clean_inputs_batch[CaseDataset.INPUT_FIELD]
-    corrupted_inputs_batch = corrupted_inputs_batch[CaseDataset.INPUT_FIELD]
+    clean_inputs_batch = clean_data_batch[0]
+    corrupted_inputs_batch = corrupted_data_batch[0]
 
     # Run the corrupted inputs on both models and save the activation caches.
     _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_inputs_batch)
