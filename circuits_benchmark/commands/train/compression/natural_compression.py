@@ -50,7 +50,7 @@ def train_natural_compression(case: BenchmarkCase, args: Namespace):
   trainer = NaturalCompressedTracrTransformerTrainer(case, tl_model, new_tl_model, training_args,
                                                      output_dir=args.output_dir)
   final_metrics = trainer.train()
-  print(f"\n >>> Final metrics for {case.get_index()} with residual stream compression size {compressed_d_model_size} "
+  print(f"\n >>> Final metrics for {case.get_name()} with residual stream compression size {compressed_d_model_size} "
         f"and internal head compression size {compressed_d_head_size}:")
   print(final_metrics)
 

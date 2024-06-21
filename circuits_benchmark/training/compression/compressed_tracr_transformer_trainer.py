@@ -8,6 +8,7 @@ import wandb
 from jaxtyping import Float, Int
 from torch import Tensor
 from torch.nn import Parameter
+from torch.utils.data import DataLoader
 from transformer_lens import ActivationCache, HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
@@ -22,6 +23,7 @@ from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_c
 from circuits_benchmark.transformers.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from circuits_benchmark.utils.compare_tracr_output import replace_invalid_positions, compare_positions
+from iit.utils.iit_dataset import train_test_split
 
 
 class CompressedTracrTransformerTrainer(GenericTrainer):
@@ -43,9 +45,22 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def setup_dataset(self):
-    self.clean_dataset = self.case.get_clean_data(count=self.args.train_data_size)
-    self.corrupted_dataset = self.case.get_corrupted_data(count=self.args.train_data_size)
-    self.train_loader, self.test_loader = self.clean_dataset.train_test_split(self.args)
+    self.clean_dataset = self.case.get_clean_data(max_samples=self.args.train_data_size)
+    self.corrupted_dataset = self.case.get_corrupted_data(max_samples=self.args.train_data_size)
+
+    train_dataset, test_dataset = train_test_split(
+      self.clean_dataset, test_size=0.2, random_state=42
+    )
+    self.train_loader = DataLoader(
+      train_dataset,
+      batch_size=self.args.batch_size,
+      shuffle=True,
+    )
+    self.test_loader = DataLoader(
+      test_dataset,
+      batch_size=self.args.batch_size,
+      shuffle=False,
+    )
 
   def get_logits_and_cache_from_original_model(
       self,
@@ -72,7 +87,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     return None
 
   def compute_test_metrics(self):
-    clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
+    clean_data = self.case.get_clean_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
     corrupted_data = None
 
     inputs = clean_data.get_inputs()
@@ -90,8 +105,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
       if any(isinstance(p, str) for p in predicted):
         # We have chars, convert them to numbers to avoid the torch issue: "too many dimensions 'str'".
-        predicted = [self.get_original_model().tracr_output_encoder.encoding_map[p] if isinstance(p, str) else p for p in predicted]
-        expected = [self.get_original_model().tracr_output_encoder.encoding_map[e] if isinstance(e, str) else e for e in expected]
+        predicted = [self.get_original_model().tracr_output_encoder.encoding_map[p] if isinstance(p, str) else p for p
+                     in predicted]
+        expected = [self.get_original_model().tracr_output_encoder.encoding_map[e] if isinstance(e, str) else e for e in
+                    expected]
 
       predicted_outputs_flattened.extend(predicted)
       expected_outputs_flattened.extend(expected)
@@ -112,7 +129,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     # measure the effect of each node on the compressed model's output
     if self.epoch % 50 == 0:
-      corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size,
+      corrupted_data = self.case.get_corrupted_data(max_samples=self.args.train_data_size,
                                                     seed=random.randint(0, 1000000))
 
       compressed_model_node_effect_results = self.evaluate_node_effect(
@@ -124,7 +141,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       for node_str, node_effect in compressed_model_node_effect_results.items():
         self.test_metrics[f"{node_str}_compressed_model_node_effect"] = node_effect
 
-      self.test_metrics["avg_compressed_model_node_effect"] = np.mean(list(compressed_model_node_effect_results.values()))
+      self.test_metrics["avg_compressed_model_node_effect"] = np.mean(
+        list(compressed_model_node_effect_results.values()))
 
       original_model_node_effect_results = self.evaluate_node_effect(
         self.get_original_model(),
@@ -158,7 +176,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         self.epochs_since_last_test_resample_ablation_loss = 0
 
         if corrupted_data is None:
-          corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size,
+          corrupted_data = self.case.get_corrupted_data(max_samples=self.args.train_data_size,
                                                         seed=random.randint(0, 1000000))
 
         # Compute the resampling ablation loss
@@ -203,7 +221,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
     relevant_nodes: Set[CircuitNode] = set([node for node in full_circuit.nodes
-                                       if "mlp_in" not in str(node) and not is_qkv_granularity_hook(str(node))])
+                                            if "mlp_in" not in str(node) and not is_qkv_granularity_hook(str(node))])
     nodes_to_sample = random.sample(list(relevant_nodes), int(len(relevant_nodes) * percentage_nodes_to_sample))
 
     _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_data.get_inputs())
@@ -217,7 +235,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       base_model_patching_data = {}
       base_model_patching_data[hook_name] = base_model_corrupted_cache[hook_name]
       base_model_hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=base_model_patching_data,
-                                    head_index=head_index)
+                                   head_index=head_index)
 
       compressed_model_patching_data = {}
       compressed_model_patching_data[hook_name] = compressed_model_corrupted_cache[hook_name]
@@ -240,7 +258,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         compressed_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(compressed_model_intervened_logits, dim=-1)
 
         same_outputs_between_both_models_after_intervention = (
-              base_intervened_labels == compressed_intervened_labels).all(dim=-1).float()
+            base_intervened_labels == compressed_intervened_labels).all(dim=-1).float()
         iia = iia + same_outputs_between_both_models_after_intervention.mean().item()
       else:
         same_outputs_between_both_models_after_intervention = t.isclose(base_model_intervened_logits,
@@ -273,7 +291,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       patching_data = {}
       patching_data[hook_name] = corrupted_cache[hook_name]
       hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=patching_data,
-                                         head_index=head_index)
+                        head_index=head_index)
       with model.hooks([(hook_name, hook_fn)]):
         intervened_logits = model(clean_data.get_inputs())
 
@@ -289,7 +307,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         effect = (original_labels != intervened_labels).float().mean().item()
         effect_by_node[str(node)] = effect
       else:
-        effect = 1 - t.isclose(original_logits, intervened_logits, atol=self.args.test_accuracy_atol).float().mean().item()
+        effect = 1 - t.isclose(original_logits, intervened_logits,
+                               atol=self.args.test_accuracy_atol).float().mean().item()
         effect_by_node[str(node)] = effect
 
     return effect_by_node

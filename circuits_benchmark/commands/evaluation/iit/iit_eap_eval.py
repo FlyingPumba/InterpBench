@@ -39,13 +39,13 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
 
   clean_dirname = prepare_output_dir(case, eap_runner, weights, args)
 
-  print(f"Running EAP evaluation for IIT model on case {case.get_index()}")
+  print(f"Running EAP evaluation for IIT model on case {case.get_name()}")
   print(f"Output directory: {clean_dirname}")
 
   hl_ll_corr, ll_model = get_ll_model(case, weights, args)
 
-  clean_dataset = case.get_clean_data(count=args.data_size)
-  corrupted_dataset = case.get_corrupted_data(count=args.data_size)
+  clean_dataset = case.get_clean_data(max_samples=args.data_size)
+  corrupted_dataset = case.get_corrupted_data(max_samples=args.data_size)
   eap_circuit = eap_runner.run(ll_model, clean_dataset, corrupted_dataset)
 
   print("hl_ll_corr:", hl_ll_corr)
@@ -72,7 +72,7 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
   if args.using_wandb:
     import wandb
     wandb.init(project=f"circuit_discovery",
-               group=f"eap_{case.get_index()}_{args.weights}",
+               group=f"eap_{case.get_name()}_{args.weights}",
                name=f"{args.threshold}")
     wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)
 
@@ -84,9 +84,9 @@ def get_ll_model(case: TracrBenchmarkCase,
                  args: Namespace):
   tracr_output = case.get_tracr_output()
 
-  hl_model = case.build_transformer_lens_model()
+  hl_model = case.get_hl_model()
 
-  ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
+  ll_cfg = make_ll_cfg_for_case(hl_model, case.get_name())
   ll_model = HookedTracrTransformer(
     ll_cfg,
     hl_model.tracr_input_encoder,
@@ -100,9 +100,9 @@ def get_ll_model(case: TracrBenchmarkCase,
 
   if weights != "tracr":
     if args.load_from_wandb:
-      load_model_from_wandb(case.get_index(), weights, args.output_dir)
+      load_model_from_wandb(case.get_name(), weights, args.output_dir)
     ll_model.load_weights_from_file(
-      f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_{weights}.pth"
+      f"{args.output_dir}/ll_models/{case.get_name()}/ll_model_{weights}.pth"
     )
 
   ll_model.eval()
@@ -115,7 +115,7 @@ def prepare_output_dir(case, runner, weights, args):
   else:
     output_suffix = f"weight_{weights}/threshold_{runner.threshold}"
 
-  clean_dirname = f"{args.output_dir}/eap_{case.get_index()}/{output_suffix}"
+  clean_dirname = f"{args.output_dir}/eap_{case.get_name()}/{output_suffix}"
 
   # remove everything in the directory
   if os.path.exists(clean_dirname):

@@ -47,8 +47,8 @@ def evaluate_iia_on_all_ablation_types(
     accuracy_atol: Optional[float] = 1e-2):
   iia_evaluation_results = {}
 
-  clean_data = case.get_clean_data(count=data_size)
-  corrupted_data = case.get_corrupted_data(count=data_size)
+  clean_data = case.get_clean_data(max_samples=data_size)
+  corrupted_data = case.get_corrupted_data(max_samples=data_size)
 
   # run corrupted data on both models
   _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_data.get_inputs())
@@ -117,7 +117,7 @@ def evaluate_iia(case: BenchmarkCase,
                  ablation_type: Optional[AblationType] = "resample",
                  accuracy_atol: Optional[float] = 1e-2) -> Dict[str, Dict[str, float]]:
   """Run Interchange Intervention Accuracy to measure if a hypothesis model has the same circuit as a base model."""
-  print(f"Running IIA evaluation for case {case.get_index()} using ablation type \"{ablation_type}\".")
+  print(f"Running IIA evaluation for case {case.get_name()} using ablation type \"{ablation_type}\".")
   full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
 
   # evaluate all nodes in the full circuit
@@ -198,7 +198,7 @@ def evaluate_iia(case: BenchmarkCase,
         # calculate effective accuracy. This is regular accuracy but removing the labels that don't change across
         # datasets. This is a measure of how much the model is actually changing its predictions.
         # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
-        inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_expected_outputs() != corrupted_data.get_expected_outputs()).bool()
+        inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_targets() != corrupted_data.get_targets()).bool()
         effective_accuracy = same_outputs_between_both_models_after_intervention[inputs_with_different_output].mean().item()
         results_by_node[node_str]["effective_accuracy"] = effective_accuracy
 

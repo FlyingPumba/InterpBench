@@ -6,6 +6,7 @@ import wandb
 from argparse_dataclass import ArgumentParser
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.compression.compression_training_utils import parse_d_model, parse_d_head
 from circuits_benchmark.metrics.iia import evaluate_iia_on_all_ablation_types
@@ -57,7 +58,8 @@ def setup_args_parser(subparsers):
 
 def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
   """Compresses the residual stream of a Tracr model using a linear compression."""
-  tl_model: HookedTracrTransformer = case.get_tl_model()
+  assert isinstance(case, TracrBenchmarkCase), "Only TracrBenchmarkCase is supported for autoencoder training."
+  tl_model: HookedTracrTransformer = case.get_hl_model()
   original_d_model_size = tl_model.cfg.d_model
   original_d_head_size = tl_model.cfg.d_head
 
@@ -108,7 +110,7 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
                                                        ae_train_loss_weight=args.ae_train_loss_weight)
   final_metrics = trainer.train(finish_wandb_run=False)
-  print(f"\n >>> Final metrics for {case.get_index()}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
+  print(f"\n >>> Final metrics for {case.get_name()}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
 
@@ -124,7 +126,7 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
 
   if trainer.wandb_run is not None:
     # save the files as artifacts to wandb
-    prefix = f"case-{case.get_index()}-multi-aes"
+    prefix = f"case-{case.get_name()}-multi-aes"
     artifact = wandb.Artifact(f"{prefix}-iia-evaluation", type="csv")
     artifact.add_file(iia_eval_results_csv_path)
     trainer.wandb_run.log_artifact(artifact)

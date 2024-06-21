@@ -38,9 +38,9 @@ class EAPRunner:
     return self.run(
       tl_model,
       clean_dataset.get_inputs(),
-      clean_dataset.get_expected_outputs(),
+      clean_dataset.get_targets(),
       corrupted_dataset.get_inputs(),
-      corrupted_dataset.get_expected_outputs(),
+      corrupted_dataset.get_targets(),
     )
 
   def run(self,

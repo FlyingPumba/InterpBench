@@ -45,21 +45,19 @@ def setup_args_parser(subparsers):
 
 
 def run_acdc_eval(case: BenchmarkCase, args: Namespace):
-    case_num = case.get_index()
+    case_num = case.get_name()
 
     weight = args.weights
     threshold = args.threshold
     using_wandb = args.using_wandb
 
-    tracr_output = case.get_tracr_output()
-    hl_model = case.build_transformer_lens_model()
+    hl_model = case.get_hl_model()
 
     metric = "l2" if not hl_model.is_categorical() else "kl"
 
     # this is the graph node -> hl node correspondence
-    # tracr_hl_corr = correspondence.TracrCorrespondence.from_output(tracr_output)
     output_suffix = f"weight_{weight}/threshold_{threshold}"
-    clean_dirname = f"{args.output_dir}/acdc_{case.get_index()}/{output_suffix}"
+    clean_dirname = f"{args.output_dir}/acdc_{case.get_name()}/{output_suffix}"
     # remove everything in the directory
     if os.path.exists(clean_dirname):
         shutil.rmtree(clean_dirname)
@@ -75,7 +73,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             f"--metric={metric}",
             wandb_str,
             "--wandb-entity-name=cybershiptrooper",
-            f"--wandb-project-name=acdc_{case.get_index()}_{weight}",
+            f"--wandb-project-name=acdc_{case.get_name()}_{weight}",
         ]
     )  #'--data_size=1000'])
 
@@ -87,7 +85,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         # get best weight if needed
         if weight == "best":
             from circuits_benchmark.utils.iit.best_weights import get_best_weight
-            weight = get_best_weight(case.get_index())
+            weight = get_best_weight(case.get_name())
         
         # load from wandb if needed
         if args.load_from_wandb:
@@ -98,13 +96,13 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         try:
             ll_cfg = pickle.load(
                 open(
-                    f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_cfg_{weight}.pkl",
+                    f"{args.output_dir}/ll_models/{case.get_name()}/ll_model_cfg_{weight}.pkl",
                     "rb",
                 )
             )
         except FileNotFoundError:
             ll_cfg = make_ll_cfg_for_case(
-                hl_model, case.get_index(), same_size=args.same_size
+                hl_model, case.get_name(), same_size=args.same_size
             )
 
         # make ll model
@@ -132,14 +130,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         print(list(acdc_circuit.nodes), list(acdc_circuit.edges))
 
         # get the ll -> hl correspondence
-        if args.same_size:
-            hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
-                tracr_output=tracr_output
-            )
-        else:
-            hl_ll_corr = correspondence.TracrCorrespondence.from_output(
-                case, tracr_output
-            )
+        hl_ll_corr = case.get_correspondence(same_size=args.same_size)
         print("hl_ll_corr:", hl_ll_corr)
         hl_ll_corr.save(f"{clean_dirname}/hl_ll_corr.pkl")
         # evaluate the acdc circuit
@@ -163,7 +154,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
 
         wandb.init(
             project=f"circuit_discovery{'_same_size' if args.same_size else ''}",
-            group=f"acdc_{case.get_index()}_{args.weights}",
+            group=f"acdc_{case.get_name()}_{args.weights}",
             name=f"{args.threshold}",
         )
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)

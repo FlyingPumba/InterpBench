@@ -186,14 +186,14 @@ class GenericTrainer:
       return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in list(self.test_metrics.items())[:3]]))[:-2]
 
   def build_wandb_name(self):
-    return f"case-{self.case.get_index()}-generic-training"
+    return f"case-{self.case.get_name()}-generic-training"
 
   def define_wandb_metrics(self):
     wandb.define_metric("train_loss", summary="min")
     wandb.define_metric("test_accuracy", summary="max")
 
   def get_wandb_tags(self):
-    return [f"case{self.case.get_index()}"]
+    return [f"case{self.case.get_name()}"]
 
   def get_wandb_notes(self):
     return f"Command: {' '.join(sys.argv)}"
@@ -203,7 +203,7 @@ class GenericTrainer:
     cfg.update({
       "resolved_epochs": self.epochs,
       "resolved_steps": self.steps,
-      "case": self.case.get_index()
+      "case": self.case.get_name()
     })
     return cfg
 

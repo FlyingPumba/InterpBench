@@ -9,17 +9,17 @@ from circuits_benchmark.benchmark.cases.case_5 import Case5
 class BenchmarkCaseTest(unittest.TestCase):
   def test_get_all_clean_data(self):
     case = Case3()
-    data = case.get_clean_data(count=None, variable_length_seqs=True)
+    data = case.get_clean_data(max_samples=None, variable_length_seqs=True)
     assert len(data.get_inputs()) == 320
 
   def test_get_partial_clean_data(self):
     case = Case3()
-    data = case.get_clean_data(count=10, variable_length_seqs=True)
+    data = case.get_clean_data(max_samples=10, variable_length_seqs=True)
     assert len(data.get_inputs()) == 10
 
   def test_case_1_should_have_balanced_inputs(self):
     case = Case1()
-    data = case.get_clean_data(count=100)
+    data = case.get_clean_data(max_samples=100)
     outputs = data.get_correct_outputs()
 
     output_encoder = case.get_tracr_model().output_encoder
@@ -32,7 +32,7 @@ class BenchmarkCaseTest(unittest.TestCase):
 
   def test_case_5_should_have_balanced_inputs(self):
     case = Case5()
-    data = case.get_clean_data(count=100)
+    data = case.get_clean_data(max_samples=100)
     outputs = data.get_correct_outputs()
 
     output_encoder = case.get_tracr_model().output_encoder

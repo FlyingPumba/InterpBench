@@ -1,32 +1,32 @@
 import numpy as np
 import torch as t
-from torch.utils.data import Dataset
 
+from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.benchmark.tracr_encoded_dataset import TracrEncodedDataset
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 
-class TracrDataset(Dataset):
+class TracrDataset(CaseDataset):
   def __init__(self,
                inputs: np.ndarray,
-               expected_outputs: np.ndarray,
+               targets: np.ndarray,
                hl_model: HookedTracrTransformer | None = None):
     self.inputs = inputs
-    self.expected_outputs = expected_outputs
-    assert inputs.shape == expected_outputs.shape
+    self.targets = targets
+    assert inputs.shape == targets.shape
     self.hl_model = hl_model
 
   def __len__(self):
     return len(self.inputs)
 
   def __getitem__(self, idx):
-    return self.inputs[idx], self.expected_outputs[idx]
+    return self.inputs[idx], self.targets[idx]
 
   def get_inputs(self):
     return self.inputs
 
-  def get_expected_outputs(self):
-    return self.expected_outputs
+  def get_targets(self):
+    return self.targets
 
   def get_encoded_dataset(
       self,

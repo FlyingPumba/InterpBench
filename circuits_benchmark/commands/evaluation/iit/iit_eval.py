@@ -7,12 +7,14 @@ import torch as t
 
 import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
+from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
@@ -83,11 +85,10 @@ def get_node_effects(
 ):
     np.random.seed(0)
     t.manual_seed(0)
-    hl_model = model_pair.hl_model
-    unique_test_data = get_unique_data(case, max_len=args.max_len)
-    test_set = TracrIITDataset(
-        unique_test_data, unique_test_data, hl_model, every_combination=True
-    )
+    unique_dataset = case.get_clean_data(max_samples=args.max_len, unique_data=True)
+    if isinstance(unique_dataset, TracrDataset):
+        unique_dataset = unique_dataset.get_encoded_dataset(args.device)
+    test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
     with t.no_grad():
         result_not_in_circuit = check_causal_effect(
             model_pair,
@@ -137,52 +138,44 @@ def get_node_effects(
 
 
 def run_iit_eval(case: BenchmarkCase, args: Namespace):
-    output_dir = "./results"
+    output_dir = args.output_dir
     weight = args.weights
     use_mean_cache = args.mean
 
-    hl_model = case.build_transformer_lens_model()
-    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
-    tracr_output = case.get_tracr_output()
+    hl_model = case.get_hl_model()
+    if isinstance(hl_model, HookedTracrTransformer):
+        hl_model = IITHLModel(hl_model, eval_mode=True)
 
     if weight == "tracr":
-        ll_model = case.get_tl_model()
-        hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
-            tracr_output=tracr_output
-        )
+        assert isinstance(case, TracrBenchmarkCase)
+        ll_model = case.get_hl_model()
+        hl_ll_corr = case.get_correspondence(same_size=True)
     else:
         if weight == "best":
             from circuits_benchmark.utils.iit.best_weights import get_best_weight
 
-            weight = get_best_weight(case.get_index())
+            weight = get_best_weight(case.get_name())
         
         # make correspondence
-        if args.same_size:
-            hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
-                tracr_output=tracr_output
-            )
-        else:
-            hl_ll_corr = correspondence.TracrCorrespondence.from_output(
-                case, tracr_output
-            )
+        hl_ll_corr = case.get_correspondence(same_size=args.same_size)
 
         # load from wandb if needed
         if args.load_from_wandb:
             load_model_from_wandb(
-                case.get_index(), weight, output_dir, same_size=args.same_size
+                case.get_name(), weight, output_dir, same_size=args.same_size
             )
 
         # make ll model
         try:
             ll_cfg = pickle.load(
                 open(
-                    f"{output_dir}/ll_models/{case.get_index()}/ll_model_cfg_{weight}.pkl",
+                    f"{output_dir}/ll_models/{case.get_name()}/ll_model_cfg_{weight}.pkl",
                     "rb",
                 )
             )
         except FileNotFoundError:
             ll_cfg = make_ll_cfg_for_case(
-                hl_model, case.get_index(), same_size=args.same_size
+                hl_model, case.get_name(), same_size=args.same_size
             )
         ll_model = HookedTracrTransformer(
             ll_cfg,
@@ -192,7 +185,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         )
         
         ll_model.load_weights_from_file(
-            f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth"
+            f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth"
         )
         ll_model.eval()
         ll_model.requires_grad_(False)
@@ -201,7 +194,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
 
     df, metric_collection = get_node_effects(case, args, model_pair, use_mean_cache)
 
-    save_dir = f"{output_dir}/ll_models/{case.get_index()}/results_{weight}"
+    save_dir = f"{output_dir}/ll_models/{case.get_name()}/results_{weight}"
     suffix = f"_{args.categorical_metric}" if hl_model.is_categorical() else ""
     save_result(df, save_dir, model_pair, suffix=suffix)
     with open(f"{save_dir}/metric_collection.log", "w") as f:
@@ -214,13 +207,13 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         wandb.init(
             project=f"node_effect{'_same_size' if args.same_size else ''}",
             tags=[
-                f"case_{case.get_index()}",
+                f"case_{case.get_name()}",
                 f"weight_{weight}",
                 f"metric{suffix}",
             ],
-            name=f"case_{case.get_index()}_weight_{weight}{suffix}",
+            name=f"case_{case.get_name()}_weight_{weight}{suffix}",
         )
         wandb.log(metric_collection.to_dict())
-        wandb.save(f"{output_dir}/ll_models/{case.get_index()}/*")
+        wandb.save(f"{output_dir}/ll_models/{case.get_name()}/*")
         wandb.save(f"{save_dir}/*")
         wandb.finish()

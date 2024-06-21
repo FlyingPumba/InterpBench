@@ -35,8 +35,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
-    clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
-    corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
+    clean_data = self.case.get_clean_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
+    corrupted_data = self.case.get_corrupted_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
 
     # We calculate the output loss on the "corrupted data", which is the same as the clean data but generated on another seed,
     # so we can reuse the activation cache for the resample ablation loss

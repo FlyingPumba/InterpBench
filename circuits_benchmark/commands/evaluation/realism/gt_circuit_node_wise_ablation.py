@@ -7,16 +7,20 @@ from transformer_lens import HookedTransformer
 
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
 from circuits_benchmark.utils.iit.best_weights import get_best_weight
-from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
+from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
-from iit.utils import index
+from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
+from iit.model_pairs.nodes import LLNode
+from iit.utils import index, IITDataset
 from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 
 
@@ -61,27 +65,26 @@ def setup_args_parser(subparsers):
 def make_everything_for_task(case: BenchmarkCase, args: Namespace):
     weight = args.weights
     output_dir = args.output_dir
-    task = case.get_index()
+    task = case.get_name()
     if weight == "best":
         weight = get_best_weight(task)
     
-    hl_model = case.build_transformer_lens_model()
-    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
-    tracr_output = case.get_tracr_output()
+    hl_model = case.get_hl_model()
+    if isinstance(hl_model, HookedTracrTransformer):
+        hl_model = IITHLModel(hl_model, eval_mode=True)
 
-    ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
+    ll_cfg = make_ll_cfg_for_case(hl_model, case.get_name())
     
     if args.load_from_wandb:
-        load_model_from_wandb(case.get_index(), weight, output_dir)
+        load_model_from_wandb(case.get_name(), weight, output_dir)
     model = HookedTransformer(ll_cfg)
     model.load_state_dict(
         torch.load(
-            f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth",
+            f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth",
             map_location=args.device,
         )
     )
-    tracr_output = case.get_tracr_output()
-    hl_ll_corr = TracrCorrespondence.from_output(case=case, tracr_output=tracr_output)
+    hl_ll_corr = case.get_correspondence()
     ll_model = HookedTransformer(make_ll_cfg_for_case(hl_model=hl_model, case_index=task))
     full_corr = TLACDCCorrespondence.setup_from_model(
             ll_model, use_pos_embed=True
@@ -96,13 +99,13 @@ def make_nodes_to_ablate(
 ):
     show = lambda *args, **kwargs: print(*args, **kwargs) if verbose else None
     attn = [
-        # mp.LLNode(f"blocks.{layer}.attn.hook_result", index.Ix[:, :, head])
+        # LLNode(f"blocks.{layer}.attn.hook_result", index.Ix[:, :, head])
         CircuitNode(f"blocks.{layer}.attn.hook_result", head)
         for layer in range(tl_model.cfg.n_layers)
         for head in range(tl_model.cfg.n_heads)
     ]
     mlps = [
-        # mp.LLNode(f"blocks.{layer}.hook_mlp_out", index.Ix[[None]])
+        # LLNode(f"blocks.{layer}.hook_mlp_out", index.Ix[[None]])
         CircuitNode(f"blocks.{layer}.hook_mlp_out", None)
         for layer in range(tl_model.cfg.n_layers)
     ]
@@ -123,9 +126,9 @@ def make_nodes_to_ablate(
     ll_nodes_to_ablate = []
     for node in nodes_to_ablate:
         if 'attn' in node.name:
-            ll_nodes_to_ablate.append(mp.LLNode(node.name, index.Ix[:, :, node.index]))
+            ll_nodes_to_ablate.append(LLNode(node.name, index.Ix[:, :, node.index]))
         else: 
-            ll_nodes_to_ablate.append(mp.LLNode(node.name, index.Ix[[None]]))
+            ll_nodes_to_ablate.append(LLNode(node.name, index.Ix[[None]]))
     return ll_nodes_to_ablate
 
 def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
@@ -134,17 +137,17 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
 
     hl_model, _, _, gt_circuit, model = make_everything_for_task(case, args)
 
-    model_pair = mp.IITBehaviorModelPair(
+    model_pair = IITBehaviorModelPair(
         hl_model=hl_model,
         ll_model=model,
         corr={},
         training_args={},
     )
 
-    unique_test_data = get_unique_data(case, max_len=args.max_len)
-    test_set = TracrUniqueDataset(
-        unique_test_data, unique_test_data, hl_model, every_combination=True
-    )
+    unique_dataset = case.get_clean_data(max_samples=args.max_len, unique_data=True)
+    if isinstance(unique_dataset, TracrDataset):
+        unique_dataset = unique_dataset.get_encoded_dataset(args.device)
+    test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
     mean_cache = None
     if use_mean_cache:
         mean_cache = get_mean_cache(
@@ -170,11 +173,11 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     mean_cache_str = "mean" if use_mean_cache else "zero"
     if not os.path.exists(f"results/gt_scores_{mean_cache_str}"):
         os.makedirs(f"results/gt_scores_{mean_cache_str}")
-    with open(f"results/gt_scores_{mean_cache_str}/{case.get_index()}_{args.weights}.txt", "w") as f:
+    with open(f"results/gt_scores_{mean_cache_str}/{case.get_name()}_{args.weights}.txt", "w") as f:
         f.write(str(score))
 
     if use_wandb:
-        name = f"gt_{case.get_index()}_{args.weights}"
+        name = f"gt_{case.get_name()}_{args.weights}"
         wandb.init(
             project="node_realism_gt", name=name
         )

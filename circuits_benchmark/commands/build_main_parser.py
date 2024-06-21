@@ -1,7 +1,6 @@
 import argparse
 
 from circuits_benchmark.commands.algorithms import run_algorithm
-from circuits_benchmark.commands.analysis import perform_analysis
 from circuits_benchmark.commands.compilation import compile_benchmark
 from circuits_benchmark.commands.evaluation import evaluation
 from circuits_benchmark.commands.train import train
@@ -16,7 +15,6 @@ def build_main_parser():
   # Setup command arguments
   compile_benchmark.setup_args_parser(subparsers)
   run_algorithm.setup_args_parser(subparsers)
-  perform_analysis.setup_args_parser(subparsers)
   train.setup_args_parser(subparsers)
   evaluation.setup_args_parser(subparsers)
 

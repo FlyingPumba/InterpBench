@@ -80,8 +80,8 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.set_fixed_seed(int(time.time()))
 
   def get_fixed_clean_and_corrupted_data(self, case, data_sizes):
-    full_clean_data = case.get_clean_data(count=None, seed=42*6)
-    full_corrupted_data = case.get_corrupted_data(count=None, seed=42*7)
+    full_clean_data = case.get_clean_data(max_samples=None, seed=42*6)
+    full_corrupted_data = case.get_corrupted_data(max_samples=None, seed=42*7)
     clean_datas = {}
     corrupted_datas = {}
     for data_size in data_sizes:
@@ -95,7 +95,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     random_model = self.get_randomly_initialized_transformer(original_tracr_model)
 
@@ -116,8 +116,8 @@ class ResampleAblationLossTest(unittest.TestCase):
       for n_interventions in intervention_numbers:
         self.set_random_seed()
         loss = get_resample_ablation_loss_from_inputs(
-          case.get_clean_data(count=data_size, seed=None),
-          case.get_corrupted_data(count=data_size, seed=None),
+          case.get_clean_data(min_samples=data_size, max_samples=data_size, seed=None),
+          case.get_corrupted_data(min_samples=data_size, max_samples=data_size, seed=None),
           original_tracr_model,
           random_model,
           max_interventions=n_interventions
@@ -144,7 +144,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     random_model = self.get_randomly_initialized_transformer(original_tracr_model)
 
@@ -198,7 +198,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     # set seed to have fixed weights
     self.set_fixed_seed(42 * 2)
@@ -254,7 +254,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     # set seed to have fixed weights
     self.set_fixed_seed(42 * 2)
@@ -308,7 +308,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     n_plots = 3
 
@@ -333,8 +333,8 @@ class ResampleAblationLossTest(unittest.TestCase):
         for n_interventions in intervention_numbers:
           self.set_random_seed()
           loss = get_resample_ablation_loss_from_inputs(
-            case.get_clean_data(count=data_size, seed=None),
-            case.get_corrupted_data(count=data_size, seed=None),
+            case.get_clean_data(min_samples=data_size, max_samples=data_size, seed=None),
+            case.get_corrupted_data(min_samples=data_size, max_samples=data_size, seed=None),
             original_tracr_model,
             random_model,
             max_interventions=n_interventions
@@ -361,7 +361,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     n_plots = 3
 
@@ -386,8 +386,8 @@ class ResampleAblationLossTest(unittest.TestCase):
         for n_interventions in intervention_numbers:
           self.set_random_seed()
           loss = get_resample_ablation_loss_from_inputs(
-            case.get_clean_data(count=data_size, seed=None),
-            case.get_corrupted_data(count=data_size, seed=None),
+            case.get_clean_data(min_samples=data_size, max_samples=data_size, seed=None),
+            case.get_corrupted_data(min_samples=data_size, max_samples=data_size, seed=None),
             original_tracr_model,
             random_model,
             max_interventions=n_interventions
@@ -415,7 +415,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     n_plots = 3
 
@@ -456,8 +456,8 @@ class ResampleAblationLossTest(unittest.TestCase):
         for n_interventions in intervention_numbers:
           self.set_random_seed()
           output = get_resample_ablation_loss_from_inputs(
-            case.get_clean_data(count=data_size, seed=None),
-            case.get_corrupted_data(count=data_size, seed=None),
+            case.get_clean_data(min_samples=data_size, max_samples=data_size, seed=None),
+            case.get_corrupted_data(min_samples=data_size, max_samples=data_size, seed=None),
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions
@@ -503,7 +503,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     n_plots = 3
 
@@ -546,8 +546,8 @@ class ResampleAblationLossTest(unittest.TestCase):
         for n_interventions in intervention_numbers:
           self.set_random_seed()
           output = get_resample_ablation_loss_from_inputs(
-            case.get_clean_data(count=data_size, seed=None),
-            case.get_corrupted_data(count=data_size, seed=None),
+            case.get_clean_data(min_samples=data_size, max_samples=data_size, seed=None),
+            case.get_corrupted_data(min_samples=data_size, max_samples=data_size, seed=None),
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions
@@ -593,7 +593,7 @@ class ResampleAblationLossTest(unittest.TestCase):
     self.skipTest("This test takes a long time to run, so it is skipped by default.")
     output_dir = get_default_output_dir()
     case = Case3()
-    original_tracr_model: HookedTracrTransformer = case.get_tl_model()
+    original_tracr_model: HookedTracrTransformer = case.get_hl_model()
 
     n_plots = 3
 
@@ -658,8 +658,8 @@ class ResampleAblationLossTest(unittest.TestCase):
         for n_interventions in intervention_numbers:
           self.set_random_seed()
           output = get_resample_ablation_loss_from_inputs(
-            case.get_clean_data(count=data_size, seed=None),
-            case.get_corrupted_data(count=data_size, seed=None),
+            case.get_clean_data(min_samples=data_size, max_samples=data_size, seed=None),
+            case.get_corrupted_data(min_samples=data_size, max_samples=data_size, seed=None),
             original_tracr_model,
             compressed_model,
             max_interventions=n_interventions

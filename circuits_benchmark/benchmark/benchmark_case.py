@@ -9,12 +9,13 @@ from torch.utils.data import Dataset
 from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookedRootModule
 
+from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.utils.project_paths import detect_project_root
 from iit.utils.correspondence import Correspondence
 
 
 class BenchmarkCase(object):
-  def get_index(self) -> str:
+  def get_name(self) -> str:
     class_name = self.__class__.__name__  # e.g. Case1
     assert class_name.startswith("Case")
     return class_name[4:]
@@ -30,20 +31,14 @@ class BenchmarkCase(object):
                      min_samples: Optional[int] = 10,
                      max_samples: Optional[int] = 10,
                      seed: Optional[int] = 42,
-                     unique_data: Optional[bool] = False) -> Dataset:
+                     unique_data: Optional[bool] = False) -> CaseDataset:
     raise NotImplementedError()
 
   def get_corrupted_data(self,
                          min_samples: Optional[int] = 10,
                          max_samples: Optional[int] = 10,
                          seed: Optional[int] = 43,
-                         unique_data: Optional[bool] = False) -> Dataset:
-    """Returns the corrupted data for the benchmark case.
-    Default implementation: re-generate clean data with a different seed."""
-    return self.get_clean_data(min_samples=min_samples, max_samples=max_samples, seed=seed, unique_data=unique_data)
-
-  def get_clean_corrupted_pairs_data(self, n_samples: Optional[int] = 10, seed: Optional[int] = 42) -> Dataset:
-    """Returns the clean-corrupted pairs data for the benchmark case."""
+                         unique_data: Optional[bool] = False) -> CaseDataset:
     raise NotImplementedError()
 
   def get_validation_metric(self) -> Callable[[Tensor], Float[Tensor, ""]]:
@@ -76,4 +71,4 @@ class BenchmarkCase(object):
     return os.path.join(detect_project_root(), self.get_relative_path_from_root())
 
   def get_relative_path_from_root(self) -> str:
-    return f"circuits_benchmark/benchmark/cases/case_{self.get_index()}.py"
+    return f"circuits_benchmark/benchmark/cases/case_{self.get_name()}.py"

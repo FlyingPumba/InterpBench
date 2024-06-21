@@ -21,7 +21,7 @@ class CompileBenchmarkTest(unittest.TestCase):
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     cases = get_cases(args)
     for case in cases:
-      if case.get_index() in ["16", "27", "38"]:
+      if case.get_name() in ["16", "27", "38"]:
         continue
 
       print(f"\nCompiling {case}")
@@ -38,4 +38,4 @@ class CompileBenchmarkTest(unittest.TestCase):
 
   def test_cases_can_be_instantiated_directly(self):
     case = Case3()
-    assert case.get_index() == "3"
+    assert case.get_name() == "3"

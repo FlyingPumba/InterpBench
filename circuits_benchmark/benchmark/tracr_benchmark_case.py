@@ -56,7 +56,7 @@ class TracrBenchmarkCase(BenchmarkCase):
     """Returns the untrained transformer_lens model for this benchmark case.
     In IIT terminology, this is the LL model before training."""
     hl_model = self.get_hl_model(device=device)
-    ll_cfg = make_ll_cfg_for_case(hl_model, self.get_index(), same_size=same_size)
+    ll_cfg = make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size)
     ll_model = HookedTransformer(ll_cfg)
     ll_model.to(device)
     return ll_model
@@ -155,6 +155,15 @@ class TracrBenchmarkCase(BenchmarkCase):
 
     return total_len
 
+  def get_corrupted_data(self,
+                         min_samples: Optional[int] = 10,
+                         max_samples: Optional[int] = 10,
+                         seed: Optional[int] = 43,
+                         unique_data: Optional[bool] = False) -> TracrDataset:
+    """Returns the corrupted data for the benchmark case.
+    Default implementation: re-generate clean data with a different seed."""
+    return self.get_clean_data(min_samples=min_samples, max_samples=max_samples, seed=seed, unique_data=unique_data)
+
   def sample_data(self, n_samples: int, min_seq_len: int, max_seq_len: int):
     """Samples random data for the benchmark case."""
     vals = sorted(list(self.get_vocab()))
@@ -234,8 +243,8 @@ class TracrBenchmarkCase(BenchmarkCase):
     """Returns the validation metric for the benchmark case.
     By default, only the l2 and kl metrics are available. Other metrics should override this method.
     """
-    inputs = self.get_clean_data(count=data_size).get_inputs()
-    is_categorical = self.get_tl_model().is_categorical()
+    inputs = self.get_clean_data(max_samples=data_size).get_inputs()
+    is_categorical = self.get_hl_model().is_categorical()
     with t.no_grad():
       baseline_output = tl_model(inputs)
     if metric_name == "l2":
@@ -256,7 +265,7 @@ class TracrBenchmarkCase(BenchmarkCase):
     return 4
 
   def get_relative_path_from_root(self) -> str:
-    return f"circuits_benchmark/benchmark/cases/case_{self.get_index()}.py"
+    return f"circuits_benchmark/benchmark/cases/case_{self.get_name()}.py"
 
   def get_tracr_output(self) -> TracrOutput:
     """Compiles a single case to a tracr model."""
@@ -292,7 +301,7 @@ class TracrBenchmarkCase(BenchmarkCase):
       fail_on_error: bool = True
   ) -> float:
     tracr_model = self.get_tracr_output().model
-    dataset = self.get_clean_data(count=data_size)
+    dataset = self.get_clean_data(max_samples=data_size)
     inputs = dataset.get_inputs()
     expected_outputs = dataset.get_correct_outputs()
 

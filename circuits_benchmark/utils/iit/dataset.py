@@ -56,7 +56,7 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 #     #     else total_len if total_len < max_train_count \
 #     #     else int(max_train_count * (1 + test_frac))
 #     # train_count = int(count * (1 - test_frac))
-#     # data = case.get_clean_data(count=count)
+#     # data = case.get_clean_data(max_samples=count)
 #     #
 #     # inputs = data.get_inputs().to_numpy()
 #     # outputs = data.get_correct_outputs().to_numpy()
@@ -80,13 +80,13 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 #     total_len = get_total_len(case)
 #
 #     if total_len < max_len:
-#         data = case.get_clean_data(count=total_len)
+#         data = case.get_clean_data(max_samples=total_len)
 #         test_inputs = data.get_inputs().to_numpy()
 #         test_outputs = data.get_correct_outputs().to_numpy()
 #         unique_test_data = TracrDataset(test_inputs, test_outputs)
 #         return unique_test_data
 #
-#     data = case.get_clean_data(count=3*max_len)
+#     data = case.get_clean_data(max_samples=3*max_len)
 #     test_inputs = data.get_inputs().to_numpy()
 #     test_outputs = data.get_correct_outputs().to_numpy()
 #     arr, idxs = np.unique([", ".join(str(i)) for i in np.array(test_inputs)], return_inverse=True)

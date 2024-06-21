@@ -58,7 +58,7 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
     return self.compressed_model
 
   def build_wandb_name(self):
-    return f"case-{self.case.get_index()}-natural-resid-{self.compressed_model.cfg.d_model}"
+    return f"case-{self.case.get_name()}-natural-resid-{self.compressed_model.cfg.d_model}"
 
   def get_wandb_tags(self):
     tags = super().get_wandb_tags()
@@ -124,7 +124,7 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
     if not os.path.exists(self.output_dir):
       os.makedirs(self.output_dir)
 
-    prefix = f"case-{self.case.get_index()}-resid-{self.compressed_model.cfg.d_model}"
+    prefix = f"case-{self.case.get_name()}-resid-{self.compressed_model.cfg.d_model}"
 
     # save the weights of the model using state_dict
     weights_path = os.path.join(self.output_dir, f"{prefix}-natural-compression-weights.pt")

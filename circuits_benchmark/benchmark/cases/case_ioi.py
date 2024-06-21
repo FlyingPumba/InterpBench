@@ -8,6 +8,7 @@ from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from iit.tasks.ioi import ioi_cfg, IOI_HL, NAMES, IOIDatasetWrapper, make_corr_dict, suffixes
 from iit.utils.correspondence import Correspondence
 
@@ -25,18 +26,22 @@ class CaseIOI(BenchmarkCase):
                      min_samples: Optional[int] = 10,
                      max_samples: Optional[int] = 10,
                      seed: Optional[int] = 42,
-                     unique_data: Optional[bool] = False) -> Dataset:
+                     unique_data: Optional[bool] = False) -> CaseDataset:
     ll_model = self.get_ll_model()
     ioi_dataset = IOIDatasetWrapper(
       num_samples=max_samples,
       tokenizer=ll_model.tokenizer,
       names=NAMES,
     )
-    return ioi_dataset
+    # We need to change IOIDatasetWrapper to inherit from CaseDataset if we want to remove the type ignore below
+    return ioi_dataset  # type: ignore
 
-  def get_clean_corrupted_pairs_data(self, n_samples: Optional[int] = 10, seed: Optional[int] = 42) -> Dataset:
-    """Returns the clean-corrupted pairs data for the benchmark case."""
-    raise NotImplementedError()
+  def get_corrupted_data(self,
+                         min_samples: Optional[int] = 10,
+                         max_samples: Optional[int] = 10,
+                         seed: Optional[int] = 43,
+                         unique_data: Optional[bool] = False) -> CaseDataset:
+    return self.get_clean_data(min_samples=min_samples, max_samples=max_samples, seed=seed, unique_data=unique_data)
 
   def get_validation_metric(self) -> Callable[[Tensor], Float[Tensor, ""]]:
     """Returns the validation metric for the benchmark case."""

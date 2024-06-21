@@ -3,6 +3,7 @@ from argparse import Namespace
 from argparse_dataclass import ArgumentParser
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.compression.compression_training_utils import parse_d_model
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
@@ -29,7 +30,8 @@ def setup_args_parser(subparsers):
 
 def train_autoencoder(case: BenchmarkCase, args: Namespace):
   """Trains an autoencoder to compress and decompress the residual stream space of a transformer."""
-  tl_model: HookedTracrTransformer = case.get_tl_model()
+  assert isinstance(case, TracrBenchmarkCase), "Only TracrBenchmarkCase is supported for autoencoder training."
+  tl_model: HookedTracrTransformer = case.get_hl_model()
   original_residual_stream_size = tl_model.cfg.d_model
 
   training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
@@ -44,5 +46,5 @@ def train_autoencoder(case: BenchmarkCase, args: Namespace):
     f" >>> Starting AutoEncoder training for {case} with residual stream compression size {compression_size}.")
   trainer = AutoEncoderTrainer(case, autoencoder, tl_model, training_args, output_dir=args.output_dir)
   final_metrics = trainer.train()
-  print(f"\n >>> Final metrics for {case.get_index()}'s autoencoder with residual stream compression size {compression_size}: ")
+  print(f"\n >>> Final metrics for {case.get_name()}'s autoencoder with residual stream compression size {compression_size}: ")
   print(final_metrics)

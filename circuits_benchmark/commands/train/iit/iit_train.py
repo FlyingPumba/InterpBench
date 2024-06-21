@@ -155,7 +155,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         }
         sweep_id = wandb.sweep(
             sweep_config,
-            project=f"iit_{case.get_index()}",
+            project=f"iit_{case.get_name()}",
             entity=args.wandb_entity,
         )
         wandb.agent(sweep_id, main)
@@ -187,7 +187,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         )
 
         # save the model
-        save_dir = f"{output_dir}/ll_models/{case.get_index()}"
+        save_dir = f"{output_dir}/ll_models/{case.get_name()}"
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
@@ -217,7 +217,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         if save_model_to_wandb:
             wandb.init(
                 project=f"iit_models{'_same_size' if args.same_size else ''}",
-                name=f"case_{case.get_index()}_weight_{weight_int}"
+                name=f"case_{case.get_name()}_weight_{weight_int}"
             )
             wandb.save(f"{save_dir}/*", base_path=output_dir)
             wandb.finish()
@@ -262,7 +262,7 @@ def train_model(
 
     if isinstance(case, TracrBenchmarkCase):
         if not case.supports_causal_masking():
-            raise NotImplementedError(f"Case {case.get_index()} does not support causal masking")
+            raise NotImplementedError(f"Case {case.get_name()} does not support causal masking")
 
         mp_map = {
             "freeze": FreezedModelPair,
@@ -277,7 +277,7 @@ def train_model(
             training_args=training_args,
         )
     else:
-        assert "IOI" in case.get_index()
+        assert "IOI" in case.get_name()
         model_pair = IOI_ModelPair(
             ll_model=ll_model,
             hl_model=hl_model,

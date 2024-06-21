@@ -1,10 +1,10 @@
 from typing import Tuple
 
-import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.transformers.circuit import Circuit, CircuitNode
 from iit.model_pairs.nodes import LLNode
 from iit.utils import index
+from iit.utils.correspondence import Correspondence
 
 
 def get_circuit_nodes_from_ll_node(
@@ -79,7 +79,7 @@ def promote_node(node: CircuitNode):
 
 
 def promote_and_check_with_hl(
-    node: CircuitNode, hl_ll_corr: correspondence.TracrCorrespondence
+    node: CircuitNode, hl_ll_corr: Correspondence
 ) -> list[CircuitNode]:
     promoted_node = promote_node(node)
     for k, v in hl_ll_corr.items():
@@ -91,7 +91,7 @@ def promote_and_check_with_hl(
 def find_edge_in_circuit(
     tracr_circuit: Circuit,
     edge: Tuple[str, str],
-    hl_ll_corr: correspondence.TracrCorrespondence,
+    hl_ll_corr: Correspondence,
     n_heads: int,
 ) -> bool:
     """
@@ -136,7 +136,7 @@ def find_edge_in_circuit(
 
 
 def get_gt_circuit(
-    hl_ll_corr: correspondence.TracrCorrespondence,
+    hl_ll_corr: Correspondence,
     full_circuit: Circuit,
     n_heads: int,
     case: BenchmarkCase,

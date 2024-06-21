@@ -7,7 +7,6 @@ import jax
 from circuits_benchmark.commands.build_main_parser import build_main_parser
 from circuits_benchmark.commands.algorithms import run_algorithm
 from circuits_benchmark.commands.compilation import compile_benchmark
-from circuits_benchmark.commands.analysis import perform_analysis
 from circuits_benchmark.commands.train import train
 from circuits_benchmark.commands.evaluation import evaluation
 
@@ -26,7 +25,5 @@ if __name__ == "__main__":
     run_algorithm.run(args)
   elif args.command == "train":
     train.run(args)
-  elif args.command == "analysis":
-    perform_analysis.run(args)
   elif args.command == "eval":
     evaluation.run(args)

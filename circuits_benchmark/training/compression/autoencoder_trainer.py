@@ -35,7 +35,7 @@ class AutoEncoderTrainer(GenericTrainer):
 
   def setup_dataset(self):
     if self.activations_cache is None:
-      tl_dataset = self.case.get_clean_data(count=self.args.train_data_size)
+      tl_dataset = self.case.get_clean_data(max_samples=self.args.train_data_size)
       tl_inputs = tl_dataset.get_inputs()
       _, self.activations_cache = self.tl_model.run_with_cache(tl_inputs)
 
@@ -144,7 +144,7 @@ class AutoEncoderTrainer(GenericTrainer):
       wandb.log(self.test_metrics, step=self.step)
 
   def build_wandb_name(self):
-    return f"case-{self.case.get_index()}-autoencoder-{self.autoencoder.compression_size}"
+    return f"case-{self.case.get_name()}-autoencoder-{self.autoencoder.compression_size}"
 
   def get_wandb_tags(self):
     tags = super().get_wandb_tags()
@@ -163,5 +163,5 @@ class AutoEncoderTrainer(GenericTrainer):
     return cfg
 
   def save_artifacts(self):
-    prefix = f"case-{self.case.get_index()}-resid-{self.autoencoder.compression_size}"
+    prefix = f"case-{self.case.get_name()}-resid-{self.autoencoder.compression_size}"
     self.autoencoder.save(self.output_dir, prefix, self.wandb_run)

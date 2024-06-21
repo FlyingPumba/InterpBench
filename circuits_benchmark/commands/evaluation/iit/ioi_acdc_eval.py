@@ -2,21 +2,24 @@ import os
 import pickle
 import shutil
 from argparse import Namespace
+from typing import Optional
+
 import torch
+import transformer_lens
+
+from acdc.TLACDCCorrespondence import TLACDCCorrespondence
+from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_node import CircuitNode
-from iit.utils.correspondence import Correspondence
-from typing import Optional
+from circuits_benchmark.utils.circuit_eval import calculate_fpr_and_tpr
+from iit.model_pairs.ioi_model_pair import IOI_ModelPair
+from iit.model_pairs.nodes import LLNode
 from iit.tasks.ioi import ioi_cfg, NAMES, suffixes, make_ll_edges, make_corr_dict
-from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
-import transformer_lens
-from iit.utils.io_scripts import load_files_from_wandb
 from iit.tasks.ioi import make_ioi_dataset_and_hl
+from iit.utils.correspondence import Correspondence
+from iit.utils.io_scripts import load_files_from_wandb
 from .acdc_utils import ACDCRunner
-import iit.model_pairs as mp
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-import argparse
+
 
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("ioi_acdc")
@@ -30,7 +33,7 @@ def evaluate_acdc_circuit(
     use_pos_embed: Optional[bool] = False,
     **kwargs,
 ):
-    def make_circuit_node(ll_node: mp.LLNode):
+    def make_circuit_node(ll_node: LLNode):
         if 'attn' in ll_node.name:
             index = ll_node.index
             head = index.as_index[2]
@@ -67,7 +70,6 @@ def run_ioi_acdc(args: Namespace):
     metric = "kl"
 
     # this is the graph node -> hl node correspondence
-    # tracr_hl_corr = correspondence.TracrCorrespondence.from_output(tracr_output)
     output_suffix = f"weight_{weights}/threshold_{threshold}"
     clean_dirname = f"{args.output_dir}/acdc_ioi/{output_suffix}"
     load_dir = os.path.join(
@@ -121,7 +123,7 @@ def run_ioi_acdc(args: Namespace):
     corrupted_inputs = ioi_dataset.get_inputs()[num_samples:]
     
 
-    label_idx = mp.IOI_ModelPair.get_label_idxs()
+    label_idx = IOI_ModelPair.get_label_idxs()
     def validation_metric(model_outputs):
         output_slice = model_outputs[label_idx.as_index]
         clean_outputs_slice = clean_outputs[label_idx.as_index]

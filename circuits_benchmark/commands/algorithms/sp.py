@@ -1,7 +1,6 @@
 import os
 import pickle
 import shutil
-# from acdc.acdc_utils import kl_divergence
 from functools import partial
 
 import torch
@@ -18,8 +17,7 @@ from circuits_benchmark.transformers.acdc_circuit_builder import (
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
-from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
+from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit, calculate_fpr_and_tpr
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
@@ -131,7 +129,7 @@ def run_sp(
         output_suffix = "compressed"
         raise NotImplementedError("Compressed model not implemented")
     if args.tracr:
-        tl_model = case.get_tl_model(
+        tl_model = case.get_hl_model(
             device=args.device,
         )
         hl_ll_corr = TracrCorrespondence.make_identity_corr(
@@ -139,12 +137,12 @@ def run_sp(
         )
         output_suffix = "weight_tracr"
     else:
-        hl_model = case.build_transformer_lens_model()
+        hl_model = case.get_hl_model()
         hl_ll_corr = TracrCorrespondence.from_output(
             case, tracr_output=case.get_tracr_output()
         )
 
-        ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
+        ll_cfg = make_ll_cfg_for_case(hl_model, case.get_name())
 
         tl_model = HookedTracrTransformer(
             ll_cfg,
@@ -154,9 +152,9 @@ def run_sp(
         )
         tl_model.to(args.device)
         if args.load_from_wandb:
-            load_model_from_wandb(case.get_index(), weights=args.weight, output_dir=args.output_dir)
+            load_model_from_wandb(case.get_name(), weights=args.weight, output_dir=args.output_dir)
         tl_model.load_weights_from_file(
-            f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_{args.weight}.pth"
+            f"{args.output_dir}/ll_models/{case.get_name()}/ll_model_{args.weight}.pth"
         )
         output_suffix = f"weight_{args.weight}"
 
@@ -177,8 +175,8 @@ def run_sp(
     use_pos_embed = True
 
     data_size = args.data_size
-    base = case.get_clean_data(count=int(1.2 * data_size))
-    source = case.get_corrupted_data(count=int(1.2 * data_size))
+    base = case.get_clean_data(max_samples=int(1.2 * data_size))
+    source = case.get_corrupted_data(max_samples=int(1.2 * data_size))
     toks_int_values = base.get_inputs()
     toks_int_labels = base.get_correct_outputs()
     toks_int_values_other = source.get_inputs()
@@ -240,7 +238,7 @@ def run_sp(
 
     output_dir = os.path.join(
         args.output_dir, 
-        f"{'edge_' if args.edgewise else 'node_'}sp_{case.get_index()}", 
+        f"{'edge_' if args.edgewise else 'node_'}sp_{case.get_name()}",
         output_suffix,
         f"lambda_{args.lambda_reg}",
     )
@@ -253,7 +251,7 @@ def run_sp(
 
     # Setup wandb if needed
     if args.wandb_run_name is None:
-        args.wandb_run_name = f"SP_{'edge' if edgewise else 'node'}_{case.get_index()}_reg_{args.lambda_reg}{'_zero' if zero_ablation else ''}{'_compressed' if args.compressed_model else ''}"
+        args.wandb_run_name = f"SP_{'edge' if edgewise else 'node'}_{case.get_name()}_reg_{args.lambda_reg}{'_zero' if zero_ablation else ''}{'_compressed' if args.compressed_model else ''}"
 
     args.wandb_name = args.wandb_run_name
 
