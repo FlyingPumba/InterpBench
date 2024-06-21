@@ -185,11 +185,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         ll_model.eval()
         ll_model.requires_grad_(False)
 
-    if "ioi" in case.get_name():
-        model_pair = IOI_ModelPair(hl_model, ll_model, hl_ll_corr)
-    else:
-        model_pair = IITBehaviorModelPair(hl_model, ll_model, hl_ll_corr)
-
+    model_pair = case.build_model_pair(hl_model=hl_model, ll_model=ll_model, hl_ll_corr=hl_ll_corr)
     df, metric_collection = get_node_effects(case, args, model_pair, use_mean_cache)
 
     save_dir = f"{output_dir}/ll_models/{case.get_name()}/results_{weight}"

@@ -5,12 +5,12 @@ from typing import Optional, Callable
 import torch as t
 from jaxtyping import Float
 from torch import Tensor
-from torch.utils.data import Dataset
 from transformer_lens import HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.utils.project_paths import detect_project_root
+from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.utils.correspondence import Correspondence
 
 
@@ -47,6 +47,18 @@ class BenchmarkCase(object):
 
   def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
     """Returns the configuration for the LL model for this benchmark case."""
+    raise NotImplementedError()
+
+  def build_model_pair(
+      self,
+      model_pair_name: str | None = None,
+      training_args: dict | None = None,
+      ll_model: HookedTransformer | None = None,
+      hl_model: HookedRootModule | None = None,
+      hl_ll_corr: Correspondence | None = None,
+      *args, **kwargs
+  ) -> BaseModelPair:
+    """Returns a model pair for training the LL model."""
     raise NotImplementedError()
 
   def get_ll_model(

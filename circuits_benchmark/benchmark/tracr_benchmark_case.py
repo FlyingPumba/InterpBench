@@ -6,6 +6,7 @@ import numpy as np
 import torch as t
 from torch import Tensor
 from transformer_lens import HookedTransformer, HookedTransformerConfig
+from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
@@ -20,6 +21,10 @@ from circuits_benchmark.transformers.tracr_circuits_builder import build_tracr_c
 from circuits_benchmark.utils.compare_tracr_output import compare_valid_positions
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
+from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.model_pairs.freeze_model_pair import FreezedModelPair
+from iit.model_pairs.stop_grad_pair import StopGradModelPair
+from iit.model_pairs.strict_iit_model_pair import StrictIITModelPair
 from iit.utils.correspondence import Correspondence
 from tracr.compiler import compiling
 from tracr.compiler.compiling import TracrOutput
@@ -46,6 +51,44 @@ class TracrBenchmarkCase(BenchmarkCase):
     If the case does not support causal masking, it should override this method and return False.
     """
     return True
+
+  def build_model_pair(
+      self,
+      model_pair_name: str | None = None,
+      training_args: dict | None = None,
+      ll_model: HookedTransformer | None = None,
+      hl_model: HookedRootModule | None = None,
+      hl_ll_corr: Correspondence | None = None,
+      *args, **kwargs
+  ) -> BaseModelPair:
+    """Returns a model pair for training the LL model."""
+    mp_map = {
+      "freeze": FreezedModelPair,
+      "strict": StrictIITModelPair,
+      "stop_grad": StopGradModelPair,
+    }
+
+    if model_pair_name is None:
+      model_pair_name = "strict"
+
+    if training_args is None:
+      training_args = {}
+
+    if ll_model is None:
+      ll_model = self.get_ll_model()
+
+    if hl_model is None:
+      hl_model = self.get_hl_model()
+
+    if hl_ll_corr is None:
+      hl_ll_corr = self.get_correspondence()
+
+    return mp_map[model_pair_name](
+      ll_model=ll_model,
+      hl_model=hl_model,
+      corr=hl_ll_corr,
+      training_args=training_args,
+    )
 
   def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
     """Returns the configuration for the LL model for this benchmark case."""

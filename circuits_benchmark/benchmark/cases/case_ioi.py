@@ -3,12 +3,13 @@ from typing import Optional, Callable
 import torch as t
 from jaxtyping import Float
 from torch import Tensor
-from torch.utils.data import Dataset
 from transformer_lens import HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.model_pairs.ioi_model_pair import IOI_ModelPair
 from iit.tasks.ioi import ioi_cfg, IOI_HL, NAMES, IOIDatasetWrapper, make_corr_dict, suffixes
 from iit.utils.correspondence import Correspondence
 
@@ -46,6 +47,34 @@ class CaseIOI(BenchmarkCase):
   def get_validation_metric(self) -> Callable[[Tensor], Float[Tensor, ""]]:
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
+
+  def build_model_pair(
+      self,
+      model_pair_name: str | None = None,
+      training_args: dict | None = None,
+      ll_model: HookedTransformer | None = None,
+      hl_model: HookedRootModule | None = None,
+      hl_ll_corr: Correspondence | None = None,
+      *args, **kwargs
+  ) -> BaseModelPair:
+    if training_args is None:
+      training_args = {}
+
+    if ll_model is None:
+      ll_model = self.get_ll_model()
+
+    if hl_model is None:
+      hl_model = self.get_hl_model()
+
+    if hl_ll_corr is None:
+      hl_ll_corr = self.get_correspondence()
+
+    return IOI_ModelPair(
+      ll_model=ll_model,
+      hl_model=hl_model,
+      corr=hl_ll_corr,
+      training_args=training_args,
+    )
 
   def get_ll_model_cfg(self, *args, **kwargs) -> HookedTransformerConfig:
     """Returns the configuration for the LL model for this benchmark case."""

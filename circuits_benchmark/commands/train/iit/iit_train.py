@@ -84,9 +84,6 @@ def setup_args_parser(subparsers):
 
     # IOI specific args
     parser.add_argument(
-        "--next-token", action="store_true", help="Use next token"
-    )
-    parser.add_argument(
         "--include-mlp", action="store_true", help="Include MLP in IOI circuit"
     )
 
@@ -150,7 +147,6 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "seed": {"values": [args.seed]},
                 "batch_size": {"values": [args.batch_size]},
                 "include_mlp": {"values": [args.include_mlp]},
-                "next_token": {"values": [args.next_token]},
             },
         }
         sweep_id = wandb.sweep(
@@ -178,7 +174,6 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "seed": args.seed,
             "batch_size": args.batch_size,
             "include_mlp": args.include_mlp,
-            "next_token": args.next_token,
         }
 
         args = argparse.Namespace(**config)
@@ -264,27 +259,12 @@ def train_model(
         if not case.supports_causal_masking():
             raise NotImplementedError(f"Case {case.get_name()} does not support causal masking")
 
-        mp_map = {
-            "freeze": FreezedModelPair,
-            "strict": StrictIITModelPair,
-            "stop_grad": StopGradModelPair,
-        }
-
-        model_pair = mp_map[args.model_pair](
-            ll_model=ll_model,
-            hl_model=hl_model,
-            corr=hl_ll_corr,
-            training_args=training_args,
-        )
-    else:
-        assert "IOI" in case.get_name()
-        model_pair = IOI_ModelPair(
-            ll_model=ll_model,
-            hl_model=hl_model,
-            corr=hl_ll_corr,
-            training_args=training_args,
-        )
-        training_args["next_token"] = args.next_token
+    model_pair = case.build_model_pair(
+        training_args=training_args,
+        ll_model=ll_model,
+        hl_model=hl_model,
+        hl_ll_corr=hl_ll_corr,
+    )
 
     # prepare iit datasets for training and testing
     dataset = case.get_clean_data(min_samples=20000, max_samples=120_000, seed=args.seed)
