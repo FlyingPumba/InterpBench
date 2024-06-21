@@ -1,12 +1,12 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.program_evaluation_type import causal_and_regular
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case15(BenchmarkCase):
+class Case15(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_nary_sequencemap(lambda x, y, z: x + y - z, rasp.tokens, rasp.tokens, rasp.indices)
 

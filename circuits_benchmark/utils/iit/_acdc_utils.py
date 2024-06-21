@@ -1,13 +1,14 @@
-from circuits_benchmark.transformers.circuit import Circuit, CircuitNode
-import iit.model_pairs as mp
-from iit.utils import index
+from typing import Tuple
+
 import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from typing import Tuple
+from circuits_benchmark.transformers.circuit import Circuit, CircuitNode
+from iit.model_pairs.nodes import LLNode
+from iit.utils import index
 
 
 def get_circuit_nodes_from_ll_node(
-    ll_node: mp.LLNode, n_heads: int
+    ll_node: LLNode, n_heads: int
 ) -> list[CircuitNode]:
     circuit_nodes = []
 

@@ -52,7 +52,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     using_wandb = args.using_wandb
 
     tracr_output = case.get_tracr_output()
-    hl_model = case.build_transformer_lens_model(remove_extra_tensor_cloning=False)
+    hl_model = case.build_transformer_lens_model()
 
     metric = "l2" if not hl_model.is_categorical() else "kl"
 
@@ -113,7 +113,6 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             hl_model.tracr_input_encoder,
             hl_model.tracr_output_encoder,
             hl_model.residual_stream_labels,
-            remove_extra_tensor_cloning=False,
         )
         ll_model.load_weights_from_file(
             f"{args.output_dir}/ll_models/{case_num}/ll_model_{weight}.pth"

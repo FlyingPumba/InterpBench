@@ -1,21 +1,22 @@
+import argparse
+import pickle
 from argparse import Namespace
 
 import numpy as np
 import torch as t
-import pickle
+
 import circuits_benchmark.utils.iit.correspondence as correspondence
-import iit.model_pairs as mp
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg_for_case
-from circuits_benchmark.utils.iit.dataset import (
-    get_unique_data,
-    TracrIITDataset,
-    TracrUniqueDataset,
-)
+from circuits_benchmark.utils.iit import make_ll_cfg_for_case
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
+from iit.utils import IITDataset
 from iit.utils.eval_ablations import (
     check_causal_effect,
     get_causal_effects_for_all_nodes,
@@ -23,8 +24,6 @@ from iit.utils.eval_ablations import (
     save_result,
     Categorical_Metric,
 )
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
-import argparse
 
 
 def setup_args_parser(subparsers, return_namespace=False):
@@ -63,10 +62,10 @@ def setup_args_parser(subparsers, return_namespace=False):
     )
     # parser.add_argument("-o", "--output_dir", type=str, default="./results", help="Output directory")
     # model_pair_class_map = {
-    #     "strict": mp.StrictIITModelPair,
-    #     "behavior": mp.IITBehaviorModelPair,
-    #     "iit": mp.FreezedModelPair,
-    #     "stop_grad": mp.StopGradModelPair
+    #     "strict": StrictIITModelPair,
+    #     "behavior": IITBehaviorModelPair,
+    #     "iit": FreezedModelPair,
+    #     "stop_grad": StopGradModelPair
     # }
     # parser.add_argument('-mp', '--model_pair', type=str, default="strict", help="Model pair class to use")
     if return_namespace:
@@ -78,7 +77,7 @@ def setup_args_parser(subparsers, return_namespace=False):
 def get_node_effects(
     case: BenchmarkCase,
     args: Namespace,
-    model_pair: mp.BaseModelPair,
+    model_pair: BaseModelPair,
     use_mean_cache: bool,
     individual_nodes: bool = True,
 ):
@@ -110,16 +109,19 @@ def get_node_effects(
         )
 
         # zero/mean ablation
-        unique_test_data = get_unique_data(case, max_len=args.max_len * 100)
-        uni_test_set = TracrUniqueDataset(
-            unique_test_data, unique_test_data, hl_model, every_combination=True
+        unique_dataset = case.get_clean_data(max_samples=args.max_len * 100, unique_data=True)
+        if isinstance(unique_dataset, TracrDataset):
+            unique_dataset = unique_dataset.get_encoded_dataset(args.device)
+
+        combinations_dataset = IITDataset(
+            unique_dataset, unique_dataset, every_combination=True
         )
 
         za_result_not_in_circuit, za_result_in_circuit = (
             get_causal_effects_for_all_nodes(
                 model_pair,
-                uni_test_set,
-                batch_size=len(uni_test_set),
+                combinations_dataset,
+                batch_size=len(combinations_dataset),
                 use_mean_cache=use_mean_cache,
             )
         )
@@ -187,7 +189,6 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
             hl_model.tracr_input_encoder,
             hl_model.tracr_output_encoder,
             hl_model.residual_stream_labels,
-            remove_extra_tensor_cloning=True,
         )
         
         ll_model.load_weights_from_file(
@@ -196,7 +197,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         ll_model.eval()
         ll_model.requires_grad_(False)
 
-    model_pair = mp.IITBehaviorModelPair(hl_model, ll_model, hl_ll_corr)
+    model_pair = IITBehaviorModelPair(hl_model, ll_model, hl_ll_corr)
 
     df, metric_collection = get_node_effects(case, args, model_pair, use_mean_cache)
 

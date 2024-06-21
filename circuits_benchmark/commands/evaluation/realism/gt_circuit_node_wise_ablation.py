@@ -1,27 +1,23 @@
-import torch
-from transformer_lens import HookedTransformer
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from argparse import Namespace
-from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg_for_case
-from circuits_benchmark.utils.iit.dataset import (
-    get_unique_data,
-    TracrUniqueDataset,
-)
-from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
-import iit.model_pairs as mp
-from iit.utils import index
-import wandb
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
-from circuits_benchmark.transformers.circuit_node import CircuitNode
-from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
-from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-from transformer_lens import HookedTransformer
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
-from circuits_benchmark.utils.iit.best_weights import get_best_weight
 import os
+from argparse import Namespace
+
+import torch
+import wandb
+from transformer_lens import HookedTransformer
+
+from acdc.TLACDCCorrespondence import TLACDCCorrespondence
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
+from circuits_benchmark.transformers.circuit import Circuit
+from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.iit import make_ll_cfg_for_case
+from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
+from circuits_benchmark.utils.iit.best_weights import get_best_weight
+from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from iit.utils import index
+from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 
 
 def setup_args_parser(subparsers):

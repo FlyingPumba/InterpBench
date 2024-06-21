@@ -1,11 +1,11 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case34(BenchmarkCase):
+class Case34(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_vowel_consonant_ratio(rasp.tokens)
 

@@ -1,11 +1,11 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case20(BenchmarkCase):
+class Case20(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_spam_message_detector(rasp.tokens)
 

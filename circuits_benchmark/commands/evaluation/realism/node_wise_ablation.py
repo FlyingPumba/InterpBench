@@ -3,12 +3,8 @@ from transformer_lens import HookedTransformer
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from argparse import Namespace
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg_for_case
-from circuits_benchmark.utils.iit.dataset import (
-    get_unique_data,
-    TracrIITDataset,
-    TracrUniqueDataset,
-)
+from circuits_benchmark.utils.iit import make_ll_cfg_for_case
+from iit.model_pairs.nodes import LLNode
 from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 import pickle
 import iit.model_pairs as mp
@@ -90,13 +86,13 @@ def make_nodes_to_ablate(
 ):
     show = lambda *args, **kwargs: print(*args, **kwargs) if verbose else None
     attn = [
-        # mp.LLNode(f"blocks.{layer}.attn.hook_result", index.Ix[:, :, head])
+        # LLNode(f"blocks.{layer}.attn.hook_result", index.Ix[:, :, head])
         CircuitNode(f"blocks.{layer}.attn.hook_result", head)
         for layer in range(tl_model.cfg.n_layers)
         for head in range(tl_model.cfg.n_heads)
     ]
     mlps = [
-        # mp.LLNode(f"blocks.{layer}.hook_mlp_out", index.Ix[[None]])
+        # LLNode(f"blocks.{layer}.hook_mlp_out", index.Ix[[None]])
         CircuitNode(f"blocks.{layer}.hook_mlp_out", None)
         for layer in range(tl_model.cfg.n_layers)
     ]
@@ -117,9 +113,9 @@ def make_nodes_to_ablate(
     ll_nodes_to_ablate = []
     for node in nodes_to_ablate:
         if "attn" in node.name:
-            ll_nodes_to_ablate.append(mp.LLNode(node.name, index.Ix[:, :, node.index]))
+            ll_nodes_to_ablate.append(LLNode(node.name, index.Ix[:, :, node.index]))
         else:
-            ll_nodes_to_ablate.append(mp.LLNode(node.name, index.Ix[[None]]))
+            ll_nodes_to_ablate.append(LLNode(node.name, index.Ix[[None]]))
     return ll_nodes_to_ablate
 
 

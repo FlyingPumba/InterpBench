@@ -212,7 +212,6 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
       self,
       overwrite_cfg_dict={"d_model": self.residual_stream_compression_size},
       init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
-      remove_extra_tensor_cloning=False,
     )
 
     for name, param in self.folded_named_parameters():

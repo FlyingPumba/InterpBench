@@ -1,14 +1,15 @@
 import os
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 
+import numpy as np
 import torch as t
 import wandb
 from jaxtyping import Float, Int
 from torch import Tensor
 from transformer_lens import ActivationCache, HookedTransformer
+from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.benchmark.vocabs import TRACR_PAD, TRACR_BOS
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
   CompressedTracrTransformerTrainer
@@ -22,7 +23,7 @@ from tracr.transformer.encoder import CategoricalEncoder
 class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer):
   def __init__(self,
                case: BenchmarkCase,
-               original_model: HookedTracrTransformer,
+               original_model: HookedRootModule,
                compressed_model: HookedTracrTransformer,
                args: TrainingArgs,
                output_dir: str | None = None):
@@ -77,10 +78,10 @@ class NaturalCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer
 
     return log_probs_for_tokens
 
-  def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
+  def compute_train_loss(self, batch: Tuple[List[np.ndarray], List[np.ndarray]]) -> Float[Tensor, ""]:
     # Run the input on both compressed and original model
-    inputs = batch[CaseDataset.INPUT_FIELD]
-    expected_outputs = batch[CaseDataset.CORRECT_OUTPUT_FIELD]
+    inputs = batch[0]
+    expected_outputs = batch[1]
     predicted_outputs: Float[Tensor, ""] = self.get_compressed_model()(inputs)
 
     def encode_output(output: List[Any]):

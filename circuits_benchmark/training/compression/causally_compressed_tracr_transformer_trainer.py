@@ -9,7 +9,7 @@ from torch.nn import Parameter
 from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
   get_resample_ablation_loss_from_inputs
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
@@ -126,8 +126,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     return loss
 
   def get_intervention_level_loss(self,
-                                  clean_data: CaseDataset,
-                                  corrupted_data: CaseDataset,
+                                  clean_data: TracrDataset,
+                                  corrupted_data: TracrDataset,
                                   compressed_model_corrupted_cache: ActivationCache):
     resample_ablation_loss_args = {
       "clean_inputs": clean_data,

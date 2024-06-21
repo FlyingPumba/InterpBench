@@ -10,7 +10,7 @@ from transformer_lens import ActivationCache
 from transformer_lens.hook_points import HookPoint
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import regular_intervention_hook_fn
 from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
 from circuits_benchmark.transformers.circuit_node import CircuitNode
@@ -107,8 +107,8 @@ def is_qkv_granularity_hook(hook_name):
 def evaluate_iia(case: BenchmarkCase,
                  base_model: HookedTracrTransformer,
                  hypothesis_model: HookedTracrTransformer,
-                 clean_data: CaseDataset,
-                 corrupted_data: CaseDataset,
+                 clean_data: TracrDataset,
+                 corrupted_data: TracrDataset,
                  base_model_corrupted_cache: ActivationCache,
                  hypothesis_model_corrupted_cache: ActivationCache,
                  base_model_clean_cache: ActivationCache,
@@ -198,7 +198,7 @@ def evaluate_iia(case: BenchmarkCase,
         # calculate effective accuracy. This is regular accuracy but removing the labels that don't change across
         # datasets. This is a measure of how much the model is actually changing its predictions.
         # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
-        inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_correct_outputs() != corrupted_data.get_correct_outputs()).bool()
+        inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_expected_outputs() != corrupted_data.get_expected_outputs()).bool()
         effective_accuracy = same_outputs_between_both_models_after_intervention[inputs_with_different_output].mean().item()
         results_by_node[node_str]["effective_accuracy"] = effective_accuracy
 

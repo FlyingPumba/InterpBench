@@ -1,14 +1,14 @@
 import random
 from typing import Set, List
 
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.common_programs import make_shuffle_dyck
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from tracr.rasp import rasp
 
 
-class Case5(BenchmarkCase):
+class Case5(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_shuffle_dyck(pairs=["()", "{}"])
 

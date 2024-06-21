@@ -143,12 +143,11 @@ def run_acdc(
                 tl_model,
                 overwrite_cfg_dict={"d_model": compression_size},
                 init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
-                remove_extra_tensor_cloning=False,
             )
             tl_model.load_state_dict(torch.load(weights_file))
         elif args.wandb_checkpoint_type == "linear-compression":
             tl_model = LinearCompressedTracrTransformer(
-                tl_model, int(compression_size), "linear", remove_extra_tensor_cloning=False
+                tl_model, int(compression_size), "linear",
             )
             tl_model.load_state_dict(torch.load(weights_file))
             tl_model = tl_model.get_folded_model()

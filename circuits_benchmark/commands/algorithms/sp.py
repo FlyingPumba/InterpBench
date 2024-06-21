@@ -132,16 +132,14 @@ def run_sp(
         raise NotImplementedError("Compressed model not implemented")
     if args.tracr:
         tl_model = case.get_tl_model(
-            device=args.device, remove_extra_tensor_cloning=False
+            device=args.device,
         )
         hl_ll_corr = TracrCorrespondence.make_identity_corr(
             tracr_output=case.get_tracr_output()
         )
         output_suffix = "weight_tracr"
     else:
-        hl_model = case.build_transformer_lens_model(
-            remove_extra_tensor_cloning=False
-        )
+        hl_model = case.build_transformer_lens_model()
         hl_ll_corr = TracrCorrespondence.from_output(
             case, tracr_output=case.get_tracr_output()
         )
@@ -153,7 +151,6 @@ def run_sp(
             hl_model.tracr_input_encoder,
             hl_model.tracr_output_encoder,
             hl_model.residual_stream_labels,
-            remove_extra_tensor_cloning=False,
         )
         tl_model.to(args.device)
         if args.load_from_wandb:

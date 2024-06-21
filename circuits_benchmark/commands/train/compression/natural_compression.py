@@ -2,6 +2,7 @@ from argparse import Namespace
 
 from argparse_dataclass import ArgumentParser
 from torch.nn import init
+from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
@@ -29,7 +30,7 @@ def setup_args_parser(subparsers):
 
 def train_natural_compression(case: BenchmarkCase, args: Namespace):
   """Trains a transformer from scratch, using the provided compression size."""
-  tl_model: HookedTracrTransformer = case.get_tl_model()
+  tl_model: HookedRootModule = case.get_hl_model(args.device)
   training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
 
   compressed_d_model_size = parse_d_model(args, tl_model)

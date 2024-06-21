@@ -1,5 +1,6 @@
 from argparse import Namespace, ArgumentParser
 
+import numpy as np
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
 from auto_circuit.prune_algos.mask_gradient import mask_gradient_prune_scores
@@ -8,7 +9,8 @@ from auto_circuit.utils.graph_utils import patchable_model
 from auto_circuit.utils.tensor_ops import prune_scores_threshold
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.utils.auto_circuit_utils import build_circuit
 
@@ -28,16 +30,25 @@ class EAPRunner:
       "Either edge_count or threshold must be provided, but not both"
 
   def run_on_tracr_model(self):
-    tl_model = self.case.get_tl_model()
-    clean_dataset = self.case.get_clean_data(count=self.data_size)
-    corrupted_dataset = self.case.get_corrupted_data(count=self.data_size)
+    assert isinstance(self.case, TracrBenchmarkCase)
+    tl_model = self.case.get_hl_model()
+    clean_dataset = self.case.get_clean_data(max_samples=self.data_size)
+    corrupted_dataset = self.case.get_corrupted_data(max_samples=self.data_size)
 
-    return self.run(tl_model, clean_dataset, corrupted_dataset)
+    return self.run(
+      tl_model,
+      clean_dataset.get_inputs(),
+      clean_dataset.get_expected_outputs(),
+      corrupted_dataset.get_inputs(),
+      corrupted_dataset.get_expected_outputs(),
+    )
 
   def run(self,
           tl_model: t.nn.Module,
-          clean_dataset: CaseDataset,
-          corrupted_dataset: CaseDataset):
+          clean_inputs: np.ndarray,
+          clean_expected_outputs: np.ndarray,
+          corrupted_inputs: np.ndarray,
+          corrupted_expected_outputs: np.ndarray):
     tl_model.to(self.args.device)
     auto_circuit_model = patchable_model(
       tl_model,
@@ -48,18 +59,13 @@ class EAPRunner:
     )
 
     # remove from inputs the rows that have the same expected output
-    clean_raw_inputs = clean_dataset.get_inputs()
-    corrupted_raw_inputs = corrupted_dataset.get_inputs()
-    clean_expected_outputs = clean_dataset.get_correct_outputs()
-    corrupted_expected_outputs = corrupted_dataset.get_correct_outputs()
-
     idxs_to_remove = []
     for i in range(len(clean_expected_outputs)):
       if clean_expected_outputs[i] == corrupted_expected_outputs[i]:
         idxs_to_remove.append(i)
 
-    clean_inputs = [clean_raw_inputs[i] for i in range(len(clean_raw_inputs)) if i not in idxs_to_remove]
-    corrupted_inputs = [corrupted_raw_inputs[i] for i in range(len(corrupted_raw_inputs)) if i not in idxs_to_remove]
+    clean_inputs = [clean_inputs[i] for i in range(len(clean_inputs)) if i not in idxs_to_remove]
+    corrupted_inputs = [corrupted_inputs[i] for i in range(len(corrupted_inputs)) if i not in idxs_to_remove]
 
     # Convert inputs to tensors using tracr encoder
     clean_inputs = tl_model.map_tracr_input_to_tl_input(clean_inputs)
@@ -80,7 +86,7 @@ class EAPRunner:
       clean_outputs,
       corrupted_outputs,
     )
-    train_loader = PromptDataLoader(dataset, seq_len=self.case.get_max_seq_len(), diverge_idx=0)
+    train_loader = PromptDataLoader(dataset, seq_len=None, diverge_idx=0)
 
     eap_args = {
       "model": auto_circuit_model,

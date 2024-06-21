@@ -10,7 +10,6 @@ from circuits_benchmark.commands.train.compression.linear_compression import tra
 from circuits_benchmark.commands.train.compression.non_linear_compression import train_non_linear_compression
 from circuits_benchmark.commands.train.iit import iit_train
 from circuits_benchmark.utils.get_cases import get_cases
-from circuits_benchmark.commands.train.iit import ioi_train
 
 def setup_args_parser(subparsers):
   run_parser = subparsers.add_parser("train")
@@ -23,16 +22,16 @@ def setup_args_parser(subparsers):
   autoencoder.setup_args_parser(run_subparsers)
   natural_compression.setup_args_parser(run_subparsers)
   iit_train.setup_args_parser(run_subparsers)
-  ioi_train.setup_args_parser(run_subparsers)
 
 
 def run(args):
   training_type = args.type
-  if training_type == "ioi":
-    ioi_train.run_ioi_training(args)
-    return
-  for case in get_cases(args):
-    print(f"\nRunning training {args.type} on {case}")
+
+  cases = get_cases(args)
+  assert len(cases) > 0, "No cases found"
+
+  for case in cases:
+    print(f"\nRunning training {training_type} on {case}")
 
     # Set numpy, torch and ptyhon seed
     seed = args.seed

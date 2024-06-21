@@ -1,12 +1,12 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.common_programs import make_sort
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case22(BenchmarkCase):
+class Case22(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_sorting_by_length(rasp.tokens)
 

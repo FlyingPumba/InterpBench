@@ -8,7 +8,7 @@ from jaxtyping import Float, Int
 from torch import Tensor
 from transformer_lens import HookedTransformer, ActivationCache
 
-from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import InterventionData
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_interventions import get_interventions
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
@@ -26,8 +26,8 @@ class ResampleAblationLossOutput:
 
 
 def get_resample_ablation_loss_from_inputs(
-    clean_inputs: CaseDataset,
-    corrupted_inputs: CaseDataset,
+    clean_inputs: TracrDataset,
+    corrupted_inputs: TracrDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
@@ -225,8 +225,8 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
 
 
 def get_batched_intervention_data(
-    clean_inputs: CaseDataset,
-    corrupted_inputs: CaseDataset,
+    clean_inputs: TracrDataset,
+    corrupted_inputs: TracrDataset,
     base_model: HookedTransformer,
     hypothesis_model: HookedTransformer,
     activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,

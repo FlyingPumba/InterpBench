@@ -1,16 +1,17 @@
+import pickle
+from collections import namedtuple
+
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.iit._corr_utils import TracrHLCorr
+from circuits_benchmark.utils.iit.tracr_ll_corrs import get_tracr_ll_corr
+from iit.model_pairs.nodes import HLNode, LLNode
+from iit.utils import index
 from iit.utils.correspondence import Correspondence
 from tracr.compiler.compiling import TracrOutput
-import iit.model_pairs as mp
-from iit.utils import index
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.utils.iit.tracr_ll_corrs import get_tracr_ll_corr
-from circuits_benchmark.utils.iit._corr_utils import TracrHLCorr
-from collections import namedtuple
-import pickle
-from circuits_benchmark.transformers.circuit_node import CircuitNode
 
 
-class TracrHLNode(mp.HLNode):
+class TracrHLNode(HLNode):
     def __init__(self, name, label, num_classes, idx=None):
         # type checks
         assert isinstance(name, str), ValueError(
@@ -82,7 +83,7 @@ class TracrHLNode(mp.HLNode):
 
 
 class TracrCorrespondence(Correspondence):
-    def __setattr__(self, __name: TracrHLNode, __value: set[mp.LLNode]) -> None:
+    def __setattr__(self, __name: TracrHLNode, __value: set[LLNode]) -> None:
         if __name == "suffixes":
             assert isinstance(__value, dict), ValueError(
                 f"__value is not a dict, but {type(__value)}"
@@ -94,7 +95,7 @@ class TracrCorrespondence(Correspondence):
             assert isinstance(__value, set), ValueError(
                 f"__value is not a set, but {type(__value)}"
             )
-            assert all(isinstance(v, mp.LLNode) for v in __value), ValueError(
+            assert all(isinstance(v, LLNode) for v in __value), ValueError(
                 f"__value contains non-LLNode elements"
             )
         super().__setattr__(__name, __value)
@@ -103,7 +104,7 @@ class TracrCorrespondence(Correspondence):
     def make_hl_ll_corr(
         cls,
         tracr_hl_corr: TracrHLCorr,
-        tracr_ll_corr: dict[str, set[mp.LLNode]],
+        tracr_ll_corr: dict[str, set[LLNode]],
         hook_name_style: str = "tl",
     ):
         def hook_name(loc, style) -> str:
@@ -139,7 +140,7 @@ class TracrCorrespondence(Correspondence):
                         num_classes=0,  # TODO: get num_classes
                         idx=idx(hl_loc),
                     ): {
-                        mp.LLNode(
+                        LLNode(
                             hook_name(hl_loc, hook_name_style),
                             idx(hl_loc),
                             None,
@@ -157,7 +158,7 @@ class TracrCorrespondence(Correspondence):
                     num_classes=0,  # TODO: get num_classes
                     idx=idx(hl_loc),
                 ): {
-                    mp.LLNode(hook_name(ll_loc, "tl"), idx(ll_loc))
+                    LLNode(hook_name(ll_loc, "tl"), idx(ll_loc))
                     for ll_loc in tracr_ll_corr[basis_dir.name, basis_dir.value]
                 }
                 for basis_dir, hl_loc in tracr_hl_corr.items()

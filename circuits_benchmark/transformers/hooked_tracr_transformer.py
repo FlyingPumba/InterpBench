@@ -17,7 +17,7 @@ from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
 from tracr.transformer.encoder import CategoricalEncoder, Encoder
 
-HookedTracrTransformerBatchInput = List[List[Any]]
+HookedTracrTransformerBatchInput = List[List[Any]] | np.ndarray
 HookedTracrTransformerReturnType = Literal["logits", "decoded"]
 
 

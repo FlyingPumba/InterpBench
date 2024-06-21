@@ -4,6 +4,7 @@ import shutil
 from argparse import Namespace
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.commands.algorithms.eap import EAPRunner
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
@@ -78,12 +79,12 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
   return result
 
 
-def get_ll_model(case, weights, args):
+def get_ll_model(case: TracrBenchmarkCase,
+                 weights: str,
+                 args: Namespace):
   tracr_output = case.get_tracr_output()
 
-  hl_model = case.build_transformer_lens_model(
-    remove_extra_tensor_cloning=False
-  )
+  hl_model = case.build_transformer_lens_model()
 
   ll_cfg = make_ll_cfg_for_case(hl_model, case.get_index())
   ll_model = HookedTracrTransformer(
@@ -91,7 +92,6 @@ def get_ll_model(case, weights, args):
     hl_model.tracr_input_encoder,
     hl_model.tracr_output_encoder,
     hl_model.residual_stream_labels,
-    remove_extra_tensor_cloning=False,
   )
 
   hl_ll_corr = TracrCorrespondence.from_output(

@@ -1,5 +1,3 @@
-import os.path
-import os.path
 from typing import Optional, Callable
 
 import torch as t
@@ -9,38 +7,32 @@ from torch.utils.data import Dataset
 from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookedRootModule
 
-from circuits_benchmark.utils.project_paths import detect_project_root
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from iit.tasks.ioi import ioi_cfg, IOI_HL, NAMES, IOIDatasetWrapper, make_corr_dict, suffixes
 from iit.utils.correspondence import Correspondence
 
 
-class BenchmarkCase(object):
-  def get_index(self) -> str:
-    class_name = self.__class__.__name__  # e.g. Case1
-    assert class_name.startswith("Case")
-    return class_name[4:]
-
-  def __str__(self):
-    return self.get_case_file_absolute_path()
+class CaseIOI(BenchmarkCase):
+  def __init__(self):
+    self.ll_model = None
+    self.hl_model = None
 
   def get_task_description(self) -> str:
     """Returns the task description for the benchmark case."""
-    return ""
+    return "Indirect Object Identification (IOI) task."
 
   def get_clean_data(self,
                      min_samples: Optional[int] = 10,
                      max_samples: Optional[int] = 10,
                      seed: Optional[int] = 42,
                      unique_data: Optional[bool] = False) -> Dataset:
-    raise NotImplementedError()
-
-  def get_corrupted_data(self,
-                         min_samples: Optional[int] = 10,
-                         max_samples: Optional[int] = 10,
-                         seed: Optional[int] = 43,
-                         unique_data: Optional[bool] = False) -> Dataset:
-    """Returns the corrupted data for the benchmark case.
-    Default implementation: re-generate clean data with a different seed."""
-    return self.get_clean_data(min_samples=min_samples, max_samples=max_samples, seed=seed, unique_data=unique_data)
+    ll_model = self.get_ll_model()
+    ioi_dataset = IOIDatasetWrapper(
+      num_samples=max_samples,
+      tokenizer=ll_model.tokenizer,
+      names=NAMES,
+    )
+    return ioi_dataset
 
   def get_clean_corrupted_pairs_data(self, n_samples: Optional[int] = 10, seed: Optional[int] = 42) -> Dataset:
     """Returns the clean-corrupted pairs data for the benchmark case."""
@@ -57,7 +49,18 @@ class BenchmarkCase(object):
   ) -> HookedTransformer:
     """Returns the untrained transformer_lens model for this case.
     In IIT terminology, this is the LL model before training."""
-    raise NotImplementedError()
+    if self.ll_model is not None:
+      return self.ll_model
+
+    ll_cfg = HookedTransformer.from_pretrained(
+      "gpt2"
+    ).cfg.to_dict()
+    ll_cfg.update(ioi_cfg)
+
+    ll_cfg["init_weights"] = True
+    self.ll_model = HookedTransformer(ll_cfg).to(device)
+
+    return self.ll_model
 
   def get_hl_model(
       self,
@@ -66,14 +69,16 @@ class BenchmarkCase(object):
   ) -> HookedRootModule:
     """Builds the transformer_lens reference model for this case.
     In IIT terminology, this is the HL model."""
-    raise NotImplementedError()
+    if self.hl_model is not None:
+      return self.hl_model
 
-  def get_correspondence(self, *args, **kwargs) -> Correspondence:
+    ll_model = self.get_ll_model()
+    names = t.tensor([ll_model.tokenizer.encode(name)[0] for name in NAMES]).to(device)
+    self.hl_model = IOI_HL(d_vocab=ll_model.cfg.d_vocab_out, names=names).to(device)
+
+    return self.hl_model
+
+  def get_correspondence(self, include_mlp: bool = False, *args, **kwargs) -> Correspondence:
     """Returns the correspondence between the reference and the benchmark model."""
-    raise NotImplementedError()
-
-  def get_case_file_absolute_path(self) -> str:
-    return os.path.join(detect_project_root(), self.get_relative_path_from_root())
-
-  def get_relative_path_from_root(self) -> str:
-    return f"circuits_benchmark/benchmark/cases/case_{self.get_index()}.py"
+    corr_dict = make_corr_dict(include_mlp=include_mlp)
+    return Correspondence.make_corr_from_dict(corr_dict, suffixes=suffixes)

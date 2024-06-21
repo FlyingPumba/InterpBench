@@ -1,55 +1,43 @@
 import argparse
 import json
 import os
-from argparse import Namespace
 import pickle
+import random
+from argparse import Namespace
 
+import numpy as np
 import torch as t
 import wandb
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.utils.iit import train_model
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
+from iit.model_pairs.freeze_model_pair import FreezedModelPair
+from iit.model_pairs.ioi_model_pair import IOI_ModelPair
+from iit.model_pairs.stop_grad_pair import StopGradModelPair
+from iit.model_pairs.strict_iit_model_pair import StrictIITModelPair
+from iit.utils.iit_dataset import train_test_split, IITDataset
 
 
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("iit")
     add_common_args(parser)
 
+    # IIT training args
     parser.add_argument(
         "-iit", "--iit_weight", type=float, default=1.0, help="IIT weight"
     )
     parser.add_argument(
-        "-b",
-        "--behavior_weight",
-        type=float,
-        default=1.0,
-        help="Behavior weight",
+        "-b", "--behavior_weight", type=float, default=1.0, help="Behavior weight",
     )
     parser.add_argument(
         "-s", "--strict_weight", type=float, default=0.4, help="Strict weight"
     )
     parser.add_argument(
-        "--wandb_entity", type=str, required=False, help="Wandb entity"
-    )
-    parser.add_argument(
-        "--sweep", action="store_true", help="Run a wandb sweep"
-    )
-    parser.add_argument("--use-wandb", action="store_true", help="Use wandb")
-    parser.add_argument(
-        "--wandb-suffix", type=str, default="", help="Wandb suffix"
-    )
-    parser.add_argument(
-        "--epochs", type=int, default=2000, help="Number of epochs"
-    )
-    parser.add_argument(
-        "--sweep-config-file", type=str, help="Sweep config file", default=None
-    )
-    parser.add_argument(
-        "--save-model-wandb", action="store_true", help="Save model to wandb"
-    )
-    parser.add_argument(
-        "--use-single-loss", action="store_true", help="Use single loss"
+        "-single-loss", "--use-single-loss", action="store_true", help="Use single loss"
     )
     parser.add_argument(
         "--model-pair", choices=["freeze", "strict", "stop_grad"], default="strict"
@@ -58,6 +46,49 @@ def setup_args_parser(subparsers):
         "--same-size", action="store_true", help="Use same size for ll model"
     )
 
+    parser.add_argument(
+        "--epochs", type=int, default=2000, help="Number of epochs"
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=256, help="Batch size"
+    )
+    parser.add_argument(
+        "--lr", type=float, default=1e-3, help="Learning rate"
+    )
+    parser.add_argument(
+        "--clip-grad-norm", type=float, default=1.0, help="Clip grad norm"
+    )
+    parser.add_argument(
+        "--num-samples", type=int, default=12000, help="Number of samples"
+    )
+
+    parser.add_argument(
+        "--use-wandb", action="store_true", help="Use wandb"
+    )
+    parser.add_argument(
+        "--wandb_entity", type=str, required=False, help="Wandb entity"
+    )
+    parser.add_argument(
+        "--wandb-suffix", type=str, default="", help="Wandb suffix"
+    )
+    parser.add_argument(
+        "--save-model-to-wandb", action="store_true", help="Save model to wandb"
+    )
+
+    parser.add_argument(
+        "--sweep", action="store_true", help="Run a wandb sweep"
+    )
+    parser.add_argument(
+        "--sweep-config-file", type=str, help="Sweep config file", default=None
+    )
+
+    # IOI specific args
+    parser.add_argument(
+        "--next-token", action="store_true", help="Use next token"
+    )
+    parser.add_argument(
+        "--include-mlp", action="store_true", help="Include MLP in IOI circuit"
+    )
 
 
 def config_is_bad(config):
@@ -84,16 +115,8 @@ def config_is_bad(config):
 
 
 def run_iit_train(case: BenchmarkCase, args: Namespace):
-    # if not case.supports_causal_masking():
-    #     raise NotImplementedError(f"Case {case.get_index()} does not support causal masking")
-
-    tracr_output = case.get_tracr_output()
-    hl_model = case.build_transformer_lens_model(
-        remove_extra_tensor_cloning=False
-    )
-
     use_wandb = args.use_wandb
-    save_model_to_wandb = args.save_model_wandb
+    save_model_to_wandb = args.save_model_to_wandb
     output_dir = args.output_dir
 
     def main():
@@ -105,7 +128,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "wandb_suffix": args.wandb_suffix,
             "device": "cpu" if args.device == "cpu" else "cuda",
         }
-        train_model(config, case, tracr_output, hl_model, use_wandb=True)
+        train_model(case, config, use_wandb=True)
 
     if args.sweep:
         sweep_config = {
@@ -124,6 +147,10 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "lr_scheduler": {"values": ["plateau", ""]},
                 "model_pair": {"values": ["freeze", "strict_iit", "stop_grad"]},
                 "same_size": {"values": [args.same_size]},
+                "seed": {"values": [args.seed]},
+                "batch_size": {"values": [args.batch_size]},
+                "include_mlp": {"values": [args.include_mlp]},
+                "next_token": {"values": [args.next_token]},
             },
         }
         sweep_id = wandb.sweep(
@@ -148,11 +175,15 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "lr_scheduler": "",
             "model_pair": args.model_pair,
             "same_size": args.same_size,
+            "seed": args.seed,
+            "batch_size": args.batch_size,
+            "include_mlp": args.include_mlp,
+            "next_token": args.next_token,
         }
 
         args = argparse.Namespace(**config)
         model_pair = train_model(
-            args, case, tracr_output, hl_model, use_wandb=use_wandb
+            case, args, use_wandb=use_wandb
         )
 
         # save the model
@@ -179,8 +210,10 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         ll_model_cfg_dict = ll_model_cfg.to_dict()
         
         pickle.dump(ll_model_cfg_dict, open(f"{save_dir}/ll_model_cfg_{weight_int}.pkl", "wb"))
+
         if use_wandb:
             wandb.finish()
+
         if save_model_to_wandb:
             wandb.init(
                 project=f"iit_models{'_same_size' if args.same_size else ''}",
@@ -188,3 +221,91 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             )
             wandb.save(f"{save_dir}/*", base_path=output_dir)
             wandb.finish()
+
+def train_model(
+    case: BenchmarkCase,
+    args: Namespace,
+    use_wandb=False
+):
+    t.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+
+    lr_scheduler_map = {
+        "": None,
+        "plateau": t.optim.lr_scheduler.ReduceLROnPlateau,
+    }
+
+    training_args = {
+        # generic training args
+        "lr": args.lr,
+        "batch_size": args.batch_size,
+        "atol": args.atol,
+        "clip_grad_norm": args.clip_grad_norm,
+        "lr_scheduler": lr_scheduler_map[args.lr_scheduler],
+        "early_stop": True,
+        # specific iit training args
+        "behavior_weight": args.behavior_weight,
+        "iit_weight": args.iit_weight,
+        "strict_weight": args.strict_weight,
+        "use_single_loss": args.use_single_loss,
+    }
+
+    ll_model = case.get_ll_model(same_size=args.same_size)
+
+    hl_model = case.get_hl_model()
+    if isinstance(hl_model, HookedTracrTransformer):
+        hl_model = IITHLModel(hl_model, eval_mode=False)
+        hl_model.to(args.device)
+
+    hl_ll_corr = case.get_correspondence(include_mlp=args.include_mlp)
+
+    if isinstance(case, TracrBenchmarkCase):
+        if not case.supports_causal_masking():
+            raise NotImplementedError(f"Case {case.get_index()} does not support causal masking")
+
+        mp_map = {
+            "freeze": FreezedModelPair,
+            "strict": StrictIITModelPair,
+            "stop_grad": StopGradModelPair,
+        }
+
+        model_pair = mp_map[args.model_pair](
+            ll_model=ll_model,
+            hl_model=hl_model,
+            corr=hl_ll_corr,
+            training_args=training_args,
+        )
+    else:
+        assert "IOI" in case.get_index()
+        model_pair = IOI_ModelPair(
+            ll_model=ll_model,
+            hl_model=hl_model,
+            corr=hl_ll_corr,
+            training_args=training_args,
+        )
+        training_args["next_token"] = args.next_token
+
+    # prepare iit datasets for training and testing
+    dataset = case.get_clean_data(min_samples=20000, max_samples=120_000, seed=args.seed)
+    if isinstance(dataset, TracrDataset):
+        dataset = dataset.get_encoded_dataset(args.device)
+
+    train_dataset, test_dataset = train_test_split(
+        dataset, test_size=0.2, random_state=42
+    )
+    train_dataset = IITDataset(train_dataset, train_dataset, seed=args.seed)
+    test_dataset = IITDataset(test_dataset, test_dataset, seed=args.seed)
+
+    # train model
+    print("Starting IIT training")
+    model_pair.train(
+        train_dataset,
+        test_dataset,
+        epochs=args.epochs,
+        use_wandb=use_wandb,
+        wandb_name_suffix=args.wandb_suffix,
+    )
+    print("Done training")
+
+    return model_pair
