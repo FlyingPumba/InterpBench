@@ -1,5 +1,5 @@
-from iit.utils import index
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from iit.utils import index
 
 _tracr_ll_corrs = {
     '3': {

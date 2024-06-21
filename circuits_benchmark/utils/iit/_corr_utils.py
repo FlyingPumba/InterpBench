@@ -1,7 +1,9 @@
-from tracr.craft.transformers import MLP, MultiAttentionHead, SeriesWithResiduals
-from tracr.craft import bases
-from tracr.compiler.compiling import TracrOutput
 import networkx as nx
+
+from tracr.compiler.compiling import TracrOutput
+from tracr.craft import bases
+from tracr.craft.transformers import MLP, MultiAttentionHead, SeriesWithResiduals
+
 
 def names(vsb: bases.VectorSpaceWithBasis):
     return [(bd.name, bd.value) for bd in vsb.basis]

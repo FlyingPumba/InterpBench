@@ -10,6 +10,7 @@ import torch
 import wandb
 from torch.nn import init
 
+from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
@@ -19,7 +20,6 @@ from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circ
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.circuit_eval import calculate_fpr_and_tpr
 from circuits_benchmark.utils.wandb_artifact_download import download_artifact
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 
 
 def setup_args_parser(subparsers):

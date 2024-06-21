@@ -4,8 +4,8 @@ import numpy as np
 import torch as t
 
 from circuits_benchmark.commands.evaluation.iit import iit_eval, iit_acdc_eval, ioi_acdc_eval, iit_eap_eval
-from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.commands.evaluation.realism import node_wise_ablation, gt_circuit_node_wise_ablation
+from circuits_benchmark.utils.get_cases import get_cases
 
 
 def setup_args_parser(subparsers):

@@ -13,7 +13,6 @@ from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circ
 from circuits_benchmark.transformers.circuit import Circuit
 from circuits_benchmark.transformers.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
-from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
 from circuits_benchmark.utils.iit.best_weights import get_best_weight
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel

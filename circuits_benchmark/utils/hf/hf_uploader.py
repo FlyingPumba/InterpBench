@@ -1,6 +1,6 @@
-from transformers import PreTrainedModel, AutoTokenizer, PretrainedConfig
 from transformer_lens import HookedTransformerConfig, HookedTransformer
-import torch
+from transformers import PreTrainedModel, PretrainedConfig
+
 
 class LLModelConfig(PretrainedConfig):
     def __init__(self, cfg: HookedTransformerConfig, 

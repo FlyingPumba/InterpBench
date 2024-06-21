@@ -2,8 +2,7 @@ from argparse import Namespace
 from typing import List
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.utils.find_all_subclasses import find_all_subclasses_in_package, \
-  find_all_transitive_subclasses_in_package
+from circuits_benchmark.utils.find_all_subclasses import find_all_transitive_subclasses_in_package
 
 
 def get_cases(args: Namespace | None = None, indices: List[str] | None = None) -> List[BenchmarkCase]:

@@ -4,14 +4,12 @@ import shutil
 from argparse import Namespace
 
 import circuits_benchmark.commands.algorithms.acdc as acdc
-import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
 from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
-from circuits_benchmark.utils.iit.ll_cfg import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 
 

@@ -3,8 +3,6 @@ from typing import Union
 
 from transformer_lens.hook_points import HookedRootModule
 
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
-
 
 def parse_dimension(dim_value: Union[int, None],
                     compression_ratio_value: Union[float, None],

@@ -15,10 +15,6 @@ from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
-from iit.model_pairs.freeze_model_pair import FreezedModelPair
-from iit.model_pairs.ioi_model_pair import IOI_ModelPair
-from iit.model_pairs.stop_grad_pair import StopGradModelPair
-from iit.model_pairs.strict_iit_model_pair import StrictIITModelPair
 from iit.utils.iit_dataset import train_test_split, IITDataset
 
 

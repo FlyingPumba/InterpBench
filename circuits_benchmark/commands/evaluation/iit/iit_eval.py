@@ -1,9 +1,6 @@
 import pickle
 from argparse import Namespace
 
-import pickle
-from argparse import Namespace
-
 import numpy as np
 import torch as t
 from transformer_lens import HookedTransformer
@@ -15,13 +12,10 @@ from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.best_weights import get_best_weight
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 from iit.model_pairs.base_model_pair import BaseModelPair
-from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
-from iit.model_pairs.ioi_model_pair import IOI_ModelPair
 from iit.utils import IITDataset
 from iit.utils.eval_ablations import (
     check_causal_effect,

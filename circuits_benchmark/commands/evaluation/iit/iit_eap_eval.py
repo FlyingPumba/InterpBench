@@ -8,7 +8,6 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.commands.algorithms.eap import EAPRunner
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
-from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 

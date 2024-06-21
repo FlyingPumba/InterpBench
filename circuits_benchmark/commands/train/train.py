@@ -11,6 +11,7 @@ from circuits_benchmark.commands.train.compression.non_linear_compression import
 from circuits_benchmark.commands.train.iit import iit_train
 from circuits_benchmark.utils.get_cases import get_cases
 
+
 def setup_args_parser(subparsers):
   run_parser = subparsers.add_parser("train")
   run_subparsers = run_parser.add_subparsers(dest="type")

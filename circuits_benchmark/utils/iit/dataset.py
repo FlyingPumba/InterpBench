@@ -1,11 +1,3 @@
-import numpy as np
-from torch.utils.data import Dataset, DataLoader
-from iit.utils.config import DEVICE
-import torch
-from iit.utils.iit_dataset import IITDataset
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-
-
 # class TracrIITDataset(IITDataset):
 #     def __init__(self, base_data, ablation_data, hl_model, seed=0, every_combination=False):
 #         super().__init__(base_data, ablation_data, seed, every_combination)

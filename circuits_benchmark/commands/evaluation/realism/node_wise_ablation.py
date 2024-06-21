@@ -1,25 +1,25 @@
-import torch
-from transformer_lens import HookedTransformer
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+import pickle
 from argparse import Namespace
 
+import torch
+import wandb
+from transformer_lens import HookedTransformer
+
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.transformers.circuit import Circuit
+from circuits_benchmark.transformers.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
-from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
-from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
-from iit.model_pairs.nodes import LLNode
-from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
-import pickle
-from iit.utils import index, IITDataset
-import wandb
 from circuits_benchmark.utils.iit.wandb_loader import (
     load_model_from_wandb,
     load_circuit_from_wandb,
 )
-from circuits_benchmark.transformers.circuit_node import CircuitNode
-from circuits_benchmark.transformers.circuit import Circuit
+from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
+from iit.model_pairs.nodes import LLNode
+from iit.utils import index, IITDataset
+from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 
 
 def setup_args_parser(subparsers):

@@ -19,7 +19,6 @@ from circuits_benchmark.transformers.hooked_tracr_transformer import (
 )
 from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit, calculate_fpr_and_tpr
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
-from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 from circuits_benchmark.utils.node_sp import train_sp
