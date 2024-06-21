@@ -142,7 +142,7 @@ def run_sp(
             case, tracr_output=case.get_tracr_output()
         )
 
-        ll_cfg = make_ll_cfg_for_case(hl_model, case.get_name())
+        ll_cfg = case.get_ll_model_cfg()
 
         tl_model = HookedTracrTransformer(
             ll_cfg,

@@ -6,7 +6,7 @@ import torch as t
 from jaxtyping import Float
 from torch import Tensor
 from torch.utils.data import Dataset
-from transformer_lens import HookedTransformer
+from transformer_lens import HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
@@ -18,7 +18,7 @@ class BenchmarkCase(object):
   def get_name(self) -> str:
     class_name = self.__class__.__name__  # e.g. Case1
     assert class_name.startswith("Case")
-    return class_name[4:]
+    return class_name[4:].lower()
 
   def __str__(self):
     return self.get_case_file_absolute_path()
@@ -43,6 +43,10 @@ class BenchmarkCase(object):
 
   def get_validation_metric(self) -> Callable[[Tensor], Float[Tensor, ""]]:
     """Returns the validation metric for the benchmark case."""
+    raise NotImplementedError()
+
+  def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
+    """Returns the configuration for the LL model for this benchmark case."""
     raise NotImplementedError()
 
   def get_ll_model(

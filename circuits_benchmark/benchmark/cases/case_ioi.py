@@ -4,7 +4,7 @@ import torch as t
 from jaxtyping import Float
 from torch import Tensor
 from torch.utils.data import Dataset
-from transformer_lens import HookedTransformer
+from transformer_lens import HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
@@ -47,6 +47,16 @@ class CaseIOI(BenchmarkCase):
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
 
+  def get_ll_model_cfg(self, *args, **kwargs) -> HookedTransformerConfig:
+    """Returns the configuration for the LL model for this benchmark case."""
+    ll_cfg = HookedTransformer.from_pretrained(
+      "gpt2"
+    ).cfg.to_dict()
+    ll_cfg.update(ioi_cfg)
+
+    ll_cfg["init_weights"] = True
+    return HookedTransformerConfig.from_dict(ll_cfg)
+
   def get_ll_model(
       self,
       device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
@@ -57,12 +67,7 @@ class CaseIOI(BenchmarkCase):
     if self.ll_model is not None:
       return self.ll_model
 
-    ll_cfg = HookedTransformer.from_pretrained(
-      "gpt2"
-    ).cfg.to_dict()
-    ll_cfg.update(ioi_cfg)
-
-    ll_cfg["init_weights"] = True
+    ll_cfg = self.get_ll_model_cfg(*args, **kwargs)
     self.ll_model = HookedTransformer(ll_cfg).to(device)
 
     return self.ll_model
@@ -83,7 +88,10 @@ class CaseIOI(BenchmarkCase):
 
     return self.hl_model
 
-  def get_correspondence(self, include_mlp: bool = False, *args, **kwargs) -> Correspondence:
+  def get_correspondence(self,
+                         include_mlp: bool = False,
+                         eval: bool = False,
+                         *args, **kwargs) -> Correspondence:
     """Returns the correspondence between the reference and the benchmark model."""
-    corr_dict = make_corr_dict(include_mlp=include_mlp)
+    corr_dict = make_corr_dict(include_mlp=include_mlp, eval=eval)
     return Correspondence.make_corr_from_dict(corr_dict, suffixes=suffixes)

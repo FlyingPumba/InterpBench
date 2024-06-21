@@ -101,8 +101,8 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
                 )
             )
         except FileNotFoundError:
-            ll_cfg = make_ll_cfg_for_case(
-                hl_model, case.get_name(), same_size=args.same_size
+            ll_cfg = case.get_ll_model_cfg(
+                same_size=args.same_size
             )
 
         # make ll model

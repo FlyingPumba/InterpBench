@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch as t
 
-from circuits_benchmark.commands.evaluation.iit import iit_eval, iit_acdc_eval, ioi_eval, ioi_acdc_eval, iit_eap_eval
+from circuits_benchmark.commands.evaluation.iit import iit_eval, iit_acdc_eval, ioi_acdc_eval, iit_eap_eval
 from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.commands.evaluation.realism import node_wise_ablation, gt_circuit_node_wise_ablation
 
@@ -18,17 +18,13 @@ def setup_args_parser(subparsers):
   iit_acdc_eval.setup_args_parser(run_subparsers)
   iit_eap_eval.setup_args_parser(run_subparsers)
   node_wise_ablation.setup_args_parser(run_subparsers)
-  ioi_eval.setup_args_parser(run_subparsers)
   ioi_acdc_eval.setup_args_parser(run_subparsers)
   gt_circuit_node_wise_ablation.setup_args_parser(run_subparsers)
 
 
 def run(args):
   evaluation_type = args.type
-  if evaluation_type == "ioi":
-    ioi_eval.run_eval_ioi(args)
-    return
-  elif evaluation_type == "ioi_acdc":
+  if evaluation_type == "ioi_acdc":
     ioi_acdc_eval.run_ioi_acdc(args)
     return
   

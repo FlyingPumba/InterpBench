@@ -1,11 +1,13 @@
-import argparse
+import pickle
+from argparse import Namespace
+
 import pickle
 from argparse import Namespace
 
 import numpy as np
 import torch as t
+from transformer_lens import HookedTransformer
 
-import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
@@ -14,10 +16,12 @@ from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
+from circuits_benchmark.utils.iit.best_weights import get_best_weight
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
+from iit.model_pairs.ioi_model_pair import IOI_ModelPair
 from iit.utils import IITDataset
 from iit.utils.eval_ablations import (
     check_causal_effect,
@@ -28,11 +32,8 @@ from iit.utils.eval_ablations import (
 )
 
 
-def setup_args_parser(subparsers, return_namespace=False):
-    if return_namespace:
-        parser = argparse.ArgumentParser()
-    else:
-        parser = subparsers.add_parser("iit")
+def setup_args_parser(subparsers):
+    parser = subparsers.add_parser("iit")
     add_common_args(parser)
 
     parser.add_argument(
@@ -44,9 +45,11 @@ def setup_args_parser(subparsers, return_namespace=False):
     )
     parser.add_argument("-m", "--mean", type=int, default=1, help="Use mean cache")
     parser.add_argument(
-        "--save-to-wandb", action="store_true", help="Save results to wandb"
+        "--batch-size",
+        type=int,
+        default=512,
+        help="Batch size for making mean cache (if using mean ablation)",
     )
-    parser.add_argument("--batch_size", type=int, default=512, help="Batch size")
     parser.add_argument(
         "--categorical-metric",
         choices=["accuracy", "kl_div", "kl_div_self"],
@@ -54,26 +57,28 @@ def setup_args_parser(subparsers, return_namespace=False):
         help="Categorical metric to use",
     )
     parser.add_argument(
-        "--load-from-wandb", action="store_true", help="Load model from wandb"
-    )
-    parser.add_argument(
-        "--max-len", type=int, default=1000, help="Max length of unique data"
+        "--max-len", type=int, default=18000, help="Max length of unique data"
     )
     parser.add_argument(
         "--same-size", action="store_true", help="Use same size for ll model"
     )
-    # parser.add_argument("-o", "--output_dir", type=str, default="./results", help="Output directory")
-    # model_pair_class_map = {
-    #     "strict": StrictIITModelPair,
-    #     "behavior": IITBehaviorModelPair,
-    #     "iit": FreezedModelPair,
-    #     "stop_grad": StopGradModelPair
-    # }
-    # parser.add_argument('-mp', '--model_pair', type=str, default="strict", help="Model pair class to use")
-    if return_namespace:
-        # return the default namespace without parsing any arguments
-        args = parser.parse_args([])
-        return args
+
+    parser.add_argument(
+        "--next-token", action="store_true", help="Use next token model"
+    )
+    parser.add_argument(
+        "--include-mlp", action="store_true", help="Evaluate group 'with_mlp'"
+    )
+
+    parser.add_argument(
+        "--use-wandb", action="store_true", help="Use wandb for logging"
+    )
+    parser.add_argument(
+        "--save-to-wandb", action="store_true", help="Save results to wandb"
+    )
+    parser.add_argument(
+        "--load-from-wandb", action="store_true", help="Load model from wandb"
+    )
 
 
 def get_node_effects(
@@ -83,12 +88,14 @@ def get_node_effects(
     use_mean_cache: bool,
     individual_nodes: bool = True,
 ):
-    np.random.seed(0)
-    t.manual_seed(0)
+    np.random.seed(args.seed)
+    t.manual_seed(args.seed)
+
     unique_dataset = case.get_clean_data(max_samples=args.max_len, unique_data=True)
     if isinstance(unique_dataset, TracrDataset):
         unique_dataset = unique_dataset.get_encoded_dataset(args.device)
     test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
+
     with t.no_grad():
         result_not_in_circuit = check_causal_effect(
             model_pair,
@@ -110,19 +117,11 @@ def get_node_effects(
         )
 
         # zero/mean ablation
-        unique_dataset = case.get_clean_data(max_samples=args.max_len * 100, unique_data=True)
-        if isinstance(unique_dataset, TracrDataset):
-            unique_dataset = unique_dataset.get_encoded_dataset(args.device)
-
-        combinations_dataset = IITDataset(
-            unique_dataset, unique_dataset, every_combination=True
-        )
-
         za_result_not_in_circuit, za_result_in_circuit = (
             get_causal_effects_for_all_nodes(
                 model_pair,
-                combinations_dataset,
-                batch_size=len(combinations_dataset),
+                test_set,
+                batch_size=len(test_set),
                 use_mean_cache=use_mean_cache,
             )
         )
@@ -152,12 +151,15 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         hl_ll_corr = case.get_correspondence(same_size=True)
     else:
         if weight == "best":
-            from circuits_benchmark.utils.iit.best_weights import get_best_weight
-
             weight = get_best_weight(case.get_name())
         
         # make correspondence
-        hl_ll_corr = case.get_correspondence(same_size=args.same_size)
+        get_correspondence_args = {
+            "same_size": args.same_size
+        }
+        if args.include_mlp:
+            get_correspondence_args["include_mlp"] = True
+        hl_ll_corr = case.get_correspondence(**get_correspondence_args)
 
         # load from wandb if needed
         if args.load_from_wandb:
@@ -174,23 +176,19 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
                 )
             )
         except FileNotFoundError:
-            ll_cfg = make_ll_cfg_for_case(
-                hl_model, case.get_name(), same_size=args.same_size
-            )
-        ll_model = HookedTracrTransformer(
-            ll_cfg,
-            hl_model.tracr_input_encoder,
-            hl_model.tracr_output_encoder,
-            hl_model.residual_stream_labels,
-        )
-        
-        ll_model.load_weights_from_file(
-            f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth"
-        )
+            ll_cfg = case.get_ll_model_cfg(same_size=args.same_size)
+
+        ll_model = HookedTransformer(ll_cfg)
+        ll_model.load_state_dict(t.load(
+            f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth",
+            map_location=args.device))
         ll_model.eval()
         ll_model.requires_grad_(False)
 
-    model_pair = IITBehaviorModelPair(hl_model, ll_model, hl_ll_corr)
+    if "ioi" in case.get_name():
+        model_pair = IOI_ModelPair(hl_model, ll_model, hl_ll_corr)
+    else:
+        model_pair = IITBehaviorModelPair(hl_model, ll_model, hl_ll_corr)
 
     df, metric_collection = get_node_effects(case, args, model_pair, use_mean_cache)
 

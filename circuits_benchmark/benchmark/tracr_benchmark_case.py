@@ -5,7 +5,7 @@ from typing import Optional, Sequence, Set
 import numpy as np
 import torch as t
 from torch import Tensor
-from transformer_lens import HookedTransformer
+from transformer_lens import HookedTransformer, HookedTransformerConfig
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
@@ -47,6 +47,11 @@ class TracrBenchmarkCase(BenchmarkCase):
     """
     return True
 
+  def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
+    """Returns the configuration for the LL model for this benchmark case."""
+    hl_model = self.get_hl_model()
+    return make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size, *args, **kwargs)
+
   def get_ll_model(
       self,
       device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
@@ -55,8 +60,7 @@ class TracrBenchmarkCase(BenchmarkCase):
   ) -> HookedTransformer:
     """Returns the untrained transformer_lens model for this benchmark case.
     In IIT terminology, this is the LL model before training."""
-    hl_model = self.get_hl_model(device=device)
-    ll_cfg = make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size)
+    ll_cfg = self.get_ll_model_cfg(same_size=same_size, *args, **kwargs)
     ll_model = HookedTransformer(ll_cfg)
     ll_model.to(device)
     return ll_model

@@ -73,7 +73,7 @@ def make_everything_for_task(case: BenchmarkCase, args: Namespace):
     if isinstance(hl_model, HookedTracrTransformer):
         hl_model = IITHLModel(hl_model, eval_mode=True)
 
-    ll_cfg = make_ll_cfg_for_case(hl_model, case.get_name())
+    ll_cfg = case.get_ll_model_cfg()
     
     if args.load_from_wandb:
         load_model_from_wandb(case.get_name(), weight, output_dir)
@@ -85,7 +85,7 @@ def make_everything_for_task(case: BenchmarkCase, args: Namespace):
         )
     )
     hl_ll_corr = case.get_correspondence()
-    ll_model = HookedTransformer(make_ll_cfg_for_case(hl_model=hl_model, case_index=task))
+    ll_model = HookedTransformer(case.get_ll_model_cfg())
     full_corr = TLACDCCorrespondence.setup_from_model(
             ll_model, use_pos_embed=True
         )

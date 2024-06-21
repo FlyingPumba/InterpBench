@@ -86,7 +86,7 @@ def get_ll_model(case: TracrBenchmarkCase,
 
   hl_model = case.get_hl_model()
 
-  ll_cfg = make_ll_cfg_for_case(hl_model, case.get_name())
+  ll_cfg = case.get_ll_model_cfg()
   ll_model = HookedTracrTransformer(
     ll_cfg,
     hl_model.tracr_input_encoder,
