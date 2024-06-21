@@ -46,11 +46,6 @@ After running an algorith, the output can be found in the `results` folder.
 There are several evaluations that can be run using the framework. Options are: iit, iit_acdc, node_realism, ioi, ioi_acdc, and gt_node_realism.
 See [EXPERIMENTS.md](EXPERIMENTS.md) for a list of the commands used in the paper's empirical study.
 
-### Compilation commands
-
-The benchmark CLI also provides a `compile` commmand that can be used to preemtively compile the RASP programs for all the cases into their corresponding Tracr/TransformerLends models. This can be useful to speed up the benchmark, as this compilation can take a long time.
-To trigger this, run `./main.py compile`
-
 ## Tests
 
 To run the tests, you can just run `pytest` in the root directory of the project. The tests for submodules are ignored by default.
