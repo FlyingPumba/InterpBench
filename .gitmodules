@@ -1,7 +1,3 @@
-[submodule "submodules/tracr"]
-	path = submodules/tracr
-	url = https://github.com/FlyingPumba/tracr.git
-	ignore = untracked
 [submodule "submodules/Automatic-Circuit-Discovery"]
 	path = submodules/Automatic-Circuit-Discovery
 	url = https://github.com/FlyingPumba/Automatic-Circuit-Discovery.git

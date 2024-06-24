@@ -35,8 +35,9 @@ dataframe-image = "^0.2.3"
 ipython = "^8.24.0"
 torchvision = "^0.18.0"
 mlcroissant = "^1.0.5"
-auto-circuit = { git = "https://github.com/FlyingPumba/auto-circuit.git" }
 matplotlib = "3.8.1"
+auto-circuit = { git = "https://github.com/FlyingPumba/auto-circuit.git" }
+tracr = { git = "https://github.com/FlyingPumba/tracr.git" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
