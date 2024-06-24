@@ -1,3 +1,4 @@
+import torch as t
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -27,8 +28,8 @@ class TracrEncodedDataset(CaseDataset):
 
   @staticmethod
   def collate_fn(batch):
-    inputs = [x[0] for x in batch]
-    targets = [x[1] for x in batch]
+    inputs = t.stack([x[0] for x in batch])
+    targets = t.stack([x[1] for x in batch])
     return inputs, targets
 
   def make_loader(
