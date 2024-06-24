@@ -48,5 +48,5 @@ See [EXPERIMENTS.md](EXPERIMENTS.md) for a list of the commands used in the pape
 
 ## Tests
 
-To run the tests, you can just run `pytest` in the root directory of the project. The tests for submodules are ignored by default.
-If you want to run specific tests, you can use the `-k` flag: `pytest -k "get_cases_test"`.
+To run the tests, you can just run `poetry run pytest tests` in the root directory of the project. The tests for submodules are ignored by default.
+If you want to run specific tests, you can use the `-k` flag: `poetry run pytest tests -k "get_cases_test"`.

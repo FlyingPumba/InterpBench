@@ -135,11 +135,11 @@ class GenericTrainer:
       self.training_progress_bar.set_description(f"Epoch {self.epoch}, train_loss: {self.train_loss:.3f}" +
                                                  self.build_test_metrics_string())
 
-  def training_step(self, inputs) -> Float[Tensor, ""]:
+  def training_step(self, batch) -> Float[Tensor, ""]:
     """Calculates the loss on batched inputs, performs a gradient update step, and logs the loss."""
     self.optimizer.zero_grad()
 
-    loss = self.compute_train_loss(inputs)
+    loss = self.compute_train_loss(batch)
     if self.use_wandb:
       wandb.log({"train_loss": loss}, step=self.step)
 

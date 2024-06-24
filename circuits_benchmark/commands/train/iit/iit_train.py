@@ -264,9 +264,6 @@ def train_model(
 
     # prepare iit datasets for training and testing
     dataset = case.get_clean_data(min_samples=20000, max_samples=120_000, seed=args.seed)
-    if isinstance(dataset, TracrDataset):
-        dataset = dataset.get_encoded_dataset(args.device)
-
     train_dataset, test_dataset = train_test_split(
         dataset, test_size=0.2, random_state=42
     )

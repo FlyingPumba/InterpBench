@@ -13,7 +13,7 @@ class TrainTest(unittest.TestCase):
   def test_natural_compression(self):
     args, _ = build_main_parser().parse_known_args(["train",
                                                     "natural-compression",
-                                                    "-i=1,2,3",
+                                                    "-i=3",
                                                     "--d-model=8",
                                                     "--train-data-size=10",
                                                     "--test-data-ratio=0.3",

@@ -86,8 +86,6 @@ def get_node_effects(
     t.manual_seed(args.seed)
 
     unique_dataset = case.get_clean_data(max_samples=args.max_len, unique_data=True)
-    if isinstance(unique_dataset, TracrDataset):
-        unique_dataset = unique_dataset.get_encoded_dataset(args.device)
     test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
 
     with t.no_grad():

@@ -132,7 +132,8 @@ class TracrBenchmarkCase(BenchmarkCase):
                      max_samples: Optional[int] = 10,
                      seed: Optional[int] = 42,
                      unique_data: Optional[bool] = False,
-                     variable_length_seqs: Optional[bool] = False) -> TracrDataset:
+                     variable_length_seqs: Optional[bool] = False,
+                     encoded_dataset: bool = True) -> TracrDataset:
     """Returns clean data for the benchmark case.
     If the number of unique datapoints is between min_samples and max_samples, returns all possible unique datapoints.
     Otherwise, returns a random sample of max_samples datapoints."""
@@ -160,9 +161,12 @@ class TracrBenchmarkCase(BenchmarkCase):
     elif min_samples is None and max_samples is None:
       # we didn't get max_samples nor min_samples, produce all possible sequences for this vocab
       input_data, output_data = self.gen_all_data(min_seq_len, max_seq_len)
-    elif min_samples is not None and self.get_total_data_len() < min_samples:
-      # we have fewer data than the min_samples, produce at least min_samples, with repeating sequences
-      input_data, output_data = self.sample_data(min_samples, min_seq_len, max_seq_len)
+    elif min_samples is not None and max_samples is None:
+      if self.get_total_data_len() < min_samples:
+        # we have fewer data than the min_samples, produce at least min_samples, with repeating sequences
+        input_data, output_data = self.sample_data(min_samples, min_seq_len, max_seq_len)
+      else:
+        input_data, output_data = self.gen_all_data(min_seq_len, max_seq_len)
     elif max_samples is not None:
       # produce at most max_samples
       input_data, output_data = self.sample_data(max_samples, min_seq_len, max_seq_len)
@@ -189,7 +193,12 @@ class TracrBenchmarkCase(BenchmarkCase):
     input_data = [input_data[i] for i in indices]
     output_data = [output_data[i] for i in indices]
 
-    return TracrDataset(np.array(input_data), np.array(output_data), self.get_hl_model())
+    tracr_dataset = TracrDataset(np.array(input_data), np.array(output_data), self.get_hl_model())
+
+    if encoded_dataset:
+      return tracr_dataset.get_encoded_dataset()
+    else:
+      return tracr_dataset
 
   def get_total_data_len(self):
     """Returns the total number of possible sequences for the vocab and sequence lengths."""

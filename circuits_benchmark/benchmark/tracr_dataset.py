@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import torch as t
 from torch.utils.data import DataLoader
@@ -37,12 +39,13 @@ class TracrDataset(CaseDataset):
 
   def make_loader(
       self,
-      batch_size,
+      batch_size: int | None = None,
+      shuffle: bool | None = False,
   ) -> DataLoader:
     return DataLoader(
       self,
       batch_size=batch_size,
-      shuffle=True,
+      shuffle=shuffle,
       collate_fn=lambda x: self.collate_fn(x),
     )
 
@@ -50,8 +53,8 @@ class TracrDataset(CaseDataset):
       self,
       device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
   ):
-      encoded_inputs = self.hl_model.map_tracr_input_to_tl_input(self.inputs)
-      with t.no_grad():
-          encoded_outputs = self.hl_model(encoded_inputs)
+    encoded_inputs = self.hl_model.map_tracr_input_to_tl_input(self.inputs)
+    with t.no_grad():
+      encoded_outputs = self.hl_model(encoded_inputs)
 
-      return TracrEncodedDataset(encoded_inputs.to(device), encoded_outputs.to(device))
+    return TracrEncodedDataset(encoded_inputs.to(device), encoded_outputs.to(device))

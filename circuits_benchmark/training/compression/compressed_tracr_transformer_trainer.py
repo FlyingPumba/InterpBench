@@ -19,7 +19,7 @@ from circuits_benchmark.metrics.sparsity import get_zero_weights_pct
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.utils.circuit.circuit_eval import get_full_acdc_circuit
+from circuits_benchmark.utils.circuit.circuit_eval import get_full_circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from circuits_benchmark.utils.compare_tracr_output import replace_invalid_positions, compare_positions
@@ -48,18 +48,20 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     self.clean_dataset = self.case.get_clean_data(max_samples=self.args.train_data_size)
     self.corrupted_dataset = self.case.get_corrupted_data(max_samples=self.args.train_data_size)
 
-    train_dataset, test_dataset = train_test_split(
+    train_dataset_subset, test_dataset_subset = train_test_split(
       self.clean_dataset, test_size=0.2, random_state=42
     )
     self.train_loader = DataLoader(
-      train_dataset,
-      batch_size=self.args.batch_size,
+      train_dataset_subset,
+      batch_size=2,
       shuffle=True,
+      collate_fn=lambda x: self.clean_dataset.collate_fn(x),
     )
     self.test_loader = DataLoader(
-      test_dataset,
+      test_dataset_subset,
       batch_size=self.args.batch_size,
       shuffle=False,
+      collate_fn=lambda x: self.clean_dataset.collate_fn(x),
     )
 
   def get_logits_and_cache_from_original_model(
@@ -219,7 +221,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     base_model = self.get_original_model()
     compressed_model = self.get_compressed_model()
 
-    full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
+    full_circuit = get_full_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
     relevant_nodes: Set[CircuitNode] = set([node for node in full_circuit.nodes
                                             if "mlp_in" not in str(node) and not is_qkv_granularity_hook(str(node))])
     nodes_to_sample = random.sample(list(relevant_nodes), int(len(relevant_nodes) * percentage_nodes_to_sample))
@@ -273,7 +275,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
   def evaluate_node_effect(self, model, clean_data, corrupted_data):
     effect_by_node = {}
 
-    full_circuit = get_full_acdc_circuit(self.get_original_model().cfg.n_layers, self.get_original_model().cfg.n_heads)
+    full_circuit = get_full_circuit(self.get_original_model().cfg.n_layers, self.get_original_model().cfg.n_heads)
     all_nodes: Set[CircuitNode] = set(full_circuit.nodes)
     for node in all_nodes:
       hook_name = node.name

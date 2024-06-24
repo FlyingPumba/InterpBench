@@ -169,8 +169,6 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     )
 
     unique_dataset = case.get_clean_data(max_samples=100_000, unique_data=True)
-    if isinstance(unique_dataset, TracrDataset):
-        unique_dataset = unique_dataset.get_encoded_dataset(args.device)
     test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
     mean_cache = None
     if use_mean_cache:

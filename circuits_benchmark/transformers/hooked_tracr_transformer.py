@@ -100,7 +100,7 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
-    if isinstance(args[0], list) or isinstance(args[0], pd.Series):
+    if isinstance(args[0], list) or isinstance(args[0], np.ndarray):
       # Input is a HookedTracrTransformerBatchInput
       return self.run_tracr_input(*args, **kwargs)
     else:

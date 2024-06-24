@@ -12,7 +12,7 @@ from transformer_lens.hook_points import HookPoint
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import regular_intervention_hook_fn
-from circuits_benchmark.utils.circuit.circuit_eval import get_full_acdc_circuit
+from circuits_benchmark.utils.circuit.circuit_eval import get_full_circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
@@ -58,7 +58,7 @@ def evaluate_iia_on_all_ablation_types(
   _, base_model_clean_cache = base_model.run_with_cache(clean_data.get_inputs())
   _, hypothesis_model_clean_cache = hypothesis_model.run_with_cache(clean_data.get_inputs())
 
-  full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
+  full_circuit = get_full_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
   ll_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
 
   for node in set(full_circuit.nodes):
@@ -118,7 +118,7 @@ def evaluate_iia(case: BenchmarkCase,
                  accuracy_atol: Optional[float] = 1e-2) -> Dict[str, Dict[str, float]]:
   """Run Interchange Intervention Accuracy to measure if a hypothesis model has the same circuit as a base model."""
   print(f"Running IIA evaluation for case {case.get_name()} using ablation type \"{ablation_type}\".")
-  full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
+  full_circuit = get_full_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
 
   # evaluate all nodes in the full circuit
   results_by_node = {}

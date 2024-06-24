@@ -8,6 +8,7 @@ from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.model_pairs.ioi_model_pair import IOI_ModelPair
