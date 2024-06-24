@@ -29,9 +29,6 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
                      original_model.cfg.n_layers,
                      output_dir=output_dir)
 
-  def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
-    return self.compressed_model(inputs, return_type="decoded")
-
   def get_logits_and_cache_from_compressed_model(
       self,
       inputs: HookedTracrTransformerBatchInput

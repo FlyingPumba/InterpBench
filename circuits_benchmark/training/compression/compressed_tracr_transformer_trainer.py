@@ -22,7 +22,6 @@ from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.utils.circuit.circuit_eval import get_full_circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-from circuits_benchmark.utils.compare_tracr_output import replace_invalid_positions, compare_positions
 from iit.utils.iit_dataset import train_test_split
 
 
@@ -70,9 +69,6 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
   ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
     raise NotImplementedError
 
-  def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
-    raise NotImplementedError
-
   def get_logits_and_cache_from_compressed_model(
       self,
       inputs: HookedTracrTransformerBatchInput
@@ -93,41 +89,27 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     corrupted_data = None
 
     inputs = clean_data.get_inputs()
-    expected_outputs = clean_data.get_targets()
-    predicted_outputs = self.get_decoded_outputs_from_compressed_model(inputs)
+    targets = clean_data.get_targets()
+    predictions = self.get_compressed_model()(inputs)
 
-    correct_predictions = []
-    expected_outputs_flattened = []
-    predicted_outputs_flattened = []
+    # drop BOS
+    targets = targets[:, 1:]
+    predictions = predictions[:, 1:]
 
-    for predicted_output, expected_output in zip(predicted_outputs, expected_outputs):
-      # Replace all predictions and expectations values where expectations have None, BOS, or PAD with 0.
-      # We do this so that we don't compare the loss of invalid positions.
-      expected, predicted = replace_invalid_positions(expected_output, predicted_output, 0)
+    # calculate accuracy
+    if self.is_categorical:
+      # ues argmax on both predictions and targets to get the predicted and expected classes
+      predicted_classes = t.argmax(predictions, dim=-1)
+      expected_classes = t.argmax(targets, dim=-1)
+      accuracy = (predicted_classes == expected_classes).float().mean().item()
+    else:
+      # use isclose to compare the predictions and targets
+      accuracy = t.isclose(predictions, targets, atol=self.args.test_accuracy_atol).float().mean().item()
 
-      if any(isinstance(p, str) for p in predicted):
-        # We have chars, convert them to numbers to avoid the torch issue: "too many dimensions 'str'".
-        predicted = [self.get_original_model().tracr_output_encoder.encoding_map[p] if isinstance(p, str) else p for p
-                     in predicted]
-        expected = [self.get_original_model().tracr_output_encoder.encoding_map[e] if isinstance(e, str) else e for e in
-                    expected]
-
-      predicted_outputs_flattened.extend(predicted)
-      expected_outputs_flattened.extend(expected)
-
-      correct_predictions.extend(compare_positions(expected,
-                                                   predicted,
-                                                   self.is_categorical,
-                                                   self.args.test_accuracy_atol))
-
-    self.test_metrics["test_accuracy"] = np.mean(correct_predictions)
-
-    predicted_outputs_tensor = t.tensor(predicted_outputs_flattened)
-    expected_outputs_tensor = t.tensor(expected_outputs_flattened)
+    self.test_metrics["test_accuracy"] = accuracy
 
     if not self.is_categorical:
-      self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predicted_outputs_tensor,
-                                                               expected_outputs_tensor).item()
+      self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predictions, targets).item()
 
     # measure the effect of each node on the compressed model's output
     if self.epoch % 50 == 0:

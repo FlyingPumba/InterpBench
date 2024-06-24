@@ -19,7 +19,6 @@ from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracr
   HookedTracrTransformerBatchInput
 from circuits_benchmark.transformers.tracr_circuits_builder import build_tracr_circuits
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
-from circuits_benchmark.utils.compare_tracr_output import compare_valid_positions
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
 from iit.model_pairs.base_model_pair import BaseModelPair
@@ -356,62 +355,3 @@ class TracrBenchmarkCase(BenchmarkCase):
     tacr_output = self.get_tracr_output()
     tracr_circuits = build_tracr_circuits(tacr_output.graph, tacr_output.craft_model, granularity=granularity)
     return tracr_circuits.tracr_transformer_circuit
-
-  def run_case_tests_on_tracr_model(
-      self,
-      data_size: int = 100,
-      atol: float = 1.e-2,
-      fail_on_error: bool = True
-  ) -> float:
-    tracr_model = self.get_tracr_output().model
-    dataset = self.get_clean_data(max_samples=data_size)
-    inputs = dataset.get_inputs()
-    expected_outputs = dataset.get_targets()
-
-    is_categorical = isinstance(tracr_model.output_encoder, CategoricalEncoder)
-
-    correct_count = 0
-    for i in range(len(inputs)):
-      input = inputs[i]
-      expected_output = expected_outputs[i]
-      decoded_output = tracr_model.apply(input).decoded
-      correct = all(compare_valid_positions(expected_output, decoded_output, is_categorical, atol))
-
-      if not correct and fail_on_error:
-        raise ValueError(f"Failed test for {self} on tracr model."
-                         f"\n >>> Input: {input}"
-                         f"\n >>> Expected: {expected_output}"
-                         f"\n >>> Got: {decoded_output}")
-      elif correct:
-        correct_count += 1
-
-    return correct_count / len(inputs)
-
-  def run_case_tests_on_reference_model(
-      self,
-                                 data_size: int = 100,
-                                 atol: float = 1.e-2,
-                                 fail_on_error: bool = True) -> float:
-    hl_model = self.get_hl_model()
-
-    dataset = self.get_clean_data(max_samples=data_size)
-    inputs = dataset.get_inputs()
-    expected_outputs = dataset.get_targets()
-    decoded_outputs = hl_model(inputs, return_type="decoded")
-
-    correct_count = 0
-    for i in range(len(expected_outputs)):
-      input = inputs[i]
-      expected_output = expected_outputs[i]
-      decoded_output = decoded_outputs[i]
-      correct = all(compare_valid_positions(expected_output, decoded_output, hl_model.is_categorical(), atol))
-
-      if not correct and fail_on_error:
-        raise ValueError(f"Failed test for {self} on tl model."
-                         f"\n >>> Input: {input}"
-                         f"\n >>> Expected: {expected_output}"
-                         f"\n >>> Got: {decoded_output}")
-      elif correct:
-        correct_count += 1
-
-    return correct_count / len(expected_outputs)

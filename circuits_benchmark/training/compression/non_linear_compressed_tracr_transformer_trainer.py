@@ -140,9 +140,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       for name, param in self.new_tl_model.named_parameters():
         wandb.log({f"param_{name}_norm": param.norm()}, step=self.step)
 
-  def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
-    return self.new_tl_model(inputs, return_type="decoded")
-
   def get_logits_and_cache_from_compressed_model(
       self,
       inputs: HookedTracrTransformerBatchInput
