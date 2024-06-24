@@ -3,9 +3,8 @@ import random
 import numpy as np
 import torch as t
 
-from circuits_benchmark.commands.train.compression import linear_compression, autoencoder, \
+from circuits_benchmark.commands.train.compression import linear_compression, \
   non_linear_compression
-from circuits_benchmark.commands.train.compression.autoencoder import train_autoencoder
 from circuits_benchmark.commands.train.compression.linear_compression import train_linear_compression
 from circuits_benchmark.commands.train.compression.non_linear_compression import train_non_linear_compression
 from circuits_benchmark.commands.train.iit import iit_train
@@ -20,7 +19,6 @@ def setup_args_parser(subparsers):
   # Setup arguments for each algorithm
   linear_compression.setup_args_parser(run_subparsers)
   non_linear_compression.setup_args_parser(run_subparsers)
-  autoencoder.setup_args_parser(run_subparsers)
   iit_train.setup_args_parser(run_subparsers)
 
 
@@ -44,8 +42,6 @@ def run(args):
       train_linear_compression(case, args)
     elif training_type == "non-linear-compression":
       train_non_linear_compression(case, args)
-    elif training_type == "autoencoder":
-      train_autoencoder(case, args)
     elif training_type == "iit":
       iit_train.run_iit_train(case, args)
     else:
