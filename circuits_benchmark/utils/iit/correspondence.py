@@ -2,7 +2,7 @@ import pickle
 from collections import namedtuple
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.utils.iit._corr_utils import TracrHLCorr
 from circuits_benchmark.utils.iit.tracr_ll_corrs import get_tracr_ll_corr
 from iit.model_pairs.nodes import HLNode, LLNode
@@ -104,7 +104,7 @@ class TracrCorrespondence(Correspondence):
     def make_hl_ll_corr(
         cls,
         tracr_hl_corr: TracrHLCorr,
-        tracr_ll_corr: dict[str, set[LLNode]],
+        tracr_ll_corr: dict[str, set[LLNode]] | None = None,
         hook_name_style: str = "tl",
     ):
         def hook_name(loc, style) -> str:

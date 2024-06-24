@@ -8,10 +8,9 @@ import torch
 import transformer_lens
 
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
-from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.transformers.circuit_node import CircuitNode
-from circuits_benchmark.utils.circuit_eval import calculate_fpr_and_tpr
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit_eval import calculate_fpr_and_tpr, build_from_acdc_correspondence
 from iit.model_pairs.ioi_model_pair import IOI_ModelPair
 from iit.model_pairs.nodes import LLNode
 from iit.tasks.ioi import ioi_cfg, NAMES, suffixes, make_ll_edges, make_corr_dict
@@ -54,7 +53,7 @@ def evaluate_acdc_circuit(
     full_corr = TLACDCCorrespondence.setup_from_model(
             ll_model, use_pos_embed=use_pos_embed
     )
-    full_circuit = build_acdc_circuit(corr=full_corr)
+    full_circuit = build_from_acdc_correspondence(corr=full_corr)
     return calculate_fpr_and_tpr(
         acdc_circuit, gt_circuit, full_circuit, **kwargs
     )

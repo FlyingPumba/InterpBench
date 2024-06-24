@@ -9,6 +9,8 @@ from transformer_lens import HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.utils.project_paths import detect_project_root
 from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.utils.correspondence import Correspondence
@@ -81,6 +83,14 @@ class BenchmarkCase(object):
 
   def get_correspondence(self, *args, **kwargs) -> Correspondence:
     """Returns the correspondence between the reference and the benchmark model."""
+    raise NotImplementedError()
+
+  def get_ll_gt_circuit(self, granularity: CircuitGranularity = "acdc_hooks", *args, **kwargs) -> Circuit:
+    """Returns the ground truth circuit for the LL model."""
+    raise NotImplementedError()
+
+  def get_hl_gt_circuit(self, granularity: CircuitGranularity = "acdc_hooks", *args, **kwargs) -> Circuit:
+    """Returns the ground truth circuit for the HL model."""
     raise NotImplementedError()
 
   def get_case_file_absolute_path(self) -> str:

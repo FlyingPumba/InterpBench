@@ -1,7 +1,7 @@
 from typing import Tuple
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.transformers.circuit import Circuit, CircuitNode
+from circuits_benchmark.utils.circuit.circuit import Circuit, CircuitNode
 from iit.model_pairs.nodes import LLNode
 from iit.utils import index
 from iit.utils.correspondence import Correspondence
@@ -171,7 +171,7 @@ def get_gt_circuit(
         circuit.remove_node(node)
 
     # remove edges that are not a part of the tracr ground truth
-    _, tracr_ll_circuit, _ = case.get_tracr_circuit(granularity="acdc_hooks")
+    tracr_ll_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
     edges_to_remove = set()
 
     for edge in circuit.edges:

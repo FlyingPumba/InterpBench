@@ -9,9 +9,9 @@ from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
-from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit_eval import build_from_acdc_correspondence
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
 from circuits_benchmark.utils.iit.best_weights import get_best_weight
@@ -88,7 +88,7 @@ def make_everything_for_task(case: BenchmarkCase, args: Namespace):
     full_corr = TLACDCCorrespondence.setup_from_model(
             ll_model, use_pos_embed=True
         )
-    full_circuit = build_acdc_circuit(corr=full_corr)
+    full_circuit = build_from_acdc_correspondence(corr=full_corr)
     gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads, case)
 
     return hl_model, hl_ll_corr, full_circuit, gt_circuit, ll_model

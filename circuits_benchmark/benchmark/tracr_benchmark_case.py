@@ -12,12 +12,13 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.metrics.validation_metrics import l2_metric, kl_metric
-from circuits_benchmark.transformers.alignment import Alignment
-from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
+from circuits_benchmark.utils.circuit.alignment import Alignment
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
   HookedTracrTransformerBatchInput
 from circuits_benchmark.transformers.tracr_circuits_builder import build_tracr_circuits
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.utils.compare_tracr_output import compare_valid_positions
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
@@ -336,10 +337,16 @@ class TracrBenchmarkCase(BenchmarkCase):
 
     return tracr_output
 
-  def get_tracr_circuit(self, granularity: CircuitGranularity = "component") -> tuple[Circuit, Circuit, Alignment]:
-    """Returns the tracr circuit for the benchmark case."""
-    tracr_output = self.get_tracr_output()
-    return build_tracr_circuits(tracr_output.graph, tracr_output.craft_model, granularity)
+  def get_ll_gt_circuit(self, granularity: CircuitGranularity = "acdc_hooks", *args, **kwargs) -> Circuit:
+    """Returns the ground truth circuit for the LL model."""
+    # This is the identity for now
+    return self.get_hl_gt_circuit(granularity=granularity, *args, **kwargs)
+
+  def get_hl_gt_circuit(self, granularity: CircuitGranularity = "acdc_hooks", *args, **kwargs) -> Circuit:
+    """Returns the ground truth circuit for the HL model. I.e., the Tracr-generated model."""
+    tacr_output = self.get_tracr_output()
+    tracr_circuits = build_tracr_circuits(tacr_output.graph, tacr_output.craft_model, granularity=granularity)
+    return tracr_circuits.tracr_transformer_circuit
 
   def run_case_tests_on_tracr_model(
       self,

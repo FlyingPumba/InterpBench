@@ -8,7 +8,7 @@ import torch
 
 from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
+from circuits_benchmark.utils.circuit.circuit_eval import build_from_acdc_correspondence
 
 
 class ACDCRunner:
@@ -212,7 +212,7 @@ class ACDCRunner:
             return_it=True,
         )
 
-        acdc_circuit = build_acdc_circuit(exp.corr)
+        acdc_circuit = build_from_acdc_correspondence(exp.corr)
         acdc_circuit.save(f"{output_dir}/final_circuit.pkl")
         return acdc_circuit, exp
     

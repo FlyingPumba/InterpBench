@@ -11,13 +11,11 @@ from acdc.docstring.utils import AllDataThings
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.metrics.validation_metrics import l2_metric
-from circuits_benchmark.transformers.acdc_circuit_builder import (
-    build_acdc_circuit,
-)
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit, calculate_fpr_and_tpr
+from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, calculate_fpr_and_tpr, \
+    build_from_acdc_correspondence
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
@@ -87,7 +85,7 @@ def eval_fn(
     hl_ll_corr: TracrCorrespondence,
     case: BenchmarkCase,
 ):
-    sp_circuit = build_acdc_circuit(corr=corr)
+    sp_circuit = build_from_acdc_correspondence(corr=corr)
     return evaluate_hypothesis_circuit(
         sp_circuit,
         ll_model,
@@ -102,16 +100,22 @@ def eval_fn_compression(
     corr: TLACDCCorrespondence,
     tl_model: HookedTracrTransformer,
     case: BenchmarkCase,
+    evaluating_tracr_model: bool = False
 ):
-    sp_circuit = build_acdc_circuit(corr=corr)
+    sp_circuit = build_from_acdc_correspondence(corr=corr)
     full_corr = TLACDCCorrespondence.setup_from_model(
         tl_model, use_pos_embed=True
     )
-    full_circuit = build_acdc_circuit(corr=full_corr)
-    _, tracr_ll_circuit, _ = case.get_tracr_circuit(granularity="acdc_hooks")
+    full_circuit = build_from_acdc_correspondence(corr=full_corr)
+
+    if evaluating_tracr_model:
+        gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
+    else:
+        gt_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
+
     return calculate_fpr_and_tpr(
         sp_circuit,
-        tracr_ll_circuit,
+        gt_circuit,
         full_circuit,
         verbose=False,
         print_summary=False,
@@ -131,15 +135,11 @@ def run_sp(
         tl_model = case.get_hl_model(
             device=args.device,
         )
-        hl_ll_corr = TracrCorrespondence.make_identity_corr(
-            tracr_output=case.get_tracr_output()
-        )
+        hl_ll_corr = case.get_correspondence()
         output_suffix = "weight_tracr"
     else:
         hl_model = case.get_hl_model()
-        hl_ll_corr = TracrCorrespondence.from_output(
-            case, tracr_output=case.get_tracr_output()
-        )
+        hl_ll_corr = case.get_correspondence()
 
         ll_cfg = case.get_ll_model_cfg()
 
@@ -273,7 +273,7 @@ def run_sp(
     if edgewise:
         if args.compressed_model:
             eval_fn_to_use = partial(
-                eval_fn_compression, tl_model=tl_model, case=case
+                eval_fn_compression, tl_model=tl_model, case=case, evaluting_tracr_model=args.tracr
             )
         else:
             eval_fn_to_use = partial(
@@ -290,7 +290,7 @@ def run_sp(
         sp_corr = masked_model.get_edge_level_correspondence_from_masks(
             use_pos_embed=use_pos_embed
         )
-        sp_circuit = build_acdc_circuit(corr=sp_corr)
+        sp_circuit = build_from_acdc_correspondence(corr=sp_corr)
     else:
         masked_model, log_dict = train_sp(
             args=args,
@@ -305,7 +305,7 @@ def run_sp(
             log_dict["nodes_to_mask"],
             use_pos_embed=use_pos_embed,
         )
-        sp_circuit = build_acdc_circuit(corr=sp_corr)
+        sp_circuit = build_from_acdc_correspondence(corr=sp_corr)
 
     # Update dict with some different things
     # log_dict["nodes_to_mask"] = list(map(str, log_dict["nodes_to_mask"]))
@@ -320,18 +320,21 @@ def run_sp(
             full_corr = TLACDCCorrespondence.setup_from_model(
                 tl_model, use_pos_embed=True
             )
-            full_circuit = build_acdc_circuit(corr=full_corr)
-            _, tracr_ll_circuit, _ = case.get_tracr_circuit(
-                granularity="acdc_hooks"
-            )
+            full_circuit = build_from_acdc_correspondence(corr=full_corr)
+
+            if args.tracr:
+                gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
+            else:
+                gt_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
+
             result = calculate_fpr_and_tpr(
-                sp_circuit, tracr_ll_circuit, full_circuit, verbose=False
+                sp_circuit, gt_circuit, full_circuit, verbose=False
             )
         else:
             full_corr = TLACDCCorrespondence.setup_from_model(
                 tl_model, use_pos_embed=True
             )
-            full_circuit = build_acdc_circuit(corr=full_corr)
+            full_circuit = build_from_acdc_correspondence(corr=full_corr)
             result = evaluate_hypothesis_circuit(
                 sp_circuit,
                 tl_model,

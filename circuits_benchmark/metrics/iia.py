@@ -12,8 +12,8 @@ from transformer_lens.hook_points import HookPoint
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import regular_intervention_hook_fn
-from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
-from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit_eval import get_full_acdc_circuit
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 AblationType = Literal["zero", "mean", "resample"]
@@ -59,7 +59,7 @@ def evaluate_iia_on_all_ablation_types(
   _, hypothesis_model_clean_cache = hypothesis_model.run_with_cache(clean_data.get_inputs())
 
   full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
-  hl_circuit, ll_circuit, alignment = case.get_tracr_circuit(granularity="acdc_hooks")
+  ll_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
 
   for node in set(full_circuit.nodes):
     node_str = str(node)

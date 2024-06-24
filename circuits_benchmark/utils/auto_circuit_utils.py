@@ -1,8 +1,8 @@
 from auto_circuit.types import PruneScores
 from auto_circuit.utils.patchable_model import PatchableModel
 
-from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 
 
 def build_circuit(model: PatchableModel,

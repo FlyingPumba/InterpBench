@@ -8,6 +8,7 @@ from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.model_pairs.ioi_model_pair import IOI_ModelPair
 from iit.tasks.ioi import ioi_cfg, IOI_HL, NAMES, IOIDatasetWrapper, make_corr_dict, suffixes
@@ -124,3 +125,11 @@ class CaseIOI(BenchmarkCase):
     """Returns the correspondence between the reference and the benchmark model."""
     corr_dict = make_corr_dict(include_mlp=include_mlp, eval=eval)
     return Correspondence.make_corr_from_dict(corr_dict, suffixes=suffixes)
+
+  def get_ll_gt_circuit(self, granularity: CircuitGranularity = "acdc_hooks", *args, **kwargs) -> Circuit:
+    """Returns the ground truth circuit for the LL model."""
+    raise NotImplementedError()
+
+  def get_hl_gt_circuit(self, granularity: CircuitGranularity = "acdc_hooks", *args, **kwargs) -> Circuit:
+    """Returns the ground truth circuit for the HL model."""
+    raise NotImplementedError()

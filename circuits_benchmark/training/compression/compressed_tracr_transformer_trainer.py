@@ -19,8 +19,8 @@ from circuits_benchmark.metrics.sparsity import get_zero_weights_pct
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
-from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit_eval import get_full_acdc_circuit
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from circuits_benchmark.utils.compare_tracr_output import replace_invalid_positions, compare_positions
 from iit.utils.iit_dataset import train_test_split

@@ -9,7 +9,7 @@ from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
+from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 
 
