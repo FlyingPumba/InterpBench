@@ -22,6 +22,7 @@ class EAPRunner:
     self.edge_count = args.edge_count
     self.threshold = args.threshold
     self.integrated_grad_steps = args.integrated_grad_steps
+    self.regression_loss_fn = args.regression_loss_fn
 
     assert (self.edge_count is not None) ^ (self.threshold is not None), \
       "Either edge_count or threshold must be provided, but not both"
@@ -102,7 +103,13 @@ class EAPRunner:
       # Auto-circuit assumes that all models are categorical, so we need to provide a custom loss function for
       # regression ones
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
-        return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
+        if self.regression_loss_fn == "mse":
+          return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
+        elif self.regression_loss_fn == "huber":
+            return t.nn.functional.huber_loss(logits, batch.answers) - \
+                    t.nn.functional.huber_loss(logits, batch.wrong_answers)
+        else:
+          raise ValueError(f"Unknown regression loss function: {self.regression_loss_fn}")
 
       eap_args["answer_function"] = loss_fn
 
@@ -136,6 +143,8 @@ class EAPRunner:
     parser.add_argument("--data-size", type=int, default=1000, help="Number of samples to use")
     parser.add_argument("--integrated-grad-steps", type=int, default=None,
                         help="Number of samples for integrated grad. If None, this is not used.")
+    parser.add_argument("--regression-loss-fn", type=str, default="huber",
+                        choices=["mse", "huber"], help="Loss function to use for regression models.")
 
   @classmethod
   def make_default_runner(cls, task: str):
