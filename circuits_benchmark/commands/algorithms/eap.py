@@ -102,7 +102,7 @@ class EAPRunner:
       # Auto-circuit assumes that all models are categorical, so we need to provide a custom loss function for
       # regression ones
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
-        return -t.mean(logits - batch.wrong_answers)
+        return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
 
       eap_args["answer_function"] = loss_fn
 
@@ -111,6 +111,7 @@ class EAPRunner:
     if self.edge_count is not None:
       # find the threshold for the top-k edges
       threshold = prune_scores_threshold(attribution_scores, self.edge_count).item()
+      print(f"Threshold for top-{self.edge_count} edges: {threshold}")
     else:
       threshold = self.threshold
 
