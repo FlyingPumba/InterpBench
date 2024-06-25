@@ -7,9 +7,6 @@ import circuits_benchmark.commands.algorithms.acdc as acdc
 import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.transformers.acdc_circuit_builder import (
-    build_acdc_circuit,
-)
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
@@ -148,16 +145,11 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         hl_ll_corr.save(f"{clean_dirname}/hl_ll_corr.pkl")
         # evaluate the acdc circuit
         print("Calculating FPR and TPR for threshold", threshold)
-        from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-
-        full_corr = TLACDCCorrespondence.setup_from_model(ll_model, use_pos_embed=True)
-        full_circuit = build_acdc_circuit(full_corr)
         result = evaluate_hypothesis_circuit(
             acdc_circuit,
             ll_model,
             hl_ll_corr,
             case,
-            full_circuit=full_circuit,
             verbose=False,
         )
         result.update(acdc_result)
