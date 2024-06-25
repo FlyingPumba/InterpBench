@@ -23,6 +23,7 @@ class EAPRunner:
     self.threshold = args.threshold
     self.integrated_grad_steps = args.integrated_grad_steps
     self.regression_loss_fn = args.regression_loss_fn
+    self.normalize_scores = args.normalize_scores
 
     assert (self.edge_count is not None) ^ (self.threshold is not None), \
       "Either edge_count or threshold must be provided, but not both"
@@ -114,6 +115,8 @@ class EAPRunner:
       eap_args["answer_function"] = loss_fn
 
     attribution_scores: PruneScores = mask_gradient_prune_scores(**eap_args)
+    if self.normalize_scores:
+      attribution_scores = self.build_normalized_scores(attribution_scores)
 
     if self.edge_count is not None:
       # find the threshold for the top-k edges
@@ -126,6 +129,17 @@ class EAPRunner:
     eap_circuit.save(f"{self.args.output_dir}/final_circuit.pkl")
 
     return eap_circuit
+
+  def build_normalized_scores(self, attribution_scores: PruneScores) -> PruneScores:
+    """Normalize the scores so that they all lie between 0 and 1."""
+    max_score = max(scores.max() for scores in attribution_scores.values())
+    min_score = min(scores.min() for scores in attribution_scores.values())
+
+    normalized_scores = attribution_scores.copy()
+    for module_name, scores in normalized_scores.items():
+      normalized_scores[module_name] = (normalized_scores[module_name] - min_score) / (max_score - min_score)
+
+    return normalized_scores
 
   @staticmethod
   def setup_subparser(subparsers):
@@ -145,6 +159,8 @@ class EAPRunner:
                         help="Number of samples for integrated grad. If None, this is not used.")
     parser.add_argument("--regression-loss-fn", type=str, default="huber",
                         choices=["mse", "huber"], help="Loss function to use for regression models.")
+    parser.add_argument("--normalize-scores", action="store_true",
+                        help="Normalize the scores so that they all lie between 0 and 1.")
 
   @classmethod
   def make_default_runner(cls, task: str):
