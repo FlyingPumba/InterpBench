@@ -103,6 +103,7 @@ class EAPRunner:
     else:
       # Auto-circuit assumes that all models are categorical, so we need to provide a custom loss function for
       # regression ones
+      print(f"Using regression loss function: {self.regression_loss_fn}")
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
         if self.regression_loss_fn == "mse":
           return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
