@@ -16,11 +16,12 @@ def evaluate_hypothesis_circuit(
     hl_ll_corr: TracrCorrespondence,
     case: BenchmarkCase,
     full_circuit: Optional[Circuit] = None,
+    use_embeddings: bool = True,
     **kwargs,
 ):
   if full_circuit is None:
     full_corr = TLACDCCorrespondence.setup_from_model(
-      ll_model, use_pos_embed=True
+      ll_model, use_pos_embed=use_embeddings
     )
     full_circuit = build_acdc_circuit(corr=full_corr)
 

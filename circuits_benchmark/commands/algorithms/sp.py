@@ -1,38 +1,36 @@
-from circuits_benchmark.commands.common_args import add_common_args
+import os
+import pickle
+import shutil
+# from acdc.acdc_utils import kl_divergence
+from functools import partial
+
+import torch
+import wandb
+
+from acdc.TLACDCCorrespondence import TLACDCCorrespondence
+from acdc.docstring.utils import AllDataThings
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.metrics.validation_metrics import l2_metric
+from circuits_benchmark.transformers.acdc_circuit_builder import (
+    build_acdc_circuit,
+)
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from typing import Optional
-import sys
-import torch
-import shutil
-from acdc.docstring.utils import AllDataThings
-import os
-
 from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
+from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
+from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
+from circuits_benchmark.utils.iit import make_ll_cfg_for_case
+from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from circuits_benchmark.utils.node_sp import train_sp
 from subnetwork_probing.masked_transformer import (
     EdgeLevelMaskedTransformer,
     CircuitStartingPointType,
 )
 from subnetwork_probing.train import NodeLevelMaskedTransformer
-
-# from acdc.acdc_utils import kl_divergence
-from functools import partial
-from circuits_benchmark.utils.iit import make_ll_cfg_for_case
-from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
-from circuits_benchmark.utils.node_sp import train_sp
-from circuits_benchmark.metrics.validation_metrics import l2_metric
-from circuits_benchmark.transformers.acdc_circuit_builder import (
-    build_acdc_circuit,
-)
-import wandb
-from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
-from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from subnetwork_probing.train import iterative_correspondence_from_mask
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
-import pickle
 
 
 def setup_args_parser(subparsers):
@@ -92,17 +90,12 @@ def eval_fn(
     hl_ll_corr: TracrCorrespondence,
     case: BenchmarkCase,
 ):
-    full_corr = TLACDCCorrespondence.setup_from_model(
-        ll_model, use_pos_embed=True
-    )
-    full_circuit = build_acdc_circuit(corr=full_corr)
     sp_circuit = build_acdc_circuit(corr=corr)
     return evaluate_hypothesis_circuit(
         sp_circuit,
         ll_model,
         hl_ll_corr,
         case=case,
-        full_circuit=full_circuit,
         verbose=False,
         print_summary=False,
     )

@@ -3,10 +3,8 @@ import pickle
 import shutil
 from argparse import Namespace
 
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.algorithms.eap import EAPRunner
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
@@ -53,17 +51,13 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
   hl_ll_corr.save(f"{clean_dirname}/hl_ll_corr.pkl")
 
   print("Calculating FPR and TPR")
-  full_corr = TLACDCCorrespondence.setup_from_model(
-    ll_model, use_pos_embed=True
-  )
-  full_circuit = build_acdc_circuit(full_corr)
   result = evaluate_hypothesis_circuit(
     eap_circuit,
     ll_model,
     hl_ll_corr,
     case,
-    full_circuit=full_circuit,
     verbose=False,
+    use_embeddings=False,
   )
 
   # save the result
