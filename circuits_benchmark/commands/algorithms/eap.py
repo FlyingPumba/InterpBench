@@ -107,9 +107,8 @@ class EAPRunner:
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
         if self.regression_loss_fn == "mse":
           return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
-        elif self.regression_loss_fn == "huber":
-            return t.nn.functional.huber_loss(logits, batch.answers) - \
-                    t.nn.functional.huber_loss(logits, batch.wrong_answers)
+        elif self.regression_loss_fn == "mae":
+            return t.nn.functional.l1_loss(logits, batch.answers)
         else:
           raise ValueError(f"Unknown regression loss function: {self.regression_loss_fn}")
 
@@ -159,7 +158,7 @@ class EAPRunner:
     parser.add_argument("--integrated-grad-steps", type=int, default=None,
                         help="Number of samples for integrated grad. If None, this is not used.")
     parser.add_argument("--regression-loss-fn", type=str, default="huber",
-                        choices=["mse", "huber"], help="Loss function to use for regression models.")
+                        choices=["mse", "mae"], help="Loss function to use for regression models.")
     parser.add_argument("--normalize-scores", action="store_true",
                         help="Normalize the scores so that they all lie between 0 and 1.")
 
