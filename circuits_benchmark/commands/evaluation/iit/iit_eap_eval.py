@@ -20,7 +20,7 @@ def setup_args_parser(subparsers):
     "-w",
     "--weights",
     type=str,
-    default="110",
+    default="510",
     help="IIT, behavior, strict weights",
   )
   parser.add_argument(

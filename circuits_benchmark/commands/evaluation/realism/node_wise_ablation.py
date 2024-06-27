@@ -53,7 +53,7 @@ def setup_args_parser(subparsers):
     parser.add_argument("--relative", type=int, default=1, help="Use relative scores")
     parser.add_argument(
         "--algorithm",
-        choices=["acdc", "edge_sp", "node_sp"],
+        choices=["acdc", "edge_sp", "node_sp", "eap"],
         default="acdc",
         help="Algorithm to use",
     )
