@@ -80,6 +80,7 @@ def get_node_effects(
     args: Namespace,
     model_pair: mp.BaseModelPair,
     use_mean_cache: bool,
+    individual_nodes: bool = True,
 ):
     np.random.seed(0)
     t.manual_seed(0)
@@ -99,7 +100,7 @@ def get_node_effects(
         result_in_circuit = check_causal_effect(
             model_pair,
             test_set,
-            node_type="c",
+            node_type="c" if not individual_nodes else "individual_c",
             categorical_metric=Categorical_Metric(args.categorical_metric),
             verbose=False,
         )
