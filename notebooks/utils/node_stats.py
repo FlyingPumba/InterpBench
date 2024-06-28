@@ -1,6 +1,6 @@
 import iit.model_pairs as mp
 import torch
-from iit.utils.node_picker import get_nodes_not_in_circuit, get_nodes_in_circuit
+from iit.utils.node_picker import get_nodes_not_in_circuit, get_nodes_in_circuit, get_all_individual_nodes_in_circuit
 import pandas as pd
 
 
@@ -25,7 +25,7 @@ def get_node_stats(model_pair, loader):
     nodes_not_in_circuit = get_nodes_not_in_circuit(
         model_pair.ll_model, model_pair.corr
     )
-    nodes_in_circuit = get_nodes_in_circuit(model_pair.corr)
+    nodes_in_circuit = get_all_individual_nodes_in_circuit(model_pair.ll_model, model_pair.corr)
     model = model_pair.ll_model
 
     for batch in loader:
