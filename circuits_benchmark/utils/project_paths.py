@@ -14,16 +14,16 @@ def detect_project_root() -> str:
     # If the project root has already been detected, return it.
     return PROJECT_ROOT
 
-    # Get the absolute path of the current file
-    current_file_path = os.path.abspath(__file__)
+  # Get the absolute path of the current file
+  current_file_path = os.path.abspath(__file__)
 
-    # Get the directory name of the current file
-    current_dir = os.path.dirname(current_file_path)
+  # Get the directory name of the current file
+  current_dir = os.path.dirname(current_file_path)
 
-    # Traverse upwards until you reach the root directory (assumed to be two levels up)
-    PROJECT_ROOT = os.path.abspath(os.path.join(current_dir, '..', '..'))
+  # Traverse upwards until you reach the root directory (assumed to be two levels up)
+  PROJECT_ROOT = os.path.abspath(os.path.join(current_dir, '..', '..'))
 
-    return PROJECT_ROOT
+  return PROJECT_ROOT
 
 def get_default_output_dir() -> str:
   """
