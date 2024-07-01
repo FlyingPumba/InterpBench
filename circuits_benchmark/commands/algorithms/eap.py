@@ -157,7 +157,7 @@ class EAPRunner:
     parser.add_argument("--data-size", type=int, default=1000, help="Number of samples to use")
     parser.add_argument("--integrated-grad-steps", type=int, default=None,
                         help="Number of samples for integrated grad. If None, this is not used.")
-    parser.add_argument("--regression-loss-fn", type=str, default="huber",
+    parser.add_argument("--regression-loss-fn", type=str, default="mae",
                         choices=["mse", "mae"], help="Loss function to use for regression models.")
     parser.add_argument("--normalize-scores", action="store_true",
                         help="Normalize the scores so that they all lie between 0 and 1.")
