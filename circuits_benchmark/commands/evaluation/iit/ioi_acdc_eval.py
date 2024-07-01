@@ -6,17 +6,17 @@ from typing import Optional
 
 import torch
 import transformer_lens
-
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-from circuits_benchmark.utils.circuit.circuit import Circuit
-from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
-from circuits_benchmark.utils.circuit.circuit_eval import calculate_fpr_and_tpr, build_from_acdc_correspondence
 from iit.model_pairs.ioi_model_pair import IOI_ModelPair
 from iit.model_pairs.nodes import LLNode
 from iit.tasks.ioi import ioi_cfg, NAMES, suffixes, make_ll_edges, make_corr_dict
 from iit.tasks.ioi import make_ioi_dataset_and_hl
 from iit.utils.correspondence import Correspondence
 from iit.utils.io_scripts import load_files_from_wandb
+
+from acdc.TLACDCCorrespondence import TLACDCCorrespondence
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_eval import calculate_fpr_and_tpr, build_from_acdc_correspondence
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from .acdc_utils import ACDCRunner
 
 
@@ -63,16 +63,14 @@ def evaluate_acdc_circuit(
 def run_ioi_acdc(args: Namespace):
     weights = args.weights
     threshold = args.threshold
-    using_wandb = args.using_wandb
     device = args.device
     num_samples = args.data_size
-    metric = "kl"
 
     # this is the graph node -> hl node correspondence
     output_suffix = f"weight_{weights}/threshold_{threshold}"
     clean_dirname = f"{args.output_dir}/acdc_ioi/{output_suffix}"
     load_dir = os.path.join(
-        args.output_dir, "ll_models", f"ioi" if not args.next_token else "ioi_next_token"
+        args.output_dir, "ll_models", "ioi" if not args.next_token else "ioi_next_token"
     )
     # remove everything in the directory
     if os.path.exists(clean_dirname):
@@ -149,7 +147,7 @@ def run_ioi_acdc(args: Namespace):
     )
     if args.using_wandb:
         import wandb
-        wandb.init(project=f"circuit_discovery", 
+        wandb.init(project="circuit_discovery", 
                    group=f"acdc_ioi{'next_token' if args.next_token else ''}_{args.weights}", 
                    name=f"{args.threshold}")
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)

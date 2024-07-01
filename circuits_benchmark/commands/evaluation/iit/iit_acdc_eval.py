@@ -6,24 +6,14 @@ from argparse import Namespace
 import circuits_benchmark.commands.algorithms.acdc as acdc
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.transformers.hooked_tracr_transformer import (
-    HookedTracrTransformer,
-)
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from circuits_benchmark.utils.iit.ll_model_loader import ModelType, get_ll_model
 
 
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("iit_acdc")
     add_common_args(parser)
 
-    parser.add_argument(
-        "-w",
-        "--weights",
-        type=str,
-        default="510",
-        help="IIT, behavior, strict weights",
-    )
     parser.add_argument(
         "-t",
         "--threshold",
@@ -35,7 +25,18 @@ def setup_args_parser(subparsers):
         "-wandb", "--using_wandb", action="store_true", help="Use wandb"
     )
     parser.add_argument(
+        "--tracr", action="store_true", help="Use tracr model instead of SIIT model"
+    )
+    parser.add_argument(
+        "--natural",
+        action="store_true",
+        help="Use naturally trained model, instead of SIIT model. This assumes that the model is already trained and stored in <output_dir>/ll_models/<case_index>/ll_model_natural.pth (run train iit for this)",
+    )
+    parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
+    )
+    parser.add_argument(
+        "--interp-bench", action="store_true", help="Use interp bench model"
     )
     parser.add_argument(
         "--same-size", action="store_true", help="Use same size for ll model"
@@ -43,24 +44,23 @@ def setup_args_parser(subparsers):
 
 
 def run_acdc_eval(case: BenchmarkCase, args: Namespace):
-    case_num = case.get_name()
-
-    weight = args.weights
     threshold = args.threshold
     using_wandb = args.using_wandb
 
     hl_model = case.get_hl_model()
-
     metric = "l2" if not hl_model.is_categorical() else "kl"
 
-    # this is the graph node -> hl node correspondence
-    output_suffix = f"weight_{weight}/threshold_{threshold}"
+    model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
+    weights = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
+
+    output_suffix = f"weight_{weights}/threshold_{threshold}"
     clean_dirname = f"{args.output_dir}/acdc_{case.get_name()}/{output_suffix}"
+
     # remove everything in the directory
     if os.path.exists(clean_dirname):
         shutil.rmtree(clean_dirname)
 
-    wandb_str = f"--using-wandb" if using_wandb else ""
+    wandb_str = "--using-wandb" if using_wandb else ""
     from circuits_benchmark.commands.build_main_parser import build_main_parser
 
     acdc_args, _ = build_main_parser().parse_known_args(
@@ -71,50 +71,24 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             f"--metric={metric}",
             wandb_str,
             "--wandb-entity-name=cybershiptrooper",
-            f"--wandb-project-name=acdc_{case.get_name()}_{weight}",
+            f"--wandb-project-name=acdc_{case.get_name()}_{model_type}",
         ]
     )  #'--data_size=1000'])
 
-    if weight == "tracr":
+    if model_type == ModelType.TRACR:
         acdc_circuit, result = acdc.run_acdc(
             case, acdc_args, calculate_fpr_tpr=True, output_suffix=output_suffix
         )
     else:
-        # get best weight if needed
-        if weight == "best":
-            from circuits_benchmark.utils.iit.best_weights import get_best_weight
-            weight = get_best_weight(case.get_name())
-        
-        # load from wandb if needed
-        if args.load_from_wandb:
-            load_model_from_wandb(
-                case_num, weight, args.output_dir, same_size=args.same_size
-            )
-        # make ll cfg
-        try:
-            ll_cfg = pickle.load(
-                open(
-                    f"{args.output_dir}/ll_models/{case.get_name()}/ll_model_cfg_{weight}.pkl",
-                    "rb",
-                )
-            )
-        except FileNotFoundError:
-            ll_cfg = case.get_ll_model_cfg(
-                same_size=args.same_size
-            )
-
-        # make ll model
-        ll_model = HookedTracrTransformer(
-            ll_cfg,
-            hl_model.tracr_input_encoder,
-            hl_model.tracr_output_encoder,
-            hl_model.residual_stream_labels,
+        # load the ll model
+        hl_ll_corr, ll_model = get_ll_model(
+          case=case,
+          model_type=model_type,
+          load_from_wandb=args.load_from_wandb,
+          device=args.device,
+          output_dir=args.output_dir,
+          same_size=args.same_size
         )
-        ll_model.load_weights_from_file(
-            f"{args.output_dir}/ll_models/{case_num}/ll_model_{weight}.pth"
-        )
-
-        ll_model.to(args.device)
 
         # run acdc
         acdc_circuit, acdc_result = acdc.run_acdc(
@@ -127,8 +101,6 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         print("Done running acdc: ")
         print(list(acdc_circuit.nodes), list(acdc_circuit.edges))
 
-        # get the ll -> hl correspondence
-        hl_ll_corr = case.get_correspondence(same_size=args.same_size)
         print("hl_ll_corr:", hl_ll_corr)
         hl_ll_corr.save(f"{clean_dirname}/hl_ll_corr.pkl")
         # evaluate the acdc circuit
@@ -152,7 +124,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
 
         wandb.init(
             project=f"circuit_discovery{'_same_size' if args.same_size else ''}",
-            group=f"acdc_{case.get_name()}_{args.weights}",
+            group=f"acdc_{case.get_name()}_{weights}",
             name=f"{args.threshold}",
         )
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)

@@ -12,13 +12,11 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.metrics.validation_metrics import l2_metric, kl_metric
-from circuits_benchmark.utils.circuit.alignment import Alignment
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
   HookedTracrTransformerBatchInput
 from circuits_benchmark.transformers.tracr_circuits_builder import build_tracr_circuits
-from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
 from iit.model_pairs.base_model_pair import BaseModelPair
@@ -29,7 +27,6 @@ from iit.utils.correspondence import Correspondence
 from tracr.compiler import compiling
 from tracr.compiler.compiling import TracrOutput
 from tracr.rasp import rasp
-from tracr.transformer.encoder import CategoricalEncoder
 
 
 class TracrBenchmarkCase(BenchmarkCase):
@@ -110,7 +107,7 @@ class TracrBenchmarkCase(BenchmarkCase):
 
   def get_hl_model(
       self,
-      device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+      device: str | t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
       *args, **kwargs
   ) -> HookedTracrTransformer:
     """Returns the transformer_lens reference model for this benchmark case.

@@ -18,14 +18,11 @@ from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_ci
     build_from_acdc_correspondence
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from circuits_benchmark.utils.iit.ll_model_loader import ModelType, get_ll_model
 from circuits_benchmark.utils.node_sp import train_sp
-from subnetwork_probing.masked_transformer import (
-    EdgeLevelMaskedTransformer,
-    CircuitStartingPointType,
-)
-from subnetwork_probing.train import NodeLevelMaskedTransformer
-from subnetwork_probing.train import iterative_correspondence_from_mask
+from subnetwork_probing.masked_transformer import CircuitStartingPointType, EdgeLevelMaskedTransformer
+from subnetwork_probing.train import NodeLevelMaskedTransformer, iterative_correspondence_from_mask, \
+    proportion_of_binary_scores
 
 
 def setup_args_parser(subparsers):
@@ -33,9 +30,7 @@ def setup_args_parser(subparsers):
     add_common_args(parser)
 
     parser.add_argument("--using-wandb", action="store_true")
-    parser.add_argument(
-        "--wandb-project", type=str, default="subnetwork-probing"
-    )
+    parser.add_argument("--wandb-project", type=str, default="subnetwork-probing")
     parser.add_argument("--wandb-entity", type=str, required=False)
     parser.add_argument("--wandb-group", type=str, required=False)
     parser.add_argument("--wandb-dir", type=str, default="/tmp/wandb")
@@ -53,9 +48,7 @@ def setup_args_parser(subparsers):
     parser.add_argument("--lambda-reg", type=float, default=1)
     parser.add_argument("--zero-ablation", type=int, default=0)
     parser.add_argument("--data-size", type=int, default=1000)
-    parser.add_argument(
-        "--metric", type=str, choices=["l2", "kl"], default="l2"
-    )
+    parser.add_argument("--metric", type=str, choices=["l2", "kl"], default="l2")
     parser.add_argument("--edgewise", action="store_true")
     parser.add_argument("--num-examples", type=int, default=50)
     parser.add_argument("--seq-len", type=int, default=300)
@@ -76,7 +69,17 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
     )
-    parser.add_argument("-w", "--weight", type=str, default="510")
+    parser.add_argument(
+        "--natural",
+        action="store_true",
+        help="Use naturally trained model, instead of SIIT model. This assumes that the model is already trained and stored in wandb or <output_dir>/ll_models/<case_index>/ll_model_natural.pth (run train iit for this)",
+    )
+    parser.add_argument(
+        "--interp-bench", action="store_true", help="Use interp bench model"
+    )
+    parser.add_argument(
+        "--same-size", action="store_true", help="Use same size for ll model"
+    )
 
 
 def eval_fn(
@@ -100,19 +103,13 @@ def eval_fn_compression(
     corr: TLACDCCorrespondence,
     tl_model: HookedTracrTransformer,
     case: BenchmarkCase,
-    evaluating_tracr_model: bool = False
 ):
     sp_circuit = build_from_acdc_correspondence(corr=corr)
+    gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
     full_corr = TLACDCCorrespondence.setup_from_model(
-        tl_model, use_pos_embed=True
+      tl_model, use_pos_embed=True
     )
-    full_circuit = build_from_acdc_correspondence(corr=full_corr)
-
-    if evaluating_tracr_model:
-        gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
-    else:
-        gt_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
-
+    full_circuit = build_from_acdc_correspondence(full_corr)
     return calculate_fpr_and_tpr(
         sp_circuit,
         gt_circuit,
@@ -131,37 +128,22 @@ def run_sp(
     if args.compressed_model:
         output_suffix = "compressed"
         raise NotImplementedError("Compressed model not implemented")
-    if args.tracr:
-        tl_model = case.get_hl_model(
-            device=args.device,
-        )
-        hl_ll_corr = case.get_correspondence()
-        output_suffix = "weight_tracr"
-    else:
-        hl_model = case.get_hl_model()
-        hl_ll_corr = case.get_correspondence()
 
-        ll_cfg = case.get_ll_model_cfg()
-
-        tl_model = HookedTracrTransformer(
-            ll_cfg,
-            hl_model.tracr_input_encoder,
-            hl_model.tracr_output_encoder,
-            hl_model.residual_stream_labels,
-        )
-        tl_model.to(args.device)
-        if args.load_from_wandb:
-            load_model_from_wandb(case.get_name(), weights=args.weight, output_dir=args.output_dir)
-        tl_model.load_weights_from_file(
-            f"{args.output_dir}/ll_models/{case.get_name()}/ll_model_{args.weight}.pth"
-        )
-        output_suffix = f"weight_{args.weight}"
+    model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
+    weights = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
+    output_suffix = f"weight_{weights}"
+    hl_ll_corr, tl_model = get_ll_model(
+        case,
+        model_type,
+        args.load_from_wandb,
+        args.device,
+        args.output_dir,
+        args.same_size,
+    )
 
     # Check that dot program is in path
     if not shutil.which("dot"):
-        raise ValueError(
-            "dot program not in path, cannot generate graphs for ACDC."
-        )
+        raise ValueError("dot program not in path, cannot generate graphs for ACDC.")
 
     if args.torch_num_threads > 0:
         torch.set_num_threads(args.torch_num_threads)
@@ -169,7 +151,6 @@ def run_sp(
     metric_name = args.metric
     zero_ablation = True if args.zero_ablation else False
     using_wandb = args.using_wandb
-    device = args.device
     edgewise = args.edgewise
     use_pos_embed = True
 
@@ -201,18 +182,18 @@ def run_sp(
         )
         test_accuracy_metric = partial(test_accuracy_fn, test_baseline_output)
     elif metric_name == "kl":
-        kl_metric = lambda x, y: torch.nn.functional.kl_div(
-            torch.nn.functional.log_softmax(x, dim=-1),
-            torch.nn.functional.softmax(y, dim=-1),
-            reduction="none",
-        ).sum(dim=-1).mean()
+        kl_metric = (
+            lambda x, y: torch.nn.functional.kl_div(
+                torch.nn.functional.log_softmax(x, dim=-1),
+                torch.nn.functional.softmax(y, dim=-1),
+                reduction="none",
+            )
+            .sum(dim=-1)
+            .mean()
+        )
 
-        validation_metric = partial(
-            kl_metric, y = baseline_output
-        )
-        test_loss_metric = partial(
-            kl_metric, y = test_baseline_output
-        )
+        validation_metric = partial(kl_metric, y=baseline_output)
+        test_loss_metric = partial(kl_metric, y=test_baseline_output)
         test_accuracy_fn = (
             lambda x, y: (x.argmax(dim=-1) == y.argmax(dim=-1)).float().mean()
         )
@@ -236,7 +217,7 @@ def run_sp(
     )
 
     output_dir = os.path.join(
-        args.output_dir, 
+        args.output_dir,
         f"{'edge_' if args.edgewise else 'node_'}sp_{case.get_name()}",
         output_suffix,
         f"lambda_{args.lambda_reg}",
@@ -272,9 +253,7 @@ def run_sp(
     print("Finding subnetwork...")
     if edgewise:
         if args.compressed_model:
-            eval_fn_to_use = partial(
-                eval_fn_compression, tl_model=tl_model, case=case, evaluting_tracr_model=args.tracr
-            )
+            eval_fn_to_use = partial(eval_fn_compression, tl_model=tl_model, case=case)
         else:
             eval_fn_to_use = partial(
                 eval_fn, ll_model=tl_model, hl_ll_corr=hl_ll_corr, case=case
@@ -297,7 +276,6 @@ def run_sp(
             masked_model=masked_model,
             all_task_things=all_task_things,
         )
-        from subnetwork_probing.train import proportion_of_binary_scores
 
         percentage_binary = proportion_of_binary_scores(masked_model)
         sp_corr, _ = iterative_correspondence_from_mask(
@@ -321,12 +299,7 @@ def run_sp(
                 tl_model, use_pos_embed=True
             )
             full_circuit = build_from_acdc_correspondence(corr=full_corr)
-
-            if args.tracr:
-                gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
-            else:
-                gt_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
-
+            gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
             result = calculate_fpr_and_tpr(
                 sp_circuit, gt_circuit, full_circuit, verbose=False
             )
@@ -361,17 +334,16 @@ def run_sp(
                     "nodes_tpr": nodes_tpr,
                     "edges_fpr": edges_fpr,
                     "edges_tpr": edges_tpr,
+                    "percentage_binary": percentage_binary,
                 }
             )
-    if using_wandb:
-        wandb.log(
-            {
-                "regularizer": args.lambda_reg,
-                "percentage_binary": percentage_binary,
-            }
+        
+    if args.using_wandb:
+        wandb.init(
+            project=f"circuit_discovery{'_same_size' if args.same_size else ''}",
+            group=f"{'edge' if edgewise else 'node'}_sp_{case.get_name()}_{weights}",
+            name=f"{args.lambda_reg}",
         )
         wandb.save(f"{output_dir}/*", base_path=args.output_dir)
-        wandb.finish()
-    # print("Done running sp: ")
-    # print(result["edges"])
+
     return sp_circuit, result

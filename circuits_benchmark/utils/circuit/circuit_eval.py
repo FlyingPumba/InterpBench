@@ -1,13 +1,14 @@
 from typing import Optional
 
+from iit.utils.correspondence import Correspondence
+
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.TLACDCEdge import EdgeType
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
-from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
 
 
 def calculate_fpr_and_tpr(
@@ -140,7 +141,7 @@ def calculate_fpr_and_tpr(
 def evaluate_hypothesis_circuit(
     hypothesis_circuit: Circuit,
     ll_model: HookedTracrTransformer,
-    hl_ll_corr: TracrCorrespondence,
+    hl_ll_corr: Correspondence,
     case: BenchmarkCase,
     full_circuit: Optional[Circuit] = None,
     **kwargs,

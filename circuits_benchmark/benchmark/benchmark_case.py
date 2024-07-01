@@ -74,7 +74,7 @@ class BenchmarkCase(object):
 
   def get_hl_model(
       self,
-      device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+      device: str | t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
       *args, **kwargs
   ) -> HookedRootModule:
     """Builds the transformer_lens reference model for this case.
