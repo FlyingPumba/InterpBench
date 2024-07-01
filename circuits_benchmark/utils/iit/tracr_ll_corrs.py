@@ -1,5 +1,5 @@
-from iit.utils import index
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from iit.utils import index
 
 _tracr_ll_corrs = {
     '3': {
@@ -14,6 +14,6 @@ def get_tracr_ll_corr(case):
     if isinstance(case, str):
         return _tracr_ll_corrs[case] if case in _tracr_ll_corrs.keys() else None
     if isinstance(case, BenchmarkCase):
-        if case.get_index() in _tracr_ll_corrs.keys():
-            return _tracr_ll_corrs[case.get_index()]
+        if case.get_name() in _tracr_ll_corrs.keys():
+            return _tracr_ll_corrs[case.get_name()]
         return None

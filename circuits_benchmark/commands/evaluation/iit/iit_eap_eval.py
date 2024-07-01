@@ -5,7 +5,7 @@ from argparse import Namespace
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.algorithms.eap import EAPRunner
-from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
+from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit
 from circuits_benchmark.utils.iit.ll_model_loader import ModelType, get_ll_model
 
 
@@ -37,9 +37,8 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
     model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
     clean_dirname = prepare_output_dir(case, eap_runner, model_type, args)
 
-    print(f"Running EAP evaluation for IIT model on case {case.get_index()}")
+    print(f"Running EAP evaluation for IIT model on case {case.get_name()}")
     print(f"Output directory: {clean_dirname}")
-
     
     hl_ll_corr, ll_model = get_ll_model(
         case,
@@ -50,8 +49,8 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
         args.same_size,
     )
 
-    clean_dataset = case.get_clean_data(count=args.data_size)
-    corrupted_dataset = case.get_corrupted_data(count=args.data_size)
+    clean_dataset = case.get_clean_data(max_samples=args.data_size)
+    corrupted_dataset = case.get_corrupted_data(max_samples=args.data_size)
     eap_circuit = eap_runner.run(ll_model, clean_dataset, corrupted_dataset)
 
     print("hl_ll_corr:", hl_ll_corr)
@@ -78,7 +77,7 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
 
         wandb.init(
             project="circuit_discovery",
-            group=f"eap_{case.get_index()}_{args.weights}",
+            group=f"eap_{case.get_name()}_{args.weights}",
             name=f"{args.threshold}",
         )
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)
@@ -87,13 +86,13 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
 
 
 def prepare_output_dir(case, runner, model_type, args):
-  weight = ModelType.get_weight_for_model_type(model_type, task=case.get_index())
+  weight = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
   if runner.edge_count is not None:
     output_suffix = f"weight_{weight}/edge_count_{runner.edge_count}"
   else:
     output_suffix = f"weight_{weight}/threshold_{runner.threshold}"
 
-  clean_dirname = f"{args.output_dir}/eap_{case.get_index()}/{output_suffix}"
+  clean_dirname = f"{args.output_dir}/eap_{case.get_name()}/{output_suffix}"
 
   # remove everything in the directory
   if os.path.exists(clean_dirname):

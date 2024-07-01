@@ -1,12 +1,12 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.common_programs import make_hist
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case7(BenchmarkCase):
+class Case7(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_hist()
 

@@ -1,18 +1,19 @@
-import torch
-import random
-import numpy as np
 import gc
 import os
 import pickle
 import random
 from typing import Callable
+from typing import Optional
+
+import numpy as np
+import torch
 import wandb
 from tqdm import tqdm
-from acdc.docstring.utils import AllDataThings
+
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.TLACDCEdge import EdgeType
+from acdc.docstring.utils import AllDataThings
 from subnetwork_probing.masked_transformer import EdgeLevelMaskedTransformer
-from typing import Optional
 
 
 def save_edges(corr: TLACDCCorrespondence, fname: str):

@@ -1,8 +1,9 @@
 import traceback
 
 from circuits_benchmark.commands.algorithms import acdc, eap
-from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.commands.algorithms import sp
+from circuits_benchmark.utils.get_cases import get_cases
+
 
 def setup_args_parser(subparsers):
   run_parser = subparsers.add_parser("run")

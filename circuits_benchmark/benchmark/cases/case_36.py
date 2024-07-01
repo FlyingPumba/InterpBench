@@ -1,10 +1,10 @@
 from typing import Set
 
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case36(BenchmarkCase):
+class Case36(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_emoji_sentiment_classifier(rasp.tokens)
 

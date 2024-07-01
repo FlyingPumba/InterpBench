@@ -1,8 +1,6 @@
 import os
 import pickle
 import shutil
-
-# from acdc.acdc_utils import kl_divergence
 from functools import partial
 
 import torch
@@ -13,26 +11,18 @@ from acdc.docstring.utils import AllDataThings
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.metrics.validation_metrics import l2_metric
-from circuits_benchmark.transformers.acdc_circuit_builder import (
-    build_acdc_circuit,
-)
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
-from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
+from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, calculate_fpr_and_tpr, \
+    build_from_acdc_correspondence
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
-from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
-from circuits_benchmark.utils.node_sp import train_sp
-from subnetwork_probing.masked_transformer import (
-    EdgeLevelMaskedTransformer,
-    CircuitStartingPointType,
-)
-from subnetwork_probing.train import NodeLevelMaskedTransformer
-from subnetwork_probing.train import iterative_correspondence_from_mask
 from circuits_benchmark.utils.iit.ll_model_loader import ModelType, get_ll_model
+from circuits_benchmark.utils.node_sp import train_sp
+from subnetwork_probing.masked_transformer import CircuitStartingPointType, EdgeLevelMaskedTransformer
+from subnetwork_probing.train import NodeLevelMaskedTransformer, iterative_correspondence_from_mask, \
+    proportion_of_binary_scores
 
 
 def setup_args_parser(subparsers):
@@ -98,7 +88,7 @@ def eval_fn(
     hl_ll_corr: TracrCorrespondence,
     case: BenchmarkCase,
 ):
-    sp_circuit = build_acdc_circuit(corr=corr)
+    sp_circuit = build_from_acdc_correspondence(corr=corr)
     return evaluate_hypothesis_circuit(
         sp_circuit,
         ll_model,
@@ -114,13 +104,15 @@ def eval_fn_compression(
     tl_model: HookedTracrTransformer,
     case: BenchmarkCase,
 ):
-    sp_circuit = build_acdc_circuit(corr=corr)
-    full_corr = TLACDCCorrespondence.setup_from_model(tl_model, use_pos_embed=True)
-    full_circuit = build_acdc_circuit(corr=full_corr)
-    _, tracr_ll_circuit, _ = case.get_tracr_circuit(granularity="acdc_hooks")
+    sp_circuit = build_from_acdc_correspondence(corr=corr)
+    gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
+    full_corr = TLACDCCorrespondence.setup_from_model(
+      tl_model, use_pos_embed=True
+    )
+    full_circuit = build_from_acdc_correspondence(full_corr)
     return calculate_fpr_and_tpr(
         sp_circuit,
-        tracr_ll_circuit,
+        gt_circuit,
         full_circuit,
         verbose=False,
         print_summary=False,
@@ -138,7 +130,7 @@ def run_sp(
         raise NotImplementedError("Compressed model not implemented")
 
     model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
-    weights = ModelType.get_weight_for_model_type(model_type, task=case.get_index())
+    weights = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
     output_suffix = f"weight_{weights}"
     hl_ll_corr, tl_model = get_ll_model(
         case,
@@ -163,10 +155,10 @@ def run_sp(
     use_pos_embed = True
 
     data_size = args.data_size
-    base = case.get_clean_data(count=int(1.2 * data_size))
-    source = case.get_corrupted_data(count=int(1.2 * data_size))
+    base = case.get_clean_data(max_samples=int(1.2 * data_size))
+    source = case.get_corrupted_data(max_samples=int(1.2 * data_size))
     toks_int_values = base.get_inputs()
-    toks_int_labels = base.get_correct_outputs()
+    toks_int_labels = base.get_targets()
     toks_int_values_other = source.get_inputs()
     # toks_int_labels_other = source.get_correct_outputs() # sp doesn't need this
 
@@ -226,7 +218,7 @@ def run_sp(
 
     output_dir = os.path.join(
         args.output_dir,
-        f"{'edge_' if args.edgewise else 'node_'}sp_{case.get_index()}",
+        f"{'edge_' if args.edgewise else 'node_'}sp_{case.get_name()}",
         output_suffix,
         f"lambda_{args.lambda_reg}",
     )
@@ -239,7 +231,7 @@ def run_sp(
 
     # Setup wandb if needed
     if args.wandb_run_name is None:
-        args.wandb_run_name = f"SP_{'edge' if edgewise else 'node'}_{case.get_index()}_reg_{args.lambda_reg}{'_zero' if zero_ablation else ''}{'_compressed' if args.compressed_model else ''}"
+        args.wandb_run_name = f"SP_{'edge' if edgewise else 'node'}_{case.get_name()}_reg_{args.lambda_reg}{'_zero' if zero_ablation else ''}{'_compressed' if args.compressed_model else ''}"
 
     args.wandb_name = args.wandb_run_name
 
@@ -277,14 +269,13 @@ def run_sp(
         sp_corr = masked_model.get_edge_level_correspondence_from_masks(
             use_pos_embed=use_pos_embed
         )
-        sp_circuit = build_acdc_circuit(corr=sp_corr)
+        sp_circuit = build_from_acdc_correspondence(corr=sp_corr)
     else:
         masked_model, log_dict = train_sp(
             args=args,
             masked_model=masked_model,
             all_task_things=all_task_things,
         )
-        from subnetwork_probing.train import proportion_of_binary_scores
 
         percentage_binary = proportion_of_binary_scores(masked_model)
         sp_corr, _ = iterative_correspondence_from_mask(
@@ -292,7 +283,7 @@ def run_sp(
             log_dict["nodes_to_mask"],
             use_pos_embed=use_pos_embed,
         )
-        sp_circuit = build_acdc_circuit(corr=sp_corr)
+        sp_circuit = build_from_acdc_correspondence(corr=sp_corr)
 
     # Update dict with some different things
     # log_dict["nodes_to_mask"] = list(map(str, log_dict["nodes_to_mask"]))
@@ -307,16 +298,16 @@ def run_sp(
             full_corr = TLACDCCorrespondence.setup_from_model(
                 tl_model, use_pos_embed=True
             )
-            full_circuit = build_acdc_circuit(corr=full_corr)
-            _, tracr_ll_circuit, _ = case.get_tracr_circuit(granularity="acdc_hooks")
+            full_circuit = build_from_acdc_correspondence(corr=full_corr)
+            gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
             result = calculate_fpr_and_tpr(
-                sp_circuit, tracr_ll_circuit, full_circuit, verbose=False
+                sp_circuit, gt_circuit, full_circuit, verbose=False
             )
         else:
             full_corr = TLACDCCorrespondence.setup_from_model(
                 tl_model, use_pos_embed=True
             )
-            full_circuit = build_acdc_circuit(corr=full_corr)
+            full_circuit = build_from_acdc_correspondence(corr=full_corr)
             result = evaluate_hypothesis_circuit(
                 sp_circuit,
                 tl_model,
@@ -348,15 +339,11 @@ def run_sp(
             )
         
     if args.using_wandb:
-        import wandb
-
         wandb.init(
             project=f"circuit_discovery{'_same_size' if args.same_size else ''}",
-            group=f"{'edge' if edgewise else 'node'}_sp_{case.get_index()}_{weights}",
+            group=f"{'edge' if edgewise else 'node'}_sp_{case.get_name()}_{weights}",
             name=f"{args.lambda_reg}",
         )
         wandb.save(f"{output_dir}/*", base_path=args.output_dir)
-    return result
-    # print("Done running sp: ")
-    # print(result["edges"])
+
     return sp_circuit, result

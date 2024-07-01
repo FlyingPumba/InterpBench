@@ -10,17 +10,15 @@ import torch
 import wandb
 from torch.nn import init
 
+from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.TLACDCExperiment import TLACDCExperiment
 from acdc.acdc_graphics import show
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.commands.analysis.acdc_circuit import calculate_fpr_and_tpr
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
-from circuits_benchmark.utils.project_paths import get_default_output_dir
+from circuits_benchmark.utils.circuit.circuit_eval import calculate_fpr_and_tpr, build_from_acdc_correspondence
 from circuits_benchmark.utils.wandb_artifact_download import download_artifact
-from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 
 
 def setup_args_parser(subparsers):
@@ -102,11 +100,11 @@ def run_acdc(
     output_suffix: str = "",
 ):
     if model is None:
-        tl_model = case.get_tl_model(device=args.device, remove_extra_tensor_cloning=False)
+        tl_model = case.get_hl_model(device=args.device)
     else:
         tl_model = model
 
-    tags = [f"case{case.get_index()}", "acdc"]
+    tags = [f"case{case.get_name()}", "acdc"]
     notes = f"Command: {' '.join(sys.argv)}"
 
     if (
@@ -129,9 +127,9 @@ def run_acdc(
         case_index = weights_file.name.split("-")[1]
         compression_size = int(weights_file.name.split("-")[3].split(".")[0])
 
-        if case_index != case.get_index():
+        if case_index != case.get_name():
             raise ValueError(
-                f"Case index {case_index} in weights artifact does not match the case index {case.get_index()}"
+                f"Case index {case_index} in weights artifact does not match the case index {case.get_name()}"
             )
 
         tags.append(args.wandb_checkpoint_type)
@@ -143,12 +141,11 @@ def run_acdc(
                 tl_model,
                 overwrite_cfg_dict={"d_model": compression_size},
                 init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
-                remove_extra_tensor_cloning=False,
             )
             tl_model.load_state_dict(torch.load(weights_file))
         elif args.wandb_checkpoint_type == "linear-compression":
             tl_model = LinearCompressedTracrTransformer(
-                tl_model, int(compression_size), "linear", remove_extra_tensor_cloning=False
+                tl_model, int(compression_size), "linear",
             )
             tl_model.load_state_dict(torch.load(weights_file))
             tl_model = tl_model.get_folded_model()
@@ -203,17 +200,17 @@ def run_acdc(
 
     data_size = args.data_size
     validation_metric = case.get_validation_metric(metric_name, tl_model, data_size=data_size)
-    toks_int_values = case.get_clean_data(count=data_size).get_inputs()
-    toks_int_values_other = case.get_corrupted_data(count=data_size).get_inputs()
+    toks_int_values = case.get_clean_data(max_samples=data_size).get_inputs()
+    toks_int_values_other = case.get_corrupted_data(max_samples=data_size).get_inputs()
 
     tl_model.reset_hooks()
 
     # Create the output directory
-    output_dir = os.path.join(args.output_dir, f"acdc_{case.get_index()}", output_suffix)
+    output_dir = os.path.join(args.output_dir, f"acdc_{case.get_name()}", output_suffix)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    images_output_dir = os.path.join(args.output_dir, f"acdc_{case.get_index()}", "images")
+    images_output_dir = os.path.join(args.output_dir, f"acdc_{case.get_name()}", "images")
     if not os.path.exists(images_output_dir):
         os.makedirs(images_output_dir)
 
@@ -294,15 +291,15 @@ def run_acdc(
         return_it=True,
     )
 
-    acdc_circuit = build_acdc_circuit(exp.corr)
+    acdc_circuit = build_from_acdc_correspondence(exp.corr)
     acdc_circuit.save(f"{output_dir}/final_circuit.pkl")
 
     if calculate_fpr_tpr:
         print("Calculating FPR and TPR for threshold", threshold)
         full_corr = TLACDCCorrespondence.setup_from_model(tl_model, use_pos_embed=use_pos_embed)
-        full_circuit = build_acdc_circuit(full_corr)
-        tracr_hl_circuit, tracr_ll_circuit, alignment = case.get_tracr_circuit(granularity="acdc_hooks")
-        result = calculate_fpr_and_tpr(acdc_circuit, tracr_ll_circuit, full_circuit, verbose=True)
+        full_circuit = build_from_acdc_correspondence(full_corr)
+        gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
+        result = calculate_fpr_and_tpr(acdc_circuit, gt_circuit, full_circuit, verbose=True)
     else:
         result = {}
 

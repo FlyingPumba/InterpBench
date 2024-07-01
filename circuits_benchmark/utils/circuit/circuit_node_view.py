@@ -1,6 +1,6 @@
 from networkx.classes.reportviews import NodeView
 
-from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 
 
 class CircuitNodeView(NodeView):

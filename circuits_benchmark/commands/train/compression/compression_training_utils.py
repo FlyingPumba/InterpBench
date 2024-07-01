@@ -1,7 +1,7 @@
 from argparse import Namespace
 from typing import Union
 
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from transformer_lens.hook_points import HookedRootModule
 
 
 def parse_dimension(dim_value: Union[int, None],
@@ -28,9 +28,9 @@ def parse_dimension(dim_value: Union[int, None],
   return size
 
 
-def parse_d_model(args: Namespace, tl_model: HookedTracrTransformer):
+def parse_d_model(args: Namespace, tl_model: HookedRootModule):
   return parse_dimension(args.d_model, args.d_model_compression_ratio, tl_model.cfg.d_model, 'd_model')
 
 
-def parse_d_head(args: Namespace, tl_model: HookedTracrTransformer):
+def parse_d_head(args: Namespace, tl_model: HookedRootModule):
   return parse_dimension(args.d_head, args.d_head_compression_ratio, tl_model.cfg.d_head, 'd_head')

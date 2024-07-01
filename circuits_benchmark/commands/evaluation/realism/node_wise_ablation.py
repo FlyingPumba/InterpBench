@@ -1,25 +1,25 @@
-import torch
-from transformer_lens import HookedTransformer
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from argparse import Namespace
-from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg_for_case
-from circuits_benchmark.utils.iit.dataset import (
-    get_unique_data,
-    TracrIITDataset,
-    TracrUniqueDataset,
-)
-from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 import pickle
-import iit.model_pairs as mp
-from iit.utils import index
+from argparse import Namespace
+
+import torch
 import wandb
+from transformer_lens import HookedTransformer
+
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
+from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.iit.wandb_loader import (
     load_model_from_wandb,
     load_circuit_from_wandb,
 )
-from circuits_benchmark.transformers.circuit_node import CircuitNode
-from circuits_benchmark.transformers.circuit import Circuit
+from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
+from iit.model_pairs.nodes import LLNode
+from iit.utils import index, IITDataset
+from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 
 
 def setup_args_parser(subparsers):
@@ -72,7 +72,7 @@ def setup_args_parser(subparsers):
 
 
 def make_result_path(case: BenchmarkCase, args: Namespace):
-    root_dir = f"./results/{args.algorithm}_{case.get_index()}"
+    root_dir = f"./results/{args.algorithm}_{case.get_name()}"
     if not args.use_compressed:
         if args.tracr:
             root_dir += "/weight_tracr"
@@ -90,13 +90,13 @@ def make_nodes_to_ablate(
 ):
     show = lambda *args, **kwargs: print(*args, **kwargs) if verbose else None
     attn = [
-        # mp.LLNode(f"blocks.{layer}.attn.hook_result", index.Ix[:, :, head])
+        # LLNode(f"blocks.{layer}.attn.hook_result", index.Ix[:, :, head])
         CircuitNode(f"blocks.{layer}.attn.hook_result", head)
         for layer in range(tl_model.cfg.n_layers)
         for head in range(tl_model.cfg.n_heads)
     ]
     mlps = [
-        # mp.LLNode(f"blocks.{layer}.hook_mlp_out", index.Ix[[None]])
+        # LLNode(f"blocks.{layer}.hook_mlp_out", index.Ix[[None]])
         CircuitNode(f"blocks.{layer}.hook_mlp_out", None)
         for layer in range(tl_model.cfg.n_layers)
     ]
@@ -117,9 +117,9 @@ def make_nodes_to_ablate(
     ll_nodes_to_ablate = []
     for node in nodes_to_ablate:
         if "attn" in node.name:
-            ll_nodes_to_ablate.append(mp.LLNode(node.name, index.Ix[:, :, node.index]))
+            ll_nodes_to_ablate.append(LLNode(node.name, index.Ix[:, :, node.index]))
         else:
-            ll_nodes_to_ablate.append(mp.LLNode(node.name, index.Ix[[None]]))
+            ll_nodes_to_ablate.append(LLNode(node.name, index.Ix[[None]]))
     return ll_nodes_to_ablate
 
 
@@ -129,48 +129,47 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     use_mean_cache = args.mean
     use_wandb = args.use_wandb
 
-    hl_model = case.build_transformer_lens_model()
-    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
+    hl_model = case.get_hl_model()
+    if isinstance(hl_model, HookedTracrTransformer):
+        hl_model = IITHLModel(hl_model, eval_mode=True)
 
     if args.tracr:
-        model = case.get_tl_model()
+        model = case.get_hl_model()
     else:
         if args.load_from_wandb:
             load_model_from_wandb(
-                case.get_index(), weight, output_dir, same_size=args.same_size
+                case.get_name(), weight, output_dir, same_size=args.same_size
             )
         # make ll cfg
         try:
             ll_cfg = pickle.load(
                 open(
-                    f"{args.output_dir}/ll_models/{case.get_index()}/ll_model_cfg_{weight}.pkl",
+                    f"{args.output_dir}/ll_models/{case.get_name()}/ll_model_cfg_{weight}.pkl",
                     "rb",
                 )
             )
         except FileNotFoundError:
-            ll_cfg = make_ll_cfg_for_case(
-                hl_model, case.get_index(), same_size=args.same_size
+            ll_cfg = case.get_ll_model_cfg(
+                same_size=args.same_size
             )
         ll_cfg['device'] = args.device
         model = HookedTransformer(ll_cfg)
         model.load_state_dict(
             torch.load(
-                f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth",
+                f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth",
                 map_location=args.device,
             )
         )
 
-    model_pair = mp.IITBehaviorModelPair(
+    model_pair = IITBehaviorModelPair(
         hl_model=hl_model,
         ll_model=model,
         corr={},
         training_args={},
     )
 
-    unique_test_data = get_unique_data(case, max_len=100_000)
-    test_set = TracrUniqueDataset(
-        unique_test_data, unique_test_data, hl_model, every_combination=True
-    )
+    unique_dataset = case.get_clean_data(max_samples=100_000, unique_data=True)
+    test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
     mean_cache = None
     if use_mean_cache:
         mean_cache = get_mean_cache(model_pair, test_set, batch_size=args.batch_size)
@@ -181,7 +180,7 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
             else args.threshold
         )
         result_file = load_circuit_from_wandb(
-            case.get_index(),
+            case.get_name(),
             args.algorithm,
             hyperparam=str(hyperparam),
             weights=weight,
@@ -212,9 +211,9 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
 
     if use_wandb:
         group = (
-            f"{args.algorithm}_{case.get_index()}_{args.weights}"
+            f"{args.algorithm}_{case.get_name()}_{args.weights}"
             if not args.tracr
-            else f"{args.algorithm}_{case.get_index()}_tracr"
+            else f"{args.algorithm}_{case.get_name()}_tracr"
         )
         name = (
             f"{args.threshold}"

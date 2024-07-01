@@ -1,12 +1,12 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor, make_length
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case16(BenchmarkCase):
+class Case16(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_lexical_density_calculator(rasp.tokens)
 

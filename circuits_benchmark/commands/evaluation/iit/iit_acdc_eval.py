@@ -4,10 +4,9 @@ import shutil
 from argparse import Namespace
 
 import circuits_benchmark.commands.algorithms.acdc as acdc
-import circuits_benchmark.utils.iit.correspondence as correspondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.utils.circuit_eval import evaluate_hypothesis_circuit
+from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit
 from circuits_benchmark.utils.iit.ll_model_loader import ModelType, get_ll_model
 
 
@@ -48,21 +47,15 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     threshold = args.threshold
     using_wandb = args.using_wandb
 
-    tracr_output = case.get_tracr_output()
-    hl_model = case.build_transformer_lens_model(
-        tracr_model=tracr_output.model,
-        remove_extra_tensor_cloning=False
-    )
-
+    hl_model = case.get_hl_model()
     metric = "l2" if not hl_model.is_categorical() else "kl"
 
-    # this is the graph node -> hl node correspondence
-    # tracr_hl_corr = correspondence.TracrCorrespondence.from_output(tracr_output)
     model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
-    weights = ModelType.get_weight_for_model_type(model_type, task=case.get_index())
+    weights = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
 
-    output_suffix = f"{weights}/threshold_{threshold}"
-    clean_dirname = f"{args.output_dir}/acdc_{case.get_index()}/{output_suffix}"
+    output_suffix = f"weight_{weights}/threshold_{threshold}"
+    clean_dirname = f"{args.output_dir}/acdc_{case.get_name()}/{output_suffix}"
+
     # remove everything in the directory
     if os.path.exists(clean_dirname):
         shutil.rmtree(clean_dirname)
@@ -78,7 +71,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             f"--metric={metric}",
             wandb_str,
             "--wandb-entity-name=cybershiptrooper",
-            f"--wandb-project-name=acdc_{case.get_index()}_{model_type}",
+            f"--wandb-project-name=acdc_{case.get_name()}_{model_type}",
         ]
     )  #'--data_size=1000'])
 
@@ -88,7 +81,14 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         )
     else:
         # load the ll model
-        hl_ll_corr, ll_model = get_ll_model(case=case, model_type=model_type, load_from_wandb=args.load_from_wandb, device=args.device, output_dir=args.output_dir, same_size=args.same_size)
+        hl_ll_corr, ll_model = get_ll_model(
+          case=case,
+          model_type=model_type,
+          load_from_wandb=args.load_from_wandb,
+          device=args.device,
+          output_dir=args.output_dir,
+          same_size=args.same_size
+        )
 
         # run acdc
         acdc_circuit, acdc_result = acdc.run_acdc(
@@ -124,7 +124,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
 
         wandb.init(
             project=f"circuit_discovery{'_same_size' if args.same_size else ''}",
-            group=f"acdc_{case.get_index()}_{weights}",
+            group=f"acdc_{case.get_name()}_{weights}",
             name=f"{args.threshold}",
         )
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)
