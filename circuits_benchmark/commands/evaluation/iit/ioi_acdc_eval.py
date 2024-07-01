@@ -16,7 +16,6 @@ from iit.tasks.ioi import make_ioi_dataset_and_hl
 from .acdc_utils import ACDCRunner
 import iit.model_pairs as mp
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-import argparse
 
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("ioi_acdc")
@@ -61,17 +60,15 @@ def evaluate_acdc_circuit(
 def run_ioi_acdc(args: Namespace):
     weights = args.weights
     threshold = args.threshold
-    using_wandb = args.using_wandb
     device = args.device
     num_samples = args.data_size
-    metric = "kl"
 
     # this is the graph node -> hl node correspondence
     # tracr_hl_corr = correspondence.TracrCorrespondence.from_output(tracr_output)
     output_suffix = f"weight_{weights}/threshold_{threshold}"
     clean_dirname = f"{args.output_dir}/acdc_ioi/{output_suffix}"
     load_dir = os.path.join(
-        args.output_dir, "ll_models", f"ioi" if not args.next_token else "ioi_next_token"
+        args.output_dir, "ll_models", "ioi" if not args.next_token else "ioi_next_token"
     )
     # remove everything in the directory
     if os.path.exists(clean_dirname):
@@ -148,7 +145,7 @@ def run_ioi_acdc(args: Namespace):
     )
     if args.using_wandb:
         import wandb
-        wandb.init(project=f"circuit_discovery", 
+        wandb.init(project="circuit_discovery", 
                    group=f"acdc_ioi{'next_token' if args.next_token else ''}_{args.weights}", 
                    name=f"{args.threshold}")
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)

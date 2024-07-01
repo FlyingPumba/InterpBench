@@ -149,6 +149,9 @@ class EAPRunner:
   def add_args_to_parser(parser):
     add_common_args(parser)
 
+    parser.add_argument(
+        "-wandb", "--using_wandb", action="store_true", help="Use wandb"
+    )
     parser.add_argument("--edge-count", type=int, default=None,
                         help="Number of edges to keep in the final circuit")
     parser.add_argument("--threshold", type=float, default=None,
