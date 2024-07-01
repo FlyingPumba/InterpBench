@@ -64,7 +64,6 @@ def setup_args_parser(subparsers):
     parser.add_argument("--print-stats", type=int, default=1, required=False)
     parser.add_argument("--print-every", type=int, default=1, required=False)
     parser.add_argument("--atol", type=float, default=5e-2, required=False)
-    parser.add_argument("--compressed-model", action="store_true")
     parser.add_argument("--tracr", action="store_true")
     parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
@@ -99,35 +98,12 @@ def eval_fn(
     )
 
 
-def eval_fn_compression(
-    corr: TLACDCCorrespondence,
-    tl_model: HookedTracrTransformer,
-    case: BenchmarkCase,
-):
-    sp_circuit = build_from_acdc_correspondence(corr=corr)
-    gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
-    full_corr = TLACDCCorrespondence.setup_from_model(
-      tl_model, use_pos_embed=True
-    )
-    full_circuit = build_from_acdc_correspondence(full_corr)
-    return calculate_fpr_and_tpr(
-        sp_circuit,
-        gt_circuit,
-        full_circuit,
-        verbose=False,
-        print_summary=False,
-    )
-
-
 def run_sp(
     case: BenchmarkCase,
     args,
     calculate_fpr_tpr: bool = True,
 ):
     print(args)
-    if args.compressed_model:
-        output_suffix = "compressed"
-        raise NotImplementedError("Compressed model not implemented")
 
     model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
     weights = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
@@ -231,7 +207,7 @@ def run_sp(
 
     # Setup wandb if needed
     if args.wandb_run_name is None:
-        args.wandb_run_name = f"SP_{'edge' if edgewise else 'node'}_{case.get_name()}_reg_{args.lambda_reg}{'_zero' if zero_ablation else ''}{'_compressed' if args.compressed_model else ''}"
+        args.wandb_run_name = f"SP_{'edge' if edgewise else 'node'}_{case.get_name()}_reg_{args.lambda_reg}{'_zero' if zero_ablation else ''}"
 
     args.wandb_name = args.wandb_run_name
 
@@ -252,12 +228,9 @@ def run_sp(
     masked_model.freeze_weights()
     print("Finding subnetwork...")
     if edgewise:
-        if args.compressed_model:
-            eval_fn_to_use = partial(eval_fn_compression, tl_model=tl_model, case=case)
-        else:
-            eval_fn_to_use = partial(
-                eval_fn, ll_model=tl_model, hl_ll_corr=hl_ll_corr, case=case
-            )
+        eval_fn_to_use = partial(
+            eval_fn, ll_model=tl_model, hl_ll_corr=hl_ll_corr, case=case
+        )
         masked_model, log_dict = train_edge_sp(
             args=args,
             masked_model=masked_model,
@@ -294,30 +267,20 @@ def run_sp(
 
     if calculate_fpr_tpr:
         print("Calculating FPR and TPR for regularizer", args.lambda_reg)
-        if args.compressed_model:
-            full_corr = TLACDCCorrespondence.setup_from_model(
-                tl_model, use_pos_embed=True
-            )
-            full_circuit = build_from_acdc_correspondence(corr=full_corr)
-            gt_circuit = case.get_hl_gt_circuit(granularity="acdc_hooks")
-            result = calculate_fpr_and_tpr(
-                sp_circuit, gt_circuit, full_circuit, verbose=False
-            )
-        else:
-            full_corr = TLACDCCorrespondence.setup_from_model(
-                tl_model, use_pos_embed=True
-            )
-            full_circuit = build_from_acdc_correspondence(corr=full_corr)
-            result = evaluate_hypothesis_circuit(
-                sp_circuit,
-                tl_model,
-                hl_ll_corr,
-                case=case,
-                full_circuit=full_circuit,
-                verbose=False,
-            )
-            # save results
-            pickle.dump(result, open(f"{output_dir}/result.pkl", "wb"))
+        full_corr = TLACDCCorrespondence.setup_from_model(
+            tl_model, use_pos_embed=True
+        )
+        full_circuit = build_from_acdc_correspondence(corr=full_corr)
+        result = evaluate_hypothesis_circuit(
+            sp_circuit,
+            tl_model,
+            hl_ll_corr,
+            case=case,
+            full_circuit=full_circuit,
+            verbose=False,
+        )
+        # save results
+        pickle.dump(result, open(f"{output_dir}/result.pkl", "wb"))
     else:
         result = {}
 
