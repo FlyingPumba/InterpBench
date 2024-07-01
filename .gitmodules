@@ -2,7 +2,3 @@
 	path = submodules/Automatic-Circuit-Discovery
 	url = https://github.com/FlyingPumba/Automatic-Circuit-Discovery.git
 	ignore = untracked
-[submodule "submodules/iit"]
-	path = submodules/iit
-	url = https://github.com/cybershiptrooper/iit.git
-	ignore = untracked
