@@ -8,7 +8,6 @@ packages = [{include = "circuits_benchmark"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-einops = "^0.6.1"
 numpy = [{ version = "^1.21", python = "<3.10" },
          { version = "^1.26", python = ">=3.10" }]
 torch = ">=2.2.0"
@@ -38,6 +37,7 @@ matplotlib = "3.8.2"
 auto-circuit = { git = "https://github.com/FlyingPumba/auto-circuit.git" }
 tracr = { git = "https://github.com/FlyingPumba/tracr.git" }
 iit = { git = "https://github.com/cybershiptrooper/iit.git" }
+acdc = { git = "https://github.com/FlyingPumba/Automatic-Circuit-Discovery.git" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
