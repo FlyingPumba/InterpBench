@@ -11,7 +11,6 @@ We use [Poetry](https://python-poetry.org/) to manage the dependencies, which yo
 
 Run the following Bash commands to download the project and its dependencies:
 ```bash
-git clone --recurse-submodules git@github.com:FlyingPumba/circuits-benchmark.git
 cd circuits-benchmark
 poetry env use 3
 poetry install
@@ -48,5 +47,5 @@ See [EXPERIMENTS.md](EXPERIMENTS.md) for a list of the commands used in the pape
 
 ## Tests
 
-To run the tests, you can just run `poetry run pytest tests` in the root directory of the project. The tests for submodules are ignored by default.
+To run the tests, you can just run `poetry run pytest tests` in the root directory of the project.
 If you want to run specific tests, you can use the `-k` flag: `poetry run pytest tests -k "get_cases_test"`.
