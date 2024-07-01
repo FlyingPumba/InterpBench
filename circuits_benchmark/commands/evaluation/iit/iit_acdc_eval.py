@@ -5,14 +5,16 @@ from argparse import Namespace
 
 import circuits_benchmark.commands.algorithms.acdc as acdc
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit
-from circuits_benchmark.utils.iit.ll_model_loader import ModelType, load_ll_model_and_correspondence
+from circuits_benchmark.utils.ll_model_loader.ground_truth_model_loader import GroundTruthModelLoader
+from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader_from_args
 
 
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("iit_acdc")
     add_common_args(parser)
+    add_evaluation_common_ags(parser)
 
     parser.add_argument(
         "-t",
@@ -23,20 +25,6 @@ def setup_args_parser(subparsers):
     )
     parser.add_argument(
         "-wandb", "--using_wandb", action="store_true", help="Use wandb"
-    )
-    parser.add_argument(
-        "--tracr", action="store_true", help="Use tracr model instead of SIIT model"
-    )
-    parser.add_argument(
-        "--natural",
-        action="store_true",
-        help="Use naturally trained model, instead of SIIT model. This assumes that the model is already trained and stored in <output_dir>/ll_models/<case_index>/ll_model_natural.pth (run train iit for this)",
-    )
-    parser.add_argument(
-        "--load-from-wandb", action="store_true", help="Load model from wandb"
-    )
-    parser.add_argument(
-        "--interp-bench", action="store_true", help="Use interp bench model"
     )
     parser.add_argument(
         "--same-size", action="store_true", help="Use same size for ll model"
@@ -50,10 +38,8 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
     hl_model = case.get_hl_model()
     metric = "l2" if not hl_model.is_categorical() else "kl"
 
-    model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
-    weights = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
-
-    output_suffix = f"weight_{weights}/threshold_{threshold}"
+    ll_model_loader = get_ll_model_loader_from_args(case, args)
+    output_suffix = f"{ll_model_loader.get_output_suffix()}/threshold_{threshold}"
     clean_dirname = f"{args.output_dir}/acdc_{case.get_name()}/{output_suffix}"
 
     # remove everything in the directory
@@ -71,23 +57,21 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
             f"--metric={metric}",
             wandb_str,
             "--wandb-entity-name=cybershiptrooper",
-            f"--wandb-project-name=acdc_{case.get_name()}_{model_type}",
+            f"--wandb-project-name=acdc_{case.get_name()}_{str(ll_model_loader)}",
         ]
     )  #'--data_size=1000'])
 
-    if model_type == ModelType.TRACR:
+    if isinstance(ll_model_loader, GroundTruthModelLoader):
         acdc_circuit, result = acdc.run_acdc(
             case, acdc_args, calculate_fpr_tpr=True, output_suffix=output_suffix
         )
     else:
         # load the ll model
-        hl_ll_corr, ll_model = load_ll_model_and_correspondence(
-          case=case,
-          model_type=model_type,
-          load_from_wandb=args.load_from_wandb,
-          device=args.device,
-          output_dir=args.output_dir,
-          same_size=args.same_size
+        hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(
+            load_from_wandb=args.load_from_wandb,
+            device=args.device,
+            output_dir=args.output_dir,
+            same_size=args.same_size,
         )
 
         # run acdc
@@ -124,7 +108,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
 
         wandb.init(
             project=f"circuit_discovery{'_same_size' if args.same_size else ''}",
-            group=f"acdc_{case.get_name()}_{weights}",
+            group=f"acdc_{case.get_name()}_{str(ll_model_loader.get_output_suffix())}",
             name=f"{args.threshold}",
         )
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)

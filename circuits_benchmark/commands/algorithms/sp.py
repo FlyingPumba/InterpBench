@@ -9,7 +9,7 @@ import wandb
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.docstring.utils import AllDataThings
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
 from circuits_benchmark.metrics.validation_metrics import l2_metric
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
@@ -18,7 +18,7 @@ from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_ci
     build_from_acdc_correspondence
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from circuits_benchmark.utils.iit.ll_model_loader import ModelType, load_ll_model_and_correspondence
+from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader_from_args
 from circuits_benchmark.utils.node_sp import train_sp
 from subnetwork_probing.masked_transformer import CircuitStartingPointType, EdgeLevelMaskedTransformer
 from subnetwork_probing.train import NodeLevelMaskedTransformer, iterative_correspondence_from_mask, \
@@ -28,6 +28,7 @@ from subnetwork_probing.train import NodeLevelMaskedTransformer, iterative_corre
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("sp")
     add_common_args(parser)
+    add_evaluation_common_ags(parser)
 
     parser.add_argument("--using-wandb", action="store_true")
     parser.add_argument("--wandb-project", type=str, default="subnetwork-probing")
@@ -64,18 +65,6 @@ def setup_args_parser(subparsers):
     parser.add_argument("--print-stats", type=int, default=1, required=False)
     parser.add_argument("--print-every", type=int, default=1, required=False)
     parser.add_argument("--atol", type=float, default=5e-2, required=False)
-    parser.add_argument("--tracr", action="store_true")
-    parser.add_argument(
-        "--load-from-wandb", action="store_true", help="Load model from wandb"
-    )
-    parser.add_argument(
-        "--natural",
-        action="store_true",
-        help="Use naturally trained model, instead of SIIT model. This assumes that the model is already trained and stored in wandb or <output_dir>/ll_models/<case_index>/ll_model_natural.pth (run train iit for this)",
-    )
-    parser.add_argument(
-        "--interp-bench", action="store_true", help="Use interp bench model"
-    )
     parser.add_argument(
         "--same-size", action="store_true", help="Use same size for ll model"
     )
@@ -105,17 +94,14 @@ def run_sp(
 ):
     print(args)
 
-    model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
-    weights = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
-    output_suffix = f"weight_{weights}"
-    hl_ll_corr, tl_model = load_ll_model_and_correspondence(
-        case,
-        model_type,
-        args.load_from_wandb,
-        args.device,
-        args.output_dir,
-        args.same_size,
+    ll_model_loader = get_ll_model_loader_from_args(case, args)
+    hl_ll_corr, tl_model = ll_model_loader.load_ll_model_and_correspondence(
+        load_from_wandb=args.load_from_wandb,
+        device=args.device,
+        output_dir=args.output_dir,
+        same_size=args.same_size,
     )
+    output_suffix = ll_model_loader.get_output_suffix()
 
     # Check that dot program is in path
     if not shutil.which("dot"):

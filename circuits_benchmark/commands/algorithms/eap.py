@@ -10,7 +10,7 @@ from auto_circuit.utils.tensor_ops import prune_scores_threshold
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
 from circuits_benchmark.utils.auto_circuit_utils import build_circuit
 
 
@@ -153,6 +153,7 @@ class EAPRunner:
   @staticmethod
   def add_args_to_parser(parser):
     add_common_args(parser)
+    add_evaluation_common_ags(parser)
 
     parser.add_argument(
         "-wandb", "--using_wandb", action="store_true", help="Use wandb"

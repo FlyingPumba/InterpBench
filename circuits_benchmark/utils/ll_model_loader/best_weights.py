@@ -1,23 +1,23 @@
-def get_best_weight(task, individual=False):
-    if str(task) in ['3']:
+def get_best_weight(case_name: str, individual=False):
+    if str(case_name) in ['3']:
         ind_weights = {
             'iit': 1.0,
             'strict': 10.0,
             'behavior': 1.0,
         }
-    elif str(task) in ['18', '34', '35', '36', '37']:
+    elif str(case_name) in ['18', '34', '35', '36', '37']:
         ind_weights = {
             'iit': 1.0,
             'strict': 1.0,
             'behavior': 1.0,
         }
-    elif str(task) in ['21']:
+    elif str(case_name) in ['21']:
         ind_weights = {
             'iit': 1.0,
             'strict': 0.5,
             'behavior': 1.0,
         }
-    elif "ioi" in str(task):
+    elif "ioi" in str(case_name):
         if individual:
             return {
             'iit': 1.0,
