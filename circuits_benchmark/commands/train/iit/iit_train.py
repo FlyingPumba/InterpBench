@@ -251,10 +251,6 @@ def train_model(
 
     hl_ll_corr = case.get_correspondence(include_mlp=args.include_mlp)
 
-    if isinstance(case, TracrBenchmarkCase):
-        if not case.supports_causal_masking():
-            raise NotImplementedError(f"Case {case.get_name()} does not support causal masking")
-
     model_pair = case.build_model_pair(
         training_args=training_args,
         ll_model=ll_model,
