@@ -125,7 +125,7 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
   def map_tracr_input_to_tl_input(self, batch_input: HookedTracrTransformerBatchInput) -> t.Tensor:
     """Maps a tracr input to a transformer_lens input."""
     encoding = [self.tracr_input_encoder.encode(input) for input in batch_input]
-    return t.tensor(encoding).to(self.device)
+    return t.tensor(encoding)
 
   def map_tl_output_to_tracr_output(self, logits: t.Tensor) -> HookedTracrTransformerBatchInput:
     """Maps a transformer_lens output to a tracr output."""

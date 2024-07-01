@@ -27,19 +27,22 @@ class TracrEncodedDataset(CaseDataset):
     return self.targets
 
   @staticmethod
-  def collate_fn(batch):
+  def collate_fn(batch, device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu")):
     inputs = t.stack([x[0] for x in batch])
     targets = t.stack([x[1] for x in batch])
-    return inputs, targets
+    return inputs.to(device=device), targets.to(device=device)
 
   def make_loader(
       self,
       batch_size: int | None = None,
       shuffle: bool | None = False,
+      device: str | t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+      num_workers: int = 0,
   ) -> DataLoader:
     return DataLoader(
       self,
       batch_size=batch_size,
       shuffle=shuffle,
-      collate_fn=lambda x: self.collate_fn(x),
+      num_workers=num_workers,
+      collate_fn=lambda x: self.collate_fn(x, device=device),
     )

@@ -112,8 +112,8 @@ def get_node_effects(
         za_result_not_in_circuit, za_result_in_circuit = (
             get_causal_effects_for_all_nodes(
                 model_pair,
-                test_set,
-                batch_size=len(test_set),
+                unique_dataset,
+                batch_size=len(unique_dataset),
                 use_mean_cache=use_mean_cache,
             )
         )
@@ -170,6 +170,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         except FileNotFoundError:
             ll_cfg = case.get_ll_model_cfg(same_size=args.same_size)
 
+        ll_cfg["device"] = args.device
         ll_model = HookedTransformer(ll_cfg)
         ll_model.load_state_dict(t.load(
             f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth",
