@@ -6,7 +6,7 @@ from argparse import Namespace
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.algorithms.eap import EAPRunner
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit
-from circuits_benchmark.utils.iit.ll_model_loader import ModelType, load_ll_model_and_correspondence
+from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader_from_args
 
 
 def setup_args_parser(subparsers):
@@ -14,39 +14,24 @@ def setup_args_parser(subparsers):
     EAPRunner.add_args_to_parser(parser)
 
     parser.add_argument(
-        "--tracr", action="store_true", help="Use tracr model instead of SIIT model"
-    )
-    parser.add_argument(
-        "--natural",
-        action="store_true",
-        help="Use naturally trained model, instead of SIIT model. This assumes that the model is already trained and stored in wandb or <output_dir>/ll_models/<case_index>/ll_model_natural.pth (run train iit for this)",
-    )
-    parser.add_argument(
-        "--load-from-wandb", action="store_true", help="Load model from wandb"
-    )
-    parser.add_argument(
-        "--interp-bench", action="store_true", help="Use interp bench model"
-    )
-    parser.add_argument(
         "--same-size", action="store_true", help="Use same size for ll model"
     )
 
 
 def run_eap_eval(case: BenchmarkCase, args: Namespace):
     eap_runner = EAPRunner(case, args)
-    model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
-    clean_dirname = prepare_output_dir(case, eap_runner, model_type, args)
+
+    ll_model_loader = get_ll_model_loader_from_args(case, args)
+    clean_dirname = prepare_output_dir(case, eap_runner, ll_model_loader, args)
 
     print(f"Running EAP evaluation for IIT model on case {case.get_name()}")
     print(f"Output directory: {clean_dirname}")
-    
-    hl_ll_corr, ll_model = load_ll_model_and_correspondence(
-        case,
-        model_type,
-        args.load_from_wandb,
-        args.device,
-        args.output_dir,
-        args.same_size,
+
+    hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(
+        load_from_wandb=args.load_from_wandb,
+        device=args.device,
+        output_dir=args.output_dir,
+        same_size=args.same_size,
     )
 
     clean_dataset = case.get_clean_data(max_samples=args.data_size)
@@ -85,12 +70,11 @@ def run_eap_eval(case: BenchmarkCase, args: Namespace):
     return result
 
 
-def prepare_output_dir(case, runner, model_type, args):
-  weight = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
+def prepare_output_dir(case, runner, ll_model_loader, args):
   if runner.edge_count is not None:
-    output_suffix = f"weight_{weight}/edge_count_{runner.edge_count}"
+    output_suffix = f"{ll_model_loader.get_output_suffix()}/edge_count_{runner.edge_count}"
   else:
-    output_suffix = f"weight_{weight}/threshold_{runner.threshold}"
+    output_suffix = f"{ll_model_loader.get_output_suffix()}/threshold_{runner.threshold}"
 
   clean_dirname = f"{args.output_dir}/eap_{case.get_name()}/{output_suffix}"
 

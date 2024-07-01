@@ -7,14 +7,13 @@ from transformer_lens import HookedTransformer
 
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.utils.circuit.circuit_eval import build_from_acdc_correspondence
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
-from circuits_benchmark.utils.iit.best_weights import get_best_weight
+from circuits_benchmark.utils.ll_model_loader.best_weights import get_best_weight
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
