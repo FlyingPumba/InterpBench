@@ -2,7 +2,6 @@ from argparse import Namespace, ArgumentParser
 
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
-from auto_circuit.prune_algos.edge_attribution_patching import edge_attribution_patching_prune_scores
 from auto_circuit.prune_algos.mask_gradient import mask_gradient_prune_scores
 from auto_circuit.types import PruneScores
 from auto_circuit.utils.graph_utils import patchable_model
@@ -150,6 +149,9 @@ class EAPRunner:
   def add_args_to_parser(parser):
     add_common_args(parser)
 
+    parser.add_argument(
+        "-wandb", "--using_wandb", action="store_true", help="Use wandb"
+    )
     parser.add_argument("--edge-count", type=int, default=None,
                         help="Number of edges to keep in the final circuit")
     parser.add_argument("--threshold", type=float, default=None,
