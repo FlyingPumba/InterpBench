@@ -18,7 +18,7 @@ from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_ci
     build_from_acdc_correspondence
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from circuits_benchmark.utils.iit.ll_model_loader import ModelType, get_ll_model
+from circuits_benchmark.utils.iit.ll_model_loader import ModelType, load_ll_model_and_correspondence
 from circuits_benchmark.utils.node_sp import train_sp
 from subnetwork_probing.masked_transformer import CircuitStartingPointType, EdgeLevelMaskedTransformer
 from subnetwork_probing.train import NodeLevelMaskedTransformer, iterative_correspondence_from_mask, \
@@ -108,7 +108,7 @@ def run_sp(
     model_type = ModelType.make_model_type(args.natural, args.tracr, args.interp_bench)
     weights = ModelType.get_weight_for_model_type(model_type, task=case.get_name())
     output_suffix = f"weight_{weights}"
-    hl_ll_corr, tl_model = get_ll_model(
+    hl_ll_corr, tl_model = load_ll_model_and_correspondence(
         case,
         model_type,
         args.load_from_wandb,

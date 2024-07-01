@@ -7,7 +7,7 @@ import circuits_benchmark.commands.algorithms.acdc as acdc
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit
-from circuits_benchmark.utils.iit.ll_model_loader import ModelType, get_ll_model
+from circuits_benchmark.utils.iit.ll_model_loader import ModelType, load_ll_model_and_correspondence
 
 
 def setup_args_parser(subparsers):
@@ -81,7 +81,7 @@ def run_acdc_eval(case: BenchmarkCase, args: Namespace):
         )
     else:
         # load the ll model
-        hl_ll_corr, ll_model = get_ll_model(
+        hl_ll_corr, ll_model = load_ll_model_and_correspondence(
           case=case,
           model_type=model_type,
           load_from_wandb=args.load_from_wandb,

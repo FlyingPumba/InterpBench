@@ -62,7 +62,7 @@ class ModelType(str, Enum):
 
 
 
-def get_ll_model(
+def load_ll_model_and_correspondence(
     case: BenchmarkCase,
     model_type: ModelType,
     load_from_wandb: bool,
