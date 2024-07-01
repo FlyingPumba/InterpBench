@@ -11,9 +11,9 @@ import pygraphviz as pgv
 from matplotlib import pyplot as plt
 from networkx import DiGraph
 
-from circuits_benchmark.transformers.circuit_granularity import CircuitGranularity
-from circuits_benchmark.transformers.circuit_node import CircuitNode
-from circuits_benchmark.transformers.circuit_node_view import CircuitNodeView
+from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit_node_view import CircuitNodeView
 from circuits_benchmark.utils.cloudpickle import dump_to_pickle, load_from_pickle
 
 

@@ -9,7 +9,7 @@ from torch.nn import Parameter
 from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
   get_resample_ablation_loss_from_inputs
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
@@ -35,8 +35,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
-    clean_data = self.case.get_clean_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
-    corrupted_data = self.case.get_corrupted_data(count=self.args.train_data_size, seed=random.randint(0, 1000000))
+    clean_data = self.case.get_clean_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
+    corrupted_data = self.case.get_corrupted_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
 
     # We calculate the output loss on the "corrupted data", which is the same as the clean data but generated on another seed,
     # so we can reuse the activation cache for the resample ablation loss
@@ -126,8 +126,8 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     return loss
 
   def get_intervention_level_loss(self,
-                                  clean_data: CaseDataset,
-                                  corrupted_data: CaseDataset,
+                                  clean_data: TracrDataset,
+                                  corrupted_data: TracrDataset,
                                   compressed_model_corrupted_cache: ActivationCache):
     resample_ablation_loss_args = {
       "clean_inputs": clean_data,

@@ -140,9 +140,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       for name, param in self.new_tl_model.named_parameters():
         wandb.log({f"param_{name}_norm": param.norm()}, step=self.step)
 
-  def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
-    return self.new_tl_model(inputs, return_type="decoded")
-
   def get_logits_and_cache_from_compressed_model(
       self,
       inputs: HookedTracrTransformerBatchInput
@@ -172,9 +169,9 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
 
   def build_wandb_name(self):
     if len(self.autoencoders_dict) > 1:
-      return f"case-{self.case.get_index()}-non-linear-multi-aes"
+      return f"case-{self.case.get_name()}-non-linear-multi-aes"
     else:
-      return f"case-{self.case.get_index()}-non-linear-resid-{list(self.autoencoders_dict.values())[0].compression_size}"
+      return f"case-{self.case.get_name()}-non-linear-resid-{list(self.autoencoders_dict.values())[0].compression_size}"
 
   def get_wandb_tags(self):
     tags = super().get_wandb_tags()
@@ -205,9 +202,9 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       os.makedirs(self.output_dir)
 
     if len(self.autoencoders_dict) > 1:
-      prefix = f"case-{self.case.get_index()}-multi-aes"
+      prefix = f"case-{self.case.get_name()}-multi-aes"
     else:
-      prefix = f"case-{self.case.get_index()}-resid-{list(self.autoencoders_dict.values())[0].compression_size}"
+      prefix = f"case-{self.case.get_name()}-resid-{list(self.autoencoders_dict.values())[0].compression_size}"
 
     # save the weights of the model using state_dict
     weights_path = os.path.join(self.output_dir, f"{prefix}-non-linear-compression-weights.pt")
@@ -231,5 +228,5 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                      .replace('[', '.')
                      .replace(']', '.')
                      .replace("|", "."))
-      prefix = f"case-{self.case.get_index()}-ae-{safe_ae_key}-size-{ae.compression_size}-final"
+      prefix = f"case-{self.case.get_name()}-ae-{safe_ae_key}-size-{ae.compression_size}-final"
       ae.save(self.output_dir, prefix, self.wandb_run)

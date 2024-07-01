@@ -1,8 +1,8 @@
 from jaxtyping import Float
 from torch import Tensor
 
-from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
+from circuits_benchmark.training.compression.autencoder import AutoEncoder
 
 
 class AutoEncoderMapper(ActivationMapper):

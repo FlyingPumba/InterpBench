@@ -1,13 +1,13 @@
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import ActivationCache, HookedTransformer, utils
+from transformer_lens import ActivationCache, HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
+from circuits_benchmark.training.compression.activation_mapper.linear_mapper import LinearMapper
 from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
   CausallyCompressedTracrTransformerTrainer
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
-from circuits_benchmark.training.compression.activation_mapper.linear_mapper import LinearMapper
-from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput, \
   HookedTracrTransformer
@@ -28,9 +28,6 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
                      original_model.is_categorical(),
                      original_model.cfg.n_layers,
                      output_dir=output_dir)
-
-  def get_decoded_outputs_from_compressed_model(self, inputs: HookedTracrTransformerBatchInput) -> Tensor:
-    return self.compressed_model(inputs, return_type="decoded")
 
   def get_logits_and_cache_from_compressed_model(
       self,
@@ -55,7 +52,7 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
     return LinearMapper(self.compressed_model.W_compress)
 
   def build_wandb_name(self):
-    return f"case-{self.case.get_index()}-linear-resid-{self.compressed_model.residual_stream_compression_size}"
+    return f"case-{self.case.get_name()}-linear-resid-{self.compressed_model.residual_stream_compression_size}"
 
   def get_wandb_tags(self):
     tags = super().get_wandb_tags()
@@ -63,5 +60,5 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
     return tags
 
   def save_artifacts(self):
-    prefix = f"case-{self.case.get_index()}-resid-{self.compressed_model.residual_stream_compression_size}"
+    prefix = f"case-{self.case.get_name()}-resid-{self.compressed_model.residual_stream_compression_size}"
     self.compressed_model.save(self.output_dir, prefix, self.wandb_run)

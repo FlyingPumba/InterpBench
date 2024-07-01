@@ -1,15 +1,15 @@
 from argparse import Namespace, ArgumentParser
 
+import numpy as np
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
-from auto_circuit.prune_algos.edge_attribution_patching import edge_attribution_patching_prune_scores
 from auto_circuit.prune_algos.mask_gradient import mask_gradient_prune_scores
 from auto_circuit.types import PruneScores
 from auto_circuit.utils.graph_utils import patchable_model
 from auto_circuit.utils.tensor_ops import prune_scores_threshold
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.utils.auto_circuit_utils import build_circuit
 
@@ -29,16 +29,25 @@ class EAPRunner:
       "Either edge_count or threshold must be provided, but not both"
 
   def run_on_tracr_model(self):
-    tl_model = self.case.get_tl_model()
-    clean_dataset = self.case.get_clean_data(count=self.data_size)
-    corrupted_dataset = self.case.get_corrupted_data(count=self.data_size)
+    assert isinstance(self.case, TracrBenchmarkCase)
+    tl_model = self.case.get_hl_model()
+    clean_dataset = self.case.get_clean_data(max_samples=self.data_size)
+    corrupted_dataset = self.case.get_corrupted_data(max_samples=self.data_size)
 
-    return self.run(tl_model, clean_dataset, corrupted_dataset)
+    return self.run(
+      tl_model,
+      clean_dataset.get_inputs(),
+      clean_dataset.get_targets(),
+      corrupted_dataset.get_inputs(),
+      corrupted_dataset.get_targets(),
+    )
 
   def run(self,
           tl_model: t.nn.Module,
-          clean_dataset: CaseDataset,
-          corrupted_dataset: CaseDataset):
+          clean_inputs: np.ndarray,
+          clean_expected_outputs: np.ndarray,
+          corrupted_inputs: np.ndarray,
+          corrupted_expected_outputs: np.ndarray):
     tl_model.to(self.args.device)
     auto_circuit_model = patchable_model(
       tl_model,
@@ -49,18 +58,13 @@ class EAPRunner:
     )
 
     # remove from inputs the rows that have the same expected output
-    clean_raw_inputs = clean_dataset.get_inputs()
-    corrupted_raw_inputs = corrupted_dataset.get_inputs()
-    clean_expected_outputs = clean_dataset.get_correct_outputs()
-    corrupted_expected_outputs = corrupted_dataset.get_correct_outputs()
-
     idxs_to_remove = []
     for i in range(len(clean_expected_outputs)):
       if clean_expected_outputs[i] == corrupted_expected_outputs[i]:
         idxs_to_remove.append(i)
 
-    clean_inputs = [clean_raw_inputs[i] for i in range(len(clean_raw_inputs)) if i not in idxs_to_remove]
-    corrupted_inputs = [corrupted_raw_inputs[i] for i in range(len(corrupted_raw_inputs)) if i not in idxs_to_remove]
+    clean_inputs = [clean_inputs[i] for i in range(len(clean_inputs)) if i not in idxs_to_remove]
+    corrupted_inputs = [corrupted_inputs[i] for i in range(len(corrupted_inputs)) if i not in idxs_to_remove]
 
     # Convert inputs to tensors using tracr encoder
     clean_inputs = tl_model.map_tracr_input_to_tl_input(clean_inputs)
@@ -81,7 +85,7 @@ class EAPRunner:
       clean_outputs,
       corrupted_outputs,
     )
-    train_loader = PromptDataLoader(dataset, seq_len=self.case.get_max_seq_len(), diverge_idx=0)
+    train_loader = PromptDataLoader(dataset, seq_len=None, diverge_idx=0)
 
     eap_args = {
       "model": auto_circuit_model,
@@ -150,6 +154,9 @@ class EAPRunner:
   def add_args_to_parser(parser):
     add_common_args(parser)
 
+    parser.add_argument(
+        "-wandb", "--using_wandb", action="store_true", help="Use wandb"
+    )
     parser.add_argument("--edge-count", type=int, default=None,
                         help="Number of edges to keep in the final circuit")
     parser.add_argument("--threshold", type=float, default=None,
@@ -157,7 +164,7 @@ class EAPRunner:
     parser.add_argument("--data-size", type=int, default=1000, help="Number of samples to use")
     parser.add_argument("--integrated-grad-steps", type=int, default=None,
                         help="Number of samples for integrated grad. If None, this is not used.")
-    parser.add_argument("--regression-loss-fn", type=str, default="huber",
+    parser.add_argument("--regression-loss-fn", type=str, default="mae",
                         choices=["mse", "mae"], help="Loss function to use for regression models.")
     parser.add_argument("--normalize-scores", action="store_true",
                         help="Normalize the scores so that they all lie between 0 and 1.")

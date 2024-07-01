@@ -1,21 +1,22 @@
+import pickle
 from argparse import Namespace
 
 import numpy as np
 import torch as t
-import pickle
-import circuits_benchmark.utils.iit.correspondence as correspondence
-import iit.model_pairs as mp
+from transformer_lens import HookedTransformer
+
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import (
     HookedTracrTransformer,
 )
-from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg_for_case
-from circuits_benchmark.utils.iit.dataset import (
-    get_unique_data,
-    TracrIITDataset,
-    TracrUniqueDataset,
-)
+from circuits_benchmark.utils.iit.best_weights import get_best_weight
+from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
+from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.utils import IITDataset
 from iit.utils.eval_ablations import (
     check_causal_effect,
     get_causal_effects_for_all_nodes,
@@ -23,15 +24,10 @@ from iit.utils.eval_ablations import (
     save_result,
     Categorical_Metric,
 )
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
-import argparse
 
 
-def setup_args_parser(subparsers, return_namespace=False):
-    if return_namespace:
-        parser = argparse.ArgumentParser()
-    else:
-        parser = subparsers.add_parser("iit")
+def setup_args_parser(subparsers):
+    parser = subparsers.add_parser("iit")
     add_common_args(parser)
 
     parser.add_argument(
@@ -43,9 +39,11 @@ def setup_args_parser(subparsers, return_namespace=False):
     )
     parser.add_argument("-m", "--mean", type=int, default=1, help="Use mean cache")
     parser.add_argument(
-        "--save-to-wandb", action="store_true", help="Save results to wandb"
+        "--batch-size",
+        type=int,
+        default=512,
+        help="Batch size for making mean cache (if using mean ablation)",
     )
-    parser.add_argument("--batch_size", type=int, default=512, help="Batch size")
     parser.add_argument(
         "--categorical-metric",
         choices=["accuracy", "kl_div", "kl_div_self"],
@@ -53,42 +51,43 @@ def setup_args_parser(subparsers, return_namespace=False):
         help="Categorical metric to use",
     )
     parser.add_argument(
-        "--load-from-wandb", action="store_true", help="Load model from wandb"
-    )
-    parser.add_argument(
-        "--max-len", type=int, default=1000, help="Max length of unique data"
+        "--max-len", type=int, default=18000, help="Max length of unique data"
     )
     parser.add_argument(
         "--same-size", action="store_true", help="Use same size for ll model"
     )
-    # parser.add_argument("-o", "--output_dir", type=str, default="./results", help="Output directory")
-    # model_pair_class_map = {
-    #     "strict": mp.StrictIITModelPair,
-    #     "behavior": mp.IITBehaviorModelPair,
-    #     "iit": mp.FreezedModelPair,
-    #     "stop_grad": mp.StopGradModelPair
-    # }
-    # parser.add_argument('-mp', '--model_pair', type=str, default="strict", help="Model pair class to use")
-    if return_namespace:
-        # return the default namespace without parsing any arguments
-        args = parser.parse_args([])
-        return args
+
+    parser.add_argument(
+        "--next-token", action="store_true", help="Use next token model"
+    )
+    parser.add_argument(
+        "--include-mlp", action="store_true", help="Evaluate group 'with_mlp'"
+    )
+
+    parser.add_argument(
+        "--use-wandb", action="store_true", help="Use wandb for logging"
+    )
+    parser.add_argument(
+        "--save-to-wandb", action="store_true", help="Save results to wandb"
+    )
+    parser.add_argument(
+        "--load-from-wandb", action="store_true", help="Load model from wandb"
+    )
 
 
 def get_node_effects(
     case: BenchmarkCase,
     args: Namespace,
-    model_pair: mp.BaseModelPair,
+    model_pair: BaseModelPair,
     use_mean_cache: bool,
     individual_nodes: bool = True,
 ):
-    np.random.seed(0)
-    t.manual_seed(0)
-    hl_model = model_pair.hl_model
-    unique_test_data = get_unique_data(case, max_len=args.max_len)
-    test_set = TracrIITDataset(
-        unique_test_data, unique_test_data, hl_model, every_combination=True
-    )
+    np.random.seed(args.seed)
+    t.manual_seed(args.seed)
+
+    unique_dataset = case.get_clean_data(max_samples=args.max_len, unique_data=True)
+    test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
+
     with t.no_grad():
         result_not_in_circuit = check_causal_effect(
             model_pair,
@@ -110,16 +109,11 @@ def get_node_effects(
         )
 
         # zero/mean ablation
-        unique_test_data = get_unique_data(case, max_len=args.max_len * 100)
-        uni_test_set = TracrUniqueDataset(
-            unique_test_data, unique_test_data, hl_model, every_combination=True
-        )
-
         za_result_not_in_circuit, za_result_in_circuit = (
             get_causal_effects_for_all_nodes(
                 model_pair,
-                uni_test_set,
-                batch_size=len(uni_test_set),
+                unique_dataset,
+                batch_size=len(unique_dataset),
                 use_mean_cache=use_mean_cache,
             )
         )
@@ -135,72 +129,59 @@ def get_node_effects(
 
 
 def run_iit_eval(case: BenchmarkCase, args: Namespace):
-    output_dir = "./results"
+    output_dir = args.output_dir
     weight = args.weights
     use_mean_cache = args.mean
 
-    hl_model = case.build_transformer_lens_model()
-    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
-    tracr_output = case.get_tracr_output()
+    hl_model = case.get_hl_model()
+    if isinstance(hl_model, HookedTracrTransformer):
+        hl_model = IITHLModel(hl_model, eval_mode=True)
 
     if weight == "tracr":
-        ll_model = case.get_tl_model()
-        hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
-            tracr_output=tracr_output
-        )
+        assert isinstance(case, TracrBenchmarkCase)
+        ll_model = case.get_hl_model()
+        hl_ll_corr = case.get_correspondence(same_size=True)
     else:
         if weight == "best":
-            from circuits_benchmark.utils.iit.best_weights import get_best_weight
-
-            weight = get_best_weight(case.get_index())
+            weight = get_best_weight(case.get_name())
         
         # make correspondence
-        if args.same_size:
-            hl_ll_corr = correspondence.TracrCorrespondence.make_identity_corr(
-                tracr_output=tracr_output
-            )
-        else:
-            hl_ll_corr = correspondence.TracrCorrespondence.from_output(
-                case, tracr_output
-            )
+        get_correspondence_args = {
+            "same_size": args.same_size
+        }
+        if args.include_mlp:
+            get_correspondence_args["include_mlp"] = True
+        hl_ll_corr = case.get_correspondence(**get_correspondence_args)
 
         # load from wandb if needed
         if args.load_from_wandb:
             load_model_from_wandb(
-                case.get_index(), weight, output_dir, same_size=args.same_size
+                case.get_name(), weight, output_dir, same_size=args.same_size
             )
 
         # make ll model
         try:
             ll_cfg = pickle.load(
                 open(
-                    f"{output_dir}/ll_models/{case.get_index()}/ll_model_cfg_{weight}.pkl",
+                    f"{output_dir}/ll_models/{case.get_name()}/ll_model_cfg_{weight}.pkl",
                     "rb",
                 )
             )
         except FileNotFoundError:
-            ll_cfg = make_ll_cfg_for_case(
-                hl_model, case.get_index(), same_size=args.same_size
-            )
-        ll_model = HookedTracrTransformer(
-            ll_cfg,
-            hl_model.tracr_input_encoder,
-            hl_model.tracr_output_encoder,
-            hl_model.residual_stream_labels,
-            remove_extra_tensor_cloning=True,
-        )
-        
-        ll_model.load_weights_from_file(
-            f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth"
-        )
+            ll_cfg = case.get_ll_model_cfg(same_size=args.same_size)
+
+        ll_cfg["device"] = args.device
+        ll_model = HookedTransformer(ll_cfg)
+        ll_model.load_state_dict(t.load(
+            f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth",
+            map_location=args.device))
         ll_model.eval()
         ll_model.requires_grad_(False)
 
-    model_pair = mp.IITBehaviorModelPair(hl_model, ll_model, hl_ll_corr)
-
+    model_pair = case.build_model_pair(hl_model=hl_model, ll_model=ll_model, hl_ll_corr=hl_ll_corr)
     df, metric_collection = get_node_effects(case, args, model_pair, use_mean_cache)
 
-    save_dir = f"{output_dir}/ll_models/{case.get_index()}/results_{weight}"
+    save_dir = f"{output_dir}/ll_models/{case.get_name()}/results_{weight}"
     suffix = f"_{args.categorical_metric}" if hl_model.is_categorical() else ""
     save_result(df, save_dir, model_pair, suffix=suffix)
     with open(f"{save_dir}/metric_collection.log", "w") as f:
@@ -213,13 +194,13 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         wandb.init(
             project=f"node_effect{'_same_size' if args.same_size else ''}",
             tags=[
-                f"case_{case.get_index()}",
+                f"case_{case.get_name()}",
                 f"weight_{weight}",
                 f"metric{suffix}",
             ],
-            name=f"case_{case.get_index()}_weight_{weight}{suffix}",
+            name=f"case_{case.get_name()}_weight_{weight}{suffix}",
         )
         wandb.log(metric_collection.to_dict())
-        wandb.save(f"{output_dir}/ll_models/{case.get_index()}/*")
+        wandb.save(f"{output_dir}/ll_models/{case.get_name()}/*")
         wandb.save(f"{save_dir}/*")
         wandb.finish()

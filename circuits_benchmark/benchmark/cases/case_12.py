@@ -1,12 +1,12 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.common_programs import detect_pattern
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case12(BenchmarkCase):
+class Case12(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return detect_pattern(rasp.tokens, "abc")
 

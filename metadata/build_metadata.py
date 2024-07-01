@@ -7,6 +7,7 @@ import pandas as pd
 import huggingface_hub as hf
 from transformer_lens import HookedTransformerConfig
 
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.utils.get_cases import get_cases
 
 hf_fs = hf.HfFileSystem()
@@ -104,19 +105,20 @@ def build_case_info(case_id, files_per_case):
 
   # Case description and basic info
   cases = get_cases(indices=[case_id])
-  if len(cases) == 0:
-    if "ioi" in case_id:
-      case_info["task_description"] = "Indirect object identification"
-      case_info["max_seq_len"] = 16
-      case_info["min_seq_len"] = 16
-    else:
-      print(f"WARNING: No case found for case {case_id}")
-  else:
-    case = cases[0]
-    case_info["task_description"] = case.get_task_description()
+  assert len(cases) == 1, f"Case {case_id} not found or multiple cases found for the same name"
+
+  case = cases[0]
+  case_info["task_description"] = case.get_task_description()
+
+  if isinstance(case, TracrBenchmarkCase):
     case_info["vocab"] = list(sorted(case.get_vocab()))
     case_info["max_seq_len"] = case.get_max_seq_len()
     case_info["min_seq_len"] = case.get_min_seq_len()
+  elif "ioi" in case_id:
+    case_info["max_seq_len"] = 16
+    case_info["min_seq_len"] = 16
+  else:
+    raise ValueError(f"Unknown case type for case {case_id}")
 
   # Files
   case_info["files"] = []

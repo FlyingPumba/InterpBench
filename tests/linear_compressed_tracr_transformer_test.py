@@ -9,7 +9,7 @@ class LinearCompressedTracrTransformerTest(unittest.TestCase):
     case = Case3()
 
     compressed_tracr_transformer = LinearCompressedTracrTransformer(
-      case.get_tl_model(),
+      case.get_hl_model(),
       int(9),
       "linear")
 

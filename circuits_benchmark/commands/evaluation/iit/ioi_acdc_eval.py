@@ -2,21 +2,23 @@ import os
 import pickle
 import shutil
 from argparse import Namespace
-import torch
-from circuits_benchmark.transformers.circuit import Circuit
-from circuits_benchmark.transformers.circuit_node import CircuitNode
-from iit.utils.correspondence import Correspondence
 from typing import Optional
-from iit.tasks.ioi import ioi_cfg, NAMES, suffixes, make_ll_edges, make_corr_dict
-from circuits_benchmark.utils.circuits_comparison import calculate_fpr_and_tpr
-from circuits_benchmark.transformers.acdc_circuit_builder import build_acdc_circuit
+
+import torch
 import transformer_lens
-from iit.utils.io_scripts import load_files_from_wandb
+from iit.model_pairs.ioi_model_pair import IOI_ModelPair
+from iit.model_pairs.nodes import LLNode
+from iit.tasks.ioi import ioi_cfg, NAMES, suffixes, make_ll_edges, make_corr_dict
 from iit.tasks.ioi import make_ioi_dataset_and_hl
-from .acdc_utils import ACDCRunner
-import iit.model_pairs as mp
+from iit.utils.correspondence import Correspondence
+from iit.utils.io_scripts import load_files_from_wandb
+
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
-import argparse
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_eval import calculate_fpr_and_tpr, build_from_acdc_correspondence
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
+from .acdc_utils import ACDCRunner
+
 
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("ioi_acdc")
@@ -30,7 +32,7 @@ def evaluate_acdc_circuit(
     use_pos_embed: Optional[bool] = False,
     **kwargs,
 ):
-    def make_circuit_node(ll_node: mp.LLNode):
+    def make_circuit_node(ll_node: LLNode):
         if 'attn' in ll_node.name:
             index = ll_node.index
             head = index.as_index[2]
@@ -51,7 +53,7 @@ def evaluate_acdc_circuit(
     full_corr = TLACDCCorrespondence.setup_from_model(
             ll_model, use_pos_embed=use_pos_embed
     )
-    full_circuit = build_acdc_circuit(corr=full_corr)
+    full_circuit = build_from_acdc_correspondence(corr=full_corr)
     return calculate_fpr_and_tpr(
         acdc_circuit, gt_circuit, full_circuit, **kwargs
     )
@@ -61,17 +63,14 @@ def evaluate_acdc_circuit(
 def run_ioi_acdc(args: Namespace):
     weights = args.weights
     threshold = args.threshold
-    using_wandb = args.using_wandb
     device = args.device
     num_samples = args.data_size
-    metric = "kl"
 
     # this is the graph node -> hl node correspondence
-    # tracr_hl_corr = correspondence.TracrCorrespondence.from_output(tracr_output)
     output_suffix = f"weight_{weights}/threshold_{threshold}"
     clean_dirname = f"{args.output_dir}/acdc_ioi/{output_suffix}"
     load_dir = os.path.join(
-        args.output_dir, "ll_models", f"ioi" if not args.next_token else "ioi_next_token"
+        args.output_dir, "ll_models", "ioi" if not args.next_token else "ioi_next_token"
     )
     # remove everything in the directory
     if os.path.exists(clean_dirname):
@@ -121,7 +120,7 @@ def run_ioi_acdc(args: Namespace):
     corrupted_inputs = ioi_dataset.get_inputs()[num_samples:]
     
 
-    label_idx = mp.IOI_ModelPair.get_label_idxs()
+    label_idx = IOI_ModelPair.get_label_idxs()
     def validation_metric(model_outputs):
         output_slice = model_outputs[label_idx.as_index]
         clean_outputs_slice = clean_outputs[label_idx.as_index]
@@ -148,7 +147,7 @@ def run_ioi_acdc(args: Namespace):
     )
     if args.using_wandb:
         import wandb
-        wandb.init(project=f"circuit_discovery", 
+        wandb.init(project="circuit_discovery", 
                    group=f"acdc_ioi{'next_token' if args.next_token else ''}_{args.weights}", 
                    name=f"{args.threshold}")
         wandb.save(f"{clean_dirname}/*", base_path=args.output_dir)

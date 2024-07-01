@@ -1,8 +1,7 @@
 import os
 import shutil
-from typing import List
 from pathlib import Path
-
+from typing import List
 
 import wandb
 

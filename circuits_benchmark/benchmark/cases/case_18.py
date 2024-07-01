@@ -1,12 +1,12 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.common_programs import make_hist, make_length
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case18(BenchmarkCase):
+class Case18(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_frequency_classifier(rasp.tokens)
 

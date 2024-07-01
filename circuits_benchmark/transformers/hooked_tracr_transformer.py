@@ -17,7 +17,7 @@ from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
 from tracr.transformer.encoder import CategoricalEncoder, Encoder
 
-HookedTracrTransformerBatchInput = List[List[Any]]
+HookedTracrTransformerBatchInput = List[List[Any]] | np.ndarray
 HookedTracrTransformerReturnType = Literal["logits", "decoded"]
 
 
@@ -100,7 +100,7 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
-    if isinstance(args[0], list) or isinstance(args[0], pd.Series):
+    if isinstance(args[0], list) or isinstance(args[0], np.ndarray):
       # Input is a HookedTracrTransformerBatchInput
       return self.run_tracr_input(*args, **kwargs)
     else:
@@ -125,7 +125,7 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
   def map_tracr_input_to_tl_input(self, batch_input: HookedTracrTransformerBatchInput) -> t.Tensor:
     """Maps a tracr input to a transformer_lens input."""
     encoding = [self.tracr_input_encoder.encode(input) for input in batch_input]
-    return t.tensor(encoding).to(self.device)
+    return t.tensor(encoding)
 
   def map_tl_output_to_tracr_output(self, logits: t.Tensor) -> HookedTracrTransformerBatchInput:
     """Maps a transformer_lens output to a tracr output."""

@@ -1,12 +1,12 @@
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.common_programs import shift_by
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
 
 
-class Case19(BenchmarkCase):
+class Case19(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_sequential_duplicate_removal(rasp.tokens)
 

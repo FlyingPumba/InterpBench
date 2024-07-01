@@ -10,10 +10,10 @@ from transformer_lens import ActivationCache
 from transformer_lens.hook_points import HookPoint
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.case_dataset import CaseDataset
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import regular_intervention_hook_fn
-from circuits_benchmark.transformers.acdc_circuit_builder import get_full_acdc_circuit
-from circuits_benchmark.transformers.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.circuit_eval import get_full_circuit
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 AblationType = Literal["zero", "mean", "resample"]
@@ -47,8 +47,8 @@ def evaluate_iia_on_all_ablation_types(
     accuracy_atol: Optional[float] = 1e-2):
   iia_evaluation_results = {}
 
-  clean_data = case.get_clean_data(count=data_size)
-  corrupted_data = case.get_corrupted_data(count=data_size)
+  clean_data = case.get_clean_data(max_samples=data_size)
+  corrupted_data = case.get_corrupted_data(max_samples=data_size)
 
   # run corrupted data on both models
   _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_data.get_inputs())
@@ -58,8 +58,8 @@ def evaluate_iia_on_all_ablation_types(
   _, base_model_clean_cache = base_model.run_with_cache(clean_data.get_inputs())
   _, hypothesis_model_clean_cache = hypothesis_model.run_with_cache(clean_data.get_inputs())
 
-  full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
-  hl_circuit, ll_circuit, alignment = case.get_tracr_circuit(granularity="acdc_hooks")
+  full_circuit = get_full_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
+  ll_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
 
   for node in set(full_circuit.nodes):
     node_str = str(node)
@@ -107,8 +107,8 @@ def is_qkv_granularity_hook(hook_name):
 def evaluate_iia(case: BenchmarkCase,
                  base_model: HookedTracrTransformer,
                  hypothesis_model: HookedTracrTransformer,
-                 clean_data: CaseDataset,
-                 corrupted_data: CaseDataset,
+                 clean_data: TracrDataset,
+                 corrupted_data: TracrDataset,
                  base_model_corrupted_cache: ActivationCache,
                  hypothesis_model_corrupted_cache: ActivationCache,
                  base_model_clean_cache: ActivationCache,
@@ -117,8 +117,8 @@ def evaluate_iia(case: BenchmarkCase,
                  ablation_type: Optional[AblationType] = "resample",
                  accuracy_atol: Optional[float] = 1e-2) -> Dict[str, Dict[str, float]]:
   """Run Interchange Intervention Accuracy to measure if a hypothesis model has the same circuit as a base model."""
-  print(f"Running IIA evaluation for case {case.get_index()} using ablation type \"{ablation_type}\".")
-  full_circuit = get_full_acdc_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
+  print(f"Running IIA evaluation for case {case.get_name()} using ablation type \"{ablation_type}\".")
+  full_circuit = get_full_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
 
   # evaluate all nodes in the full circuit
   results_by_node = {}
@@ -198,7 +198,7 @@ def evaluate_iia(case: BenchmarkCase,
         # calculate effective accuracy. This is regular accuracy but removing the labels that don't change across
         # datasets. This is a measure of how much the model is actually changing its predictions.
         # Otherwise, ablating a node that is not part of the circuit will automatically yield a 100% accuracy.
-        inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_correct_outputs() != corrupted_data.get_correct_outputs()).bool()
+        inputs_with_different_output: Bool[Tensor, "batch"] = t.tensor(clean_data.get_targets() != corrupted_data.get_targets()).bool()
         effective_accuracy = same_outputs_between_both_models_after_intervention[inputs_with_different_output].mean().item()
         results_by_node[node_str]["effective_accuracy"] = effective_accuracy
 
