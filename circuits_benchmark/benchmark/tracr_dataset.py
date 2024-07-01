@@ -49,12 +49,9 @@ class TracrDataset(CaseDataset):
       collate_fn=lambda x: self.collate_fn(x),
     )
 
-  def get_encoded_dataset(
-      self,
-      device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
-  ):
+  def get_encoded_dataset(self):
     encoded_inputs = self.hl_model.map_tracr_input_to_tl_input(self.inputs)
     with t.no_grad():
       encoded_outputs = self.hl_model(encoded_inputs)
 
-    return TracrEncodedDataset(encoded_inputs.to(device), encoded_outputs.to(device))
+    return TracrEncodedDataset(encoded_inputs, encoded_outputs)
