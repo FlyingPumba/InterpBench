@@ -210,10 +210,10 @@ class TracrBenchmarkCase(BenchmarkCase):
     """Returns the total number of possible sequences for the vocab and sequence lengths."""
     vals = sorted(list(self.get_vocab()))
     max_len = self.get_max_seq_len()
-    min_len = self.get_min_seq_len()
+    min_len = self.get_min_seq_len() - 1
 
     total_len = 0
-    for l in range(min_len, max_len + 1):
+    for l in range(min_len, max_len):
       total_len += len(vals) ** l
 
     return total_len
