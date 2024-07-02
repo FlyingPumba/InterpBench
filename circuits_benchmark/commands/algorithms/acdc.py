@@ -53,7 +53,7 @@ class ACDCConfig:
     device: Optional[str] = "cpu"
 
     @staticmethod
-    def from_args(args: Namespace):
+    def from_args(args: Namespace) -> "ACDCConfig":
         config = ACDCConfig(
             threshold=args.threshold,
             seed=int(args.seed),
@@ -103,13 +103,18 @@ class ACDCConfig:
         return config
 
 class ACDCRunner:
-    def __init__(self, case: BenchmarkCase, config: ACDCConfig | None = None, args: Namespace | None = None):
+    def __init__(self,
+                 case: BenchmarkCase,
+                 config: ACDCConfig | None = None,
+                 args: Namespace | None = None):
         self.case = case
         self.config = config
         self.args = deepcopy(args)
 
         if self.config is None:
           self.config = ACDCConfig.from_args(args)
+
+        assert self.config is not None
         self.configure_acdc()
 
         # Check that dot program is in path
@@ -124,7 +129,6 @@ class ACDCRunner:
       torch.manual_seed(self.config.seed)
       random.seed(self.config.seed)
       np.random.seed(self.config.seed)
-
 
     def run_using_model_loader(self, ll_model_loader: LLModelLoader) -> Tuple[Circuit, CircuitEvalResult]:
       clean_dirname = self.prepare_output_dir(ll_model_loader)

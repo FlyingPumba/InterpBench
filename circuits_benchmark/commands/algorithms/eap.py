@@ -2,7 +2,9 @@ import os
 import pickle
 import shutil
 from argparse import Namespace
-from typing import Tuple
+from copy import deepcopy
+from dataclasses import dataclass
+from typing import Tuple, Optional
 
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
@@ -17,18 +19,64 @@ from circuits_benchmark.utils.auto_circuit_utils import build_circuit
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, CircuitEvalResult
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
+from circuits_benchmark.utils.project_paths import get_default_output_dir
 
+
+@dataclass
+class EAPConfig:
+  threshold: Optional[float] = None
+  seed: Optional[int] = 42
+  edge_count: Optional[int] = None
+  data_size: Optional[int] = 1000
+  integrated_grad_steps: Optional[int] = None
+  regression_loss_fn: Optional[str] = "mae"
+  normalize_scores: Optional[bool] = False
+  using_wandb: Optional[bool] = False
+  output_dir: Optional[str] = get_default_output_dir()
+  device: Optional[str] = "cpu"
+  same_size: Optional[bool] = False
+  include_mlp: Optional[bool] = False
+  weights: Optional[str] = None
+
+  @staticmethod
+  def from_args(args: Namespace) -> "EAPConfig":
+    return EAPConfig(
+      threshold=args.threshold,
+      seed=int(args.seed),
+      edge_count=args.edge_count,
+      data_size=args.data_size,
+      integrated_grad_steps=args.integrated_grad_steps,
+      regression_loss_fn=args.regression_loss_fn,
+      normalize_scores=args.normalize_scores,
+      using_wandb=args.using_wandb,
+      output_dir=args.output_dir,
+      device=args.device,
+      same_size=args.same_size,
+      include_mlp=args.include_mlp,
+      weights=args.weights,
+    )
 
 class EAPRunner:
-  def __init__(self, case: BenchmarkCase, args: Namespace):
+  def __init__(self,
+               case: BenchmarkCase,
+               config: EAPConfig | None = None,
+               args: Namespace | None = None):
     self.case = case
-    self.args = args
-    self.data_size = args.data_size
-    self.edge_count = args.edge_count
-    self.threshold = args.threshold
-    self.integrated_grad_steps = args.integrated_grad_steps
-    self.regression_loss_fn = args.regression_loss_fn
-    self.normalize_scores = args.normalize_scores
+    self.config = config
+    self.args = deepcopy(args)
+
+    if self.config is None:
+      self.config = EAPConfig.from_args(args)
+
+    assert self.config is not None
+
+
+    self.data_size = self.config.data_size
+    self.edge_count = self.config.edge_count
+    self.threshold = self.config.threshold
+    self.integrated_grad_steps = self.config.integrated_grad_steps
+    self.regression_loss_fn = self.config.regression_loss_fn
+    self.normalize_scores = self.config.normalize_scores
 
     assert (self.edge_count is not None) ^ (self.threshold is not None), \
       "Either edge_count or threshold must be provided, but not both"
@@ -40,18 +88,17 @@ class EAPRunner:
     print(f"Output directory: {clean_dirname}")
 
     hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(
-      load_from_wandb=self.args.load_from_wandb,
-      device=self.args.device,
-      output_dir=self.args.output_dir,
-      same_size=self.args.same_size,
+      device=self.config.device,
+      output_dir=self.config.output_dir,
+      same_size=self.config.same_size,
       # IOI specific args:
       eval=True,
-      include_mlp=self.args.include_mlp,
+      include_mlp=self.config.include_mlp,
       use_pos_embed=False
     )
 
-    clean_dataset = self.case.get_clean_data(max_samples=self.args.data_size)
-    corrupted_dataset = self.case.get_corrupted_data(max_samples=self.args.data_size)
+    clean_dataset = self.case.get_clean_data(max_samples=self.config.data_size)
+    corrupted_dataset = self.case.get_corrupted_data(max_samples=self.config.data_size)
 
     clean_outputs = clean_dataset.get_targets()
     corrupted_outputs = corrupted_dataset.get_targets()
@@ -91,15 +138,15 @@ class EAPRunner:
 
     pickle.dump(result, open(f"{clean_dirname}/result.pkl", "wb"))
     print(f"Saved result to {clean_dirname}/result.txt and {clean_dirname}/result.pkl")
-    if self.args.using_wandb:
+    if self.config.using_wandb:
       import wandb
 
       wandb.init(
         project="circuit_discovery",
-        group=f"eap_{self.case.get_name()}_{self.args.weights}",
-        name=f"{self.args.threshold}",
+        group=f"eap_{self.case.get_name()}_{self.config.weights}",
+        name=f"{self.config.threshold}",
       )
-      wandb.save(f"{clean_dirname}/*", base_path=self.args.output_dir)
+      wandb.save(f"{clean_dirname}/*", base_path=self.config.output_dir)
 
     return eap_circuit, result
 
@@ -111,13 +158,13 @@ class EAPRunner:
       corrupted_inputs: t.Tensor,
       corrupted_outputs: t.Tensor
   ):
-    tl_model.to(self.args.device)
+    tl_model.to(self.config.device)
     auto_circuit_model = patchable_model(
       tl_model,
       factorized=True,
       slice_output=None,
       separate_qkv=True,
-      device=self.args.device,
+      device=t.device(self.config.device),
     )
 
     dataset = PromptDataset(
@@ -156,7 +203,7 @@ class EAPRunner:
       threshold = self.threshold
 
     eap_circuit = build_circuit(auto_circuit_model, attribution_scores, threshold)
-    eap_circuit.save(f"{self.args.output_dir}/final_circuit.pkl")
+    eap_circuit.save(f"{self.config.output_dir}/final_circuit.pkl")
 
     return eap_circuit
 
@@ -224,7 +271,7 @@ class EAPRunner:
     else:
       output_suffix = f"{ll_model_loader.get_output_suffix()}/threshold_{self.threshold}"
 
-    clean_dirname = f"{self.args.output_dir}/eap/{self.case.get_name()}/{output_suffix}"
+    clean_dirname = f"{self.config.output_dir}/eap/{self.case.get_name()}/{output_suffix}"
 
     # remove everything in the directory
     if os.path.exists(clean_dirname):
