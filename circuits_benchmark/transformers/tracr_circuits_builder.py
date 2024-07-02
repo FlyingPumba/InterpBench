@@ -77,7 +77,7 @@ def build_tracr_circuits(tracr_graph: DiGraph,
     resid_post_node = CircuitNode(f"blocks.{layer}.hook_resid_post")
     tracr_transformer_circuit.add_node(resid_post_node)
 
-    hl_result_node = tracr_variables_circuit.get_result_node()
+    hl_result_node = str(tracr_variables_circuit.get_result_node())
     for ll_node in alignment.get_ll_nodes(hl_result_node, remove_predecessors_by_ll_circuit=tracr_transformer_circuit):
       tracr_transformer_circuit.add_edge(ll_node, resid_post_node)
     alignment.map_hl_to_ll(hl_result_node, resid_post_node)

@@ -2,6 +2,7 @@ import unittest
 
 from circuits_benchmark.benchmark.cases.case_16 import Case16
 from circuits_benchmark.benchmark.cases.case_3 import Case3
+from circuits_benchmark.transformers.tracr_circuits_builder import build_tracr_circuits
 
 
 class CircuitTest(unittest.TestCase):
@@ -151,3 +152,10 @@ class CircuitTest(unittest.TestCase):
                       ("hook_pos_embed", "blocks.3.hook_q_input[0]")]
     self.assertEqual(sorted([str(n) for n in tracr_transformer_circuit.nodes]), sorted(expected_nodes))
     self.assertEqual(sorted([(str(u), str(v)) for u, v in tracr_transformer_circuit.edges]), sorted(expected_edges))
+
+  def test_all_keys_are_strings_in_hl_to_ll_mapping(self):
+    case = Case3()
+    tacr_output = case.get_tracr_output()
+    tracr_circuits = build_tracr_circuits(tacr_output.graph, tacr_output.craft_model, granularity="acdc_hooks")
+    for k, v in tracr_circuits.alignment.hl_to_ll_mapping.items():
+      self.assertIsInstance(k, str)
