@@ -40,9 +40,9 @@ def do_logit_lens(model_pair: mp.BaseModelPair, loader: torch.utils.data.DataLoa
         )
 
         if model_pair.hl_model.is_categorical():
-            control_logit = model.unembed.W_U[:, 0]
+            # control_logit = model.unembed.W_U[:, 0]
             answers_idxs = original_logits.argmax(dim=-1)[pos_idx.as_index]
-            logit_diff_directions = model.unembed.W_U.T[answers_idxs] - control_logit
+            logit_diff_directions = model.unembed.W_U.T[answers_idxs] #- control_logit
         else:
             # logit diff directions: for regression, we only have one vector in unembed...
             logit_diff_direction = model.unembed.W_U.t().squeeze(0)
@@ -81,7 +81,7 @@ def do_logit_lens(model_pair: mp.BaseModelPair, loader: torch.utils.data.DataLoa
                 )
         if model_pair.hl_model.is_categorical():
             original_sliced = original_logits[pos_idx.as_index]  # batch, pos, d_model
-            control_logit = original_sliced[:, :, 0]
+            # control_logit = original_sliced[:, :, 0]
             answers_idxs = original_sliced.argmax(dim=-1)
             # get the logits from original logits at the answer index
             batch_label = original_sliced.gather(
