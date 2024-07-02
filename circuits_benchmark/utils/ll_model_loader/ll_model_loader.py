@@ -1,9 +1,9 @@
 from typing import Optional, Tuple
 
 from iit.utils.correspondence import Correspondence
+from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 
 class LLModelLoader(object):
@@ -16,7 +16,8 @@ class LLModelLoader(object):
       device: str,
       output_dir: Optional[str] = None,
       same_size: bool = False,
-  ) -> Tuple[Correspondence, HookedTracrTransformer]:
+      *args, **kwargs
+  ) -> Tuple[Correspondence, HookedTransformer]:
     raise NotImplementedError()
 
   def get_output_suffix(self):

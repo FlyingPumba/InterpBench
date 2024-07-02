@@ -185,34 +185,3 @@ def get_gt_circuit(
         circuit.remove_edge(edge[0], edge[1])
 
     return circuit
-#############################################################
-
-def build_acdc_circuit_from_list_corr(corr: list) -> Circuit:
-    circuit = Circuit()
-    raise NotImplementedError("This does not work yet.")
-
-    for corr_item in corr:
-        if len(corr_item) == 2:
-            corr_item = corr_item[0]
-        child_name, child_index, parent_name, parent_index = corr_item
-        parent_head_index = None
-        if (
-            parent_index is not None
-            and len(parent_index.hashable_tuple) > 2
-            and parent_index.hashable_tuple[2] is not None
-        ):
-            parent_head_index = parent_index.hashable_tuple[2]
-
-        child_head_index = None
-        if (
-            child_index is not None
-            and len(child_index.hashable_tuple) > 2
-            and child_index.hashable_tuple[2] is not None
-        ):
-            child_head_index = child_index.hashable_tuple[2]
-
-        from_node = CircuitNode(parent_name, parent_head_index)
-        to_node = CircuitNode(child_name, child_head_index)
-        circuit.add_edge(from_node, to_node)
-
-    return circuit

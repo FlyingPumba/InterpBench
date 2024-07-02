@@ -1,6 +1,7 @@
 from typing import Optional, Tuple
 
 from iit.utils.correspondence import Correspondence
+from transformer_lens import HookedTransformer
 
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
@@ -22,7 +23,8 @@ class GroundTruthModelLoader(LLModelLoader):
       device: str,
       output_dir: Optional[str] = None,
       same_size: bool = False,
-  ) -> Tuple[Correspondence, HookedTracrTransformer]:
+      *args, **kwargs
+  ) -> Tuple[Correspondence, HookedTransformer]:
     assert not load_from_wandb, "Ground truth models cannot loaded from wandb"
     assert not same_size, "Ground truth models are never same size"
 

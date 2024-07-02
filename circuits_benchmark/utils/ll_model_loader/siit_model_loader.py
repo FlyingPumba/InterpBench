@@ -1,7 +1,9 @@
 import pickle
 from typing import Optional, Tuple
 
+import torch
 from iit.utils.correspondence import Correspondence
+from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
@@ -34,8 +36,8 @@ class SIITModelLoader(LLModelLoader):
       device: str,
       output_dir: Optional[str] = None,
       same_size: bool = False,
-  ) -> Tuple[Correspondence, HookedTracrTransformer]:
-    hl_model = self.case.get_hl_model(device=device)
+      *args, **kwargs
+  ) -> Tuple[Correspondence, HookedTransformer]:
     try:
       ll_cfg = pickle.load(
         open(
@@ -44,16 +46,10 @@ class SIITModelLoader(LLModelLoader):
         )
       )
     except FileNotFoundError:
-      ll_cfg = self.case.get_ll_model_cfg(same_size=same_size)
+      ll_cfg = self.case.get_ll_model_cfg(same_size=same_size, *args, **kwargs)
 
-    ll_model = HookedTracrTransformer(
-      ll_cfg,
-      hl_model.tracr_input_encoder,
-      hl_model.tracr_output_encoder,
-      hl_model.residual_stream_labels,
-    )
-
-    hl_ll_corr = self.case.get_correspondence()
+    ll_model = HookedTransformer(ll_cfg)
+    hl_ll_corr = self.case.get_correspondence(*args, **kwargs)
 
     if load_from_wandb:
       try:
@@ -64,9 +60,9 @@ class SIITModelLoader(LLModelLoader):
         raise FileNotFoundError(
           f"Could not find SIIT model with weights {self.weights} for case {self.case.get_name()} in wandb"
         )
-    ll_model.load_weights_from_file(
-      f"{output_dir}/ll_models/{self.case.get_name()}/ll_model_{self.weights}.pth"
-    )
-    ll_model.to(device)
+
+    ll_model.load_state_dict(torch.load(
+      f"{output_dir}/ll_models/{self.case.get_name()}/ll_model_{self.weights}.pth",
+      map_location=device))
 
     return hl_ll_corr, ll_model

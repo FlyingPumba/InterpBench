@@ -29,6 +29,10 @@ class BenchmarkCase(object):
     """Returns the task description for the benchmark case."""
     return ""
 
+  def is_categorical(self) -> bool:
+    """Returns whether the benchmark case is categorical."""
+    raise NotImplementedError()
+
   def get_clean_data(self,
                      min_samples: Optional[int] = 10,
                      max_samples: Optional[int] = 10,
@@ -43,7 +47,10 @@ class BenchmarkCase(object):
                          unique_data: Optional[bool] = False) -> CaseDataset:
     raise NotImplementedError()
 
-  def get_validation_metric(self, *args, **kwargs) -> Callable[[Tensor], Float[Tensor, ""]]:
+  def get_validation_metric(self,
+                            ll_model: HookedTransformer,
+                            data: t.Tensor,
+                            *args, **kwargs) -> Callable[[Tensor], Float[Tensor, ""]]:
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
 

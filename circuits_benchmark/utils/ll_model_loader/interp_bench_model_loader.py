@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 
 from huggingface_hub import hf_hub_download
 from iit.utils.correspondence import Correspondence
-from transformer_lens import HookedTransformerConfig
+from transformer_lens import HookedTransformerConfig, HookedTransformer
 
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
@@ -25,7 +25,8 @@ class InterpBenchModelLoader(LLModelLoader):
       device: str,
       output_dir: Optional[str] = None,
       same_size: bool = False,
-  ) -> Tuple[Correspondence, HookedTracrTransformer]:
+      *args, **kwargs
+  ) -> Tuple[Correspondence, HookedTransformer]:
     assert not same_size, "InterpBench models are never same size"
     assert not load_from_wandb, "InterpBench models cannot loaded from wandb"
 
