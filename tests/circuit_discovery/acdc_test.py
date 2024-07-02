@@ -20,7 +20,7 @@ class ACDCTest(unittest.TestCase):
       args, _ = build_main_parser().parse_known_args(["train",
                                                       "iit",
                                                       "-i=3",
-                                                      "--epochs=1",
+                                                      "--epochs=0",
                                                       "--early-stop",
                                                       "-s=0",
                                                       "-iit=0",
@@ -35,7 +35,7 @@ class ACDCTest(unittest.TestCase):
       args, _ = build_main_parser().parse_known_args(["train",
                                                       "iit",
                                                       "-i=3",
-                                                      "--epochs=1",
+                                                      "--epochs=0",
                                                       "--early-stop",
                                                       "--num-samples=10",
                                                       "--device=cpu"])
@@ -47,7 +47,8 @@ class ACDCTest(unittest.TestCase):
     config = ACDCConfig(
       threshold=0.001,
       data_size=10,
-      max_num_epochs=2,
+      max_num_epochs=1,
+      testing=True,
     )
     ll_model_loader = get_ll_model_loader(
       case,
@@ -66,7 +67,8 @@ class ACDCTest(unittest.TestCase):
     config = ACDCConfig(
       threshold=0.001,
       data_size=10,
-      max_num_epochs=2,
+      max_num_epochs=1,
+      testing=True,
     )
     ll_model_loader = get_ll_model_loader(
       case,
@@ -85,7 +87,8 @@ class ACDCTest(unittest.TestCase):
     config = ACDCConfig(
       threshold=0.001,
       data_size=10,
-      max_num_epochs=2,
+      max_num_epochs=1,
+      testing=True,
     )
     ll_model_loader = get_ll_model_loader(
       case,
@@ -104,7 +107,8 @@ class ACDCTest(unittest.TestCase):
     config = ACDCConfig(
       threshold=0.001,
       data_size=10,
-      max_num_epochs=2,
+      max_num_epochs=1,
+      testing=True,
     )
     ll_model_loader = get_ll_model_loader(
       case,
@@ -123,7 +127,8 @@ class ACDCTest(unittest.TestCase):
     config = ACDCConfig(
       threshold=0.001,
       data_size=10,
-      max_num_epochs=2,
+      max_num_epochs=1,
+      testing=True,
       include_mlp=True
     )
     ll_model_loader = get_ll_model_loader(

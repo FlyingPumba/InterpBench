@@ -51,6 +51,7 @@ class ACDCConfig:
     output_dir: Optional[str] = get_default_output_dir()
     same_size: Optional[bool] = False
     device: Optional[str] = "cpu"
+    testing: Optional[bool] = False
 
     @staticmethod
     def from_args(args: Namespace) -> "ACDCConfig":
@@ -261,7 +262,7 @@ class ACDCRunner:
         exp_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         for i in range(self.config.max_num_epochs):
-            exp.step(testing=False)
+            exp.step(testing=self.config.testing)
 
             show(
                 exp.corr,

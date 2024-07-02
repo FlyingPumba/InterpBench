@@ -1,3 +1,4 @@
+import os
 import pickle
 from typing import Optional, Tuple
 
@@ -6,11 +7,16 @@ from huggingface_hub import hf_hub_download
 from iit.utils.correspondence import Correspondence
 from transformer_lens import HookedTransformerConfig, HookedTransformer
 
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
+from circuits_benchmark.utils.project_paths import get_default_output_dir
 
 
 class InterpBenchModelLoader(LLModelLoader):
+  def __init__(self, case):
+    super().__init__(case)
+    self.cache_dir = os.path.join(get_default_output_dir(), "hf_cache")
+    os.makedirs(self.cache_dir, exist_ok=True)
+
   def get_output_suffix(self) -> str:
     return self.__str__()
 
@@ -30,8 +36,20 @@ class InterpBenchModelLoader(LLModelLoader):
     assert not same_size, "InterpBench models are never same size"
 
     case_name = self.case.get_name()
-    model_file = hf_hub_download("cybershiptrooper/InterpBench", subfolder=case_name, filename="ll_model.pth")
-    cfg_file = hf_hub_download("cybershiptrooper/InterpBench", subfolder=case_name, filename="ll_model_cfg.pkl")
+    model_file = hf_hub_download(
+      "cybershiptrooper/InterpBench",
+      subfolder=case_name,
+      filename="ll_model.pth",
+      cache_dir=self.cache_dir,
+      force_download=False
+    )
+    cfg_file = hf_hub_download(
+      "cybershiptrooper/InterpBench",
+      subfolder=case_name,
+      filename="ll_model_cfg.pkl",
+      cache_dir=self.cache_dir,
+      force_download=False
+    )
 
     try:
       cfg_dict = pickle.load(open(cfg_file, "rb"))
