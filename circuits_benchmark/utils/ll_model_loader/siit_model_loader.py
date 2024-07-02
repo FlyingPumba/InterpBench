@@ -13,9 +13,13 @@ from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoad
 
 
 class SIITModelLoader(LLModelLoader):
-  def __init__(self, case: BenchmarkCase, weights: str | None = None):
+  def __init__(self,
+               case: BenchmarkCase,
+               weights: str | None = None,
+               load_from_wandb: bool | None = False):
     super().__init__(case)
     self.weights = weights
+    self.load_from_wandb = load_from_wandb
 
     if self.weights is None or self.weights == "best":
       print(f"Getting best weights for {self.case.get_name()}")
@@ -32,7 +36,6 @@ class SIITModelLoader(LLModelLoader):
 
   def load_ll_model_and_correspondence(
       self,
-      load_from_wandb: bool,
       device: str,
       output_dir: Optional[str] = None,
       same_size: bool = False,
@@ -51,7 +54,7 @@ class SIITModelLoader(LLModelLoader):
     ll_model = HookedTransformer(ll_cfg)
     hl_ll_corr = self.case.get_correspondence(*args, **kwargs)
 
-    if load_from_wandb:
+    if self.load_from_wandb:
       try:
         load_model_from_wandb(
           self.case.get_name(), self.weights, output_dir, same_size=same_size

@@ -1,6 +1,7 @@
 import pickle
 from typing import Optional, Tuple
 
+import torch
 from huggingface_hub import hf_hub_download
 from iit.utils.correspondence import Correspondence
 from transformer_lens import HookedTransformerConfig, HookedTransformer
@@ -21,31 +22,35 @@ class InterpBenchModelLoader(LLModelLoader):
 
   def load_ll_model_and_correspondence(
       self,
-      load_from_wandb: bool,
       device: str,
       output_dir: Optional[str] = None,
       same_size: bool = False,
       *args, **kwargs
   ) -> Tuple[Correspondence, HookedTransformer]:
     assert not same_size, "InterpBench models are never same size"
-    assert not load_from_wandb, "InterpBench models cannot loaded from wandb"
 
     case_name = self.case.get_name()
     model_file = hf_hub_download("cybershiptrooper/InterpBench", subfolder=case_name, filename="ll_model.pth")
     cfg_file = hf_hub_download("cybershiptrooper/InterpBench", subfolder=case_name, filename="ll_model_cfg.pkl")
 
-    hl_model = self.case.get_hl_model()
     try:
       cfg_dict = pickle.load(open(cfg_file, "rb"))
-      cfg = HookedTransformerConfig.from_dict(cfg_dict)
+      if isinstance(cfg_dict, dict):
+        cfg = HookedTransformerConfig.from_dict(cfg_dict)
+      else:
+        # Some cases in InterpBench have the config as a HookedTransformerConfig object instead of a dict
+        assert isinstance(cfg_dict, HookedTransformerConfig)
+        cfg = cfg_dict
+
       cfg.device = device
-      ll_model = HookedTracrTransformer(
-        cfg,
-        hl_model.tracr_input_encoder,
-        hl_model.tracr_output_encoder,
-        hl_model.residual_stream_labels,
-      )
-      ll_model.load_weights_from_file(model_file)
+      if "ioi" in case_name and "eval" in kwargs and kwargs["eval"]:
+        # Small hack to enable evaluation mode in the IOI model, that has a different config during training
+        cfg.use_hook_mlp_in = True
+        cfg.use_attn_result = True
+        cfg.use_split_qkv_input = True
+
+      ll_model = HookedTransformer(cfg)
+      ll_model.load_state_dict(torch.load(model_file, map_location=device))
     except FileNotFoundError:
       raise FileNotFoundError(
         f"Could not find InterpBench model for case {self.case.get_name()}"

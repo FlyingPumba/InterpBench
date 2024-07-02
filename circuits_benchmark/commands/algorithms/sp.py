@@ -24,6 +24,7 @@ from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, build_from_acdc_correspondence, \
   CircuitEvalResult
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
+from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader_from_args
 from circuits_benchmark.utils.node_sp import train_sp
 
@@ -59,8 +60,7 @@ class SPRunner:
         self.case,
     )
 
-  def run_using_model_loader_from_args(self) -> Tuple[Circuit, CircuitEvalResult]:
-    ll_model_loader = get_ll_model_loader_from_args(self.case, self.args)
+  def run_using_model_loader(self, ll_model_loader: LLModelLoader) -> Tuple[Circuit, CircuitEvalResult]:
     clean_dirname = self.prepare_output_dir(ll_model_loader)
 
     hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(

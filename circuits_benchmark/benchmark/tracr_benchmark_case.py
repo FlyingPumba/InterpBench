@@ -1,3 +1,4 @@
+import itertools
 import random
 from functools import partial
 from typing import Optional, Sequence, Set, Callable
@@ -6,6 +7,7 @@ import numpy as np
 import torch as t
 from jaxtyping import Float
 from torch import Tensor
+from tracr.rasp.rasp import RASPExpr
 from transformer_lens import HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookedRootModule
 
@@ -91,7 +93,7 @@ class TracrBenchmarkCase(BenchmarkCase):
   def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
     """Returns the configuration for the LL model for this benchmark case."""
     hl_model = self.get_hl_model()
-    return make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size, *args, **kwargs)
+    return make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size)
 
   def get_ll_model(
       self,
@@ -335,6 +337,9 @@ class TracrBenchmarkCase(BenchmarkCase):
     """Compiles a single case to a tracr model."""
     if self.tracr_output is not None:
       return self.tracr_output
+
+    # Reset the RASPExpr ids to ensure reproducibility of Tracr labels
+    RASPExpr._ids = itertools.count(1)
 
     program = self.get_program()
     max_seq_len_without_BOS = self.get_max_seq_len() - 1

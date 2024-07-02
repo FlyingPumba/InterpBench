@@ -19,13 +19,11 @@ class GroundTruthModelLoader(LLModelLoader):
 
   def load_ll_model_and_correspondence(
       self,
-      load_from_wandb: bool,
       device: str,
       output_dir: Optional[str] = None,
       same_size: bool = False,
       *args, **kwargs
   ) -> Tuple[Correspondence, HookedTransformer]:
-    assert not load_from_wandb, "Ground truth models cannot loaded from wandb"
     assert not same_size, "Ground truth models are never same size"
 
     hl_model = self.case.get_hl_model(device=device)

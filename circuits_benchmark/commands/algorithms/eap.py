@@ -16,7 +16,7 @@ from circuits_benchmark.commands.common_args import add_common_args, add_evaluat
 from circuits_benchmark.utils.auto_circuit_utils import build_circuit
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, CircuitEvalResult
-from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader_from_args
+from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
 
 
 class EAPRunner:
@@ -33,8 +33,7 @@ class EAPRunner:
     assert (self.edge_count is not None) ^ (self.threshold is not None), \
       "Either edge_count or threshold must be provided, but not both"
 
-  def run_using_model_loader_from_args(self) -> Tuple[Circuit, CircuitEvalResult]:
-    ll_model_loader = get_ll_model_loader_from_args(self.case, self.args)
+  def run_using_model_loader(self, ll_model_loader: LLModelLoader) -> Tuple[Circuit, CircuitEvalResult]:
     clean_dirname = self.prepare_output_dir(ll_model_loader)
 
     print(f"Running EAP evaluation for case {self.case.get_name()} ({str(ll_model_loader)})")

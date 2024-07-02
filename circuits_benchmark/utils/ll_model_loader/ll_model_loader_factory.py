@@ -9,14 +9,22 @@ from circuits_benchmark.utils.ll_model_loader.siit_model_loader import SIITModel
 
 
 def get_ll_model_loader_from_args(case: BenchmarkCase, args: Namespace) -> LLModelLoader:
-  return get_ll_model_loader(case, args.natural, args.tracr, args.interp_bench, args.siit_weights)
+  return get_ll_model_loader(
+      case,
+      args.natural,
+      args.tracr,
+      args.interp_bench,
+      args.siit_weights,
+      args.load_from_wandb
+  )
 
 def get_ll_model_loader(
     case: BenchmarkCase,
     natural: bool,
     tracr: bool,
     interp_bench: bool,
-    siit_weights: str | None = None
+    siit_weights: str | None = None,
+    load_from_wandb: bool = False,
 ) -> LLModelLoader:
     assert (
         not (natural and tracr)
@@ -25,7 +33,7 @@ def get_ll_model_loader(
     ), "Only one of natural, tracr, interp_bench can be set"
 
     if natural:
-        return NaturalModelLoader(case)
+        return NaturalModelLoader(case, load_from_wandb=load_from_wandb)
 
     if tracr:
         return GroundTruthModelLoader(case)
@@ -33,4 +41,4 @@ def get_ll_model_loader(
     if interp_bench:
         return InterpBenchModelLoader(case)
 
-    return SIITModelLoader(case, weights=siit_weights)
+    return SIITModelLoader(case, weights=siit_weights, load_from_wandb=load_from_wandb)

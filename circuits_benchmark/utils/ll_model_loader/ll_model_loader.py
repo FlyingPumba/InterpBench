@@ -12,7 +12,6 @@ class LLModelLoader(object):
 
   def load_ll_model_and_correspondence(
       self,
-      load_from_wandb: bool,
       device: str,
       output_dir: Optional[str] = None,
       same_size: bool = False,
