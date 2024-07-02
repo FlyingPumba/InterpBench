@@ -42,8 +42,7 @@ def train_linear_compression(case: BenchmarkCase, args: Namespace):
   compressed_tracr_transformer = LinearCompressedTracrTransformer(
     tl_model,
     compressed_d_model_size,
-    initialization,
-    tl_model.device)
+    initialization)
 
   trainer = LinearCompressedTracrTransformerTrainer(case, tl_model, compressed_tracr_transformer, training_args,
                                                     output_dir=args.output_dir)

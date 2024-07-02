@@ -31,18 +31,15 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
                tl_model: HookedTracrTransformer,
                residual_stream_compression_size: int,
                linear_compression_initialization: LinearCompressedTracrTransformerInitialization = "linear",
-               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
                *args, **kwargs):
     super().__init__(
       cfg=tl_model.cfg,
       tracr_input_encoder=tl_model.tracr_input_encoder,
       tracr_output_encoder=tl_model.tracr_output_encoder,
       residual_stream_labels=tl_model.residual_stream_labels,
-      device=device,
       *args, **kwargs)
     self.original_residual_stream_size = tl_model.cfg.d_model
     self.residual_stream_compression_size = residual_stream_compression_size
-    self.device = device
 
     self.load_weights_from_tl_model(tl_model)
 
