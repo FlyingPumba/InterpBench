@@ -56,5 +56,5 @@ class InterpBenchModelLoader(LLModelLoader):
         f"Could not find InterpBench model for case {self.case.get_name()}"
       )
 
-    hl_ll_corr = self.case.get_correspondence()
+    hl_ll_corr = self.case.get_correspondence(*args, **kwargs)
     return hl_ll_corr, ll_model
