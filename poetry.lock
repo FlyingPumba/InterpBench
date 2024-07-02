@@ -82,7 +82,7 @@ wandb = "^0.16"
 type = "git"
 url = "https://github.com/FlyingPumba/Automatic-Circuit-Discovery.git"
 reference = "HEAD"
-resolved_reference = "4bc4db8a00020fe0bc96f9477b405ea3a4d54a54"
+resolved_reference = "78ea0977291e481dbdd9846ebe5bad5d69421fd6"
 
 [[package]]
 name = "aiohttp"
