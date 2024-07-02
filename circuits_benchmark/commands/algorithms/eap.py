@@ -172,7 +172,7 @@ class EAPRunner:
       clean_outputs,
       corrupted_outputs,
     )
-    train_loader = PromptDataLoader(dataset, seq_len=None, diverge_idx=0)
+    train_loader = PromptDataLoader(dataset, seq_len=self.case.get_max_seq_len(), diverge_idx=0, batch_size=len(dataset))
 
     eap_args = {
       "model": auto_circuit_model,
@@ -188,7 +188,7 @@ class EAPRunner:
     else:
       eap_args["mask_val"] = 0.0
 
-    eap_args["answer_function"] = self.get_answer_function_for_case()
+    eap_args["answer_function"] = self.get_answer_function_for_case(tl_model)
 
     attribution_scores: PruneScores = mask_gradient_prune_scores(**eap_args)
     if self.normalize_scores:
@@ -217,10 +217,16 @@ class EAPRunner:
 
     return normalized_scores
 
-  def get_answer_function_for_case(self):
+  def get_answer_function_for_case(self, tl_model):
     if self.case.is_categorical():
+      def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
+        answers= t.nn.functional.one_hot(batch.answers.squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
+        log_probs = t.nn.functional.log_softmax(logits, dim=-1)
+        kl = t.nn.functional.kl_div(log_probs, answers, reduction="batchmean", log_target=False)
+        return kl
+    
       # For categorical models we use as loss function the diff between the correct and wrong answers
-      return "avg_diff"
+      return "avg_diff" if self.args.classification_loss_fn == "avg_diff" else loss_fn
     else:
       # Auto-circuit assumes that all models are categorical, so we need to provide a custom loss function for
       # regression ones
@@ -261,6 +267,7 @@ class EAPRunner:
                         help="Number of samples for integrated grad. If None, this is not used.")
     parser.add_argument("--regression-loss-fn", type=str, default="mae",
                         choices=["mse", "mae"], help="Loss function to use for regression models.")
+    parser.add_argument("--classification-loss-fn", type=str, default="kl_div", choices=["kl_div", "avg_diff"])
     parser.add_argument("--normalize-scores", action="store_true",
                         help="Normalize the scores so that they all lie between 0 and 1.")
 
