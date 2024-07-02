@@ -382,7 +382,7 @@ class SPRunner:
     parser.add_argument("--print-every", type=int, default=1, required=False)
     parser.add_argument("--atol", type=float, default=5e-2, required=False)
     parser.add_argument(
-        "--include-mlp", action="store_true", help="Evaluate group 'with_mlp'"
+      "--include-mlp", type=int, help="Evaluate group 'with_mlp'", default=1
     )
     parser.add_argument(
         "--use-pos-embed", action="store_true", help="Use positional embeddings"

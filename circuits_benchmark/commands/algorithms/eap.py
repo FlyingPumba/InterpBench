@@ -247,7 +247,7 @@ class EAPRunner:
     add_evaluation_common_ags(parser)
 
     parser.add_argument(
-      "--include-mlp", action="store_true", help="Evaluate group 'with_mlp'"
+      "--include-mlp", type=int, help="Evaluate group 'with_mlp'", default=1
     )
     parser.add_argument(
         "-wandb", "--using_wandb", action="store_true", help="Use wandb"
