@@ -3,7 +3,6 @@ from typing import List
 
 from circuits_benchmark.benchmark.cases.case_1 import Case1
 from circuits_benchmark.benchmark.cases.case_3 import Case3
-from circuits_benchmark.benchmark.cases.case_5 import Case5
 
 
 class BenchmarkCaseTest(unittest.TestCase):

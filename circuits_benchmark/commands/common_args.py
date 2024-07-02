@@ -44,3 +44,8 @@ def add_evaluation_common_ags(parser):
     action="store_true",
     help="Load the model to evaluate from wandb."
   )
+  parser.add_argument(
+    "--same-size",
+    action="store_true",
+    help="Use for ll model the same size/architecture as ground truth model."
+  )

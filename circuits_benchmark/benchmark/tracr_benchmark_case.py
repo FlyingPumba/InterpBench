@@ -1,10 +1,13 @@
+import itertools
 import random
 from functools import partial
-from typing import Optional, Sequence, Set
+from typing import Optional, Sequence, Set, Callable
 
 import numpy as np
 import torch as t
+from jaxtyping import Float
 from torch import Tensor
+from tracr.rasp.rasp import RASPExpr
 from transformer_lens import HookedTransformer, HookedTransformerConfig
 from transformer_lens.hook_points import HookedRootModule
 
@@ -90,7 +93,7 @@ class TracrBenchmarkCase(BenchmarkCase):
   def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
     """Returns the configuration for the LL model for this benchmark case."""
     hl_model = self.get_hl_model()
-    return make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size, *args, **kwargs)
+    return make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size)
 
   def get_ll_model(
       self,
@@ -122,6 +125,10 @@ class TracrBenchmarkCase(BenchmarkCase):
       return TracrCorrespondence.make_identity_corr(tracr_output=tracr_output)
     else:
       return TracrCorrespondence.from_output(self, tracr_output)
+
+  def is_categorical(self) -> bool:
+    """Returns whether the benchmark case is categorical."""
+    return self.get_hl_model().is_categorical()
 
   def get_clean_data(self,
                      min_samples: Optional[int] = 10,
@@ -289,17 +296,23 @@ class TracrBenchmarkCase(BenchmarkCase):
     """
     return self.get_program()(input)
 
-  def get_validation_metric(self,
-                            metric_name: str,
-                            tl_model: HookedTracrTransformer,
-                            data_size: Optional[int] = 100) -> Tensor:
+  def get_validation_metric(
+      self,
+      ll_model: HookedTransformer,
+      data: t.Tensor,
+      metric_name: Optional[str] = None,
+      *args, **kwargs
+  ) -> Callable[[Tensor], Float[Tensor, ""]]:
     """Returns the validation metric for the benchmark case.
     By default, only the l2 and kl metrics are available. Other metrics should override this method.
     """
-    inputs = self.get_clean_data(max_samples=data_size).get_inputs()
+    if metric_name is None:
+      hl_model = self.get_hl_model()
+      metric_name = "l2" if not hl_model.is_categorical() else "kl"
+
     is_categorical = self.get_hl_model().is_categorical()
     with t.no_grad():
-      baseline_output = tl_model(inputs)
+      baseline_output = ll_model(data)
     if metric_name == "l2":
       return partial(l2_metric, baseline_output=baseline_output, is_categorical=is_categorical)
     elif metric_name == "kl":
@@ -324,6 +337,9 @@ class TracrBenchmarkCase(BenchmarkCase):
     """Compiles a single case to a tracr model."""
     if self.tracr_output is not None:
       return self.tracr_output
+
+    # Reset the RASPExpr ids to ensure reproducibility of Tracr labels
+    RASPExpr._ids = itertools.count(1)
 
     program = self.get_program()
     max_seq_len_without_BOS = self.get_max_seq_len() - 1

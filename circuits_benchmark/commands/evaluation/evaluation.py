@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch as t
 
-from circuits_benchmark.commands.evaluation.iit import iit_eval, iit_acdc_eval, ioi_acdc_eval, iit_eap_eval
+from circuits_benchmark.commands.evaluation.iit import iit_eval
 from circuits_benchmark.commands.evaluation.realism import node_wise_ablation, gt_circuit_node_wise_ablation
 from circuits_benchmark.utils.get_cases import get_cases
 
@@ -15,21 +15,14 @@ def setup_args_parser(subparsers):
 
   # Setup arguments for each evaluation type
   iit_eval.setup_args_parser(run_subparsers)
-  iit_acdc_eval.setup_args_parser(run_subparsers)
-  iit_eap_eval.setup_args_parser(run_subparsers)
   node_wise_ablation.setup_args_parser(run_subparsers)
-  ioi_acdc_eval.setup_args_parser(run_subparsers)
   gt_circuit_node_wise_ablation.setup_args_parser(run_subparsers)
 
 
 def run(args):
   evaluation_type = args.type
-  if evaluation_type == "ioi_acdc":
-    ioi_acdc_eval.run_ioi_acdc(args)
-    return
-  
   for case in get_cases(args):
-    print(f"\nRunning evaluation {args.type} on {case}")
+    print(f"\nRunning evaluation {evaluation_type} on {case}")
 
     # Set numpy, torch and ptyhon seed
     seed = args.seed
@@ -40,10 +33,6 @@ def run(args):
 
     if evaluation_type == "iit":
       iit_eval.run_iit_eval(case, args)
-    elif evaluation_type == "iit_acdc":
-      iit_acdc_eval.run_acdc_eval(case, args)
-    elif evaluation_type == "iit_eap":
-      iit_eap_eval.run_eap_eval(case, args)
     elif evaluation_type == "node_realism":
       node_wise_ablation.run_nodewise_ablation(case, args)
     elif evaluation_type == "gt_node_realism":

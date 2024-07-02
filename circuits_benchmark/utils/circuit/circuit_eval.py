@@ -1,14 +1,41 @@
-from typing import Optional
-
-from iit.utils.correspondence import Correspondence
+from dataclasses import dataclass
+from typing import Optional, Set
 
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.TLACDCEdge import EdgeType
+from iit.model_pairs.nodes import LLNode
+from iit.tasks.ioi import make_ll_edges
+from iit.utils.correspondence import Correspondence
+from transformer_lens import HookedTransformer
+
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
+
+
+@dataclass
+class CircuitEvalNodesResult:
+  true_positive: Set[CircuitNode]
+  false_positive: Set[CircuitNode]
+  false_negative: Set[CircuitNode]
+  true_negative: Set[CircuitNode]
+  tpr: float
+  fpr: float
+
+@dataclass
+class CircuitEvalEdgesResult:
+  true_positive: Set[CircuitNode]
+  false_positive: Set[CircuitNode]
+  false_negative: Set[CircuitNode]
+  true_negative: Set[CircuitNode]
+  tpr: float
+  fpr: float
+
+@dataclass
+class CircuitEvalResult:
+  nodes: CircuitEvalNodesResult
+  edges: CircuitEvalEdgesResult
 
 
 def calculate_fpr_and_tpr(
@@ -18,7 +45,7 @@ def calculate_fpr_and_tpr(
     verbose: bool = False,
     promote_to_heads: bool = True,
     print_summary: bool = True,
-):
+) -> CircuitEvalResult:
   if promote_to_heads:
     all_nodes = replace_inputs_and_qkv_nodes_with_outputs(full_circuit)
     true_nodes = replace_inputs_and_qkv_nodes_with_outputs(true_circuit)
@@ -119,43 +146,46 @@ def calculate_fpr_and_tpr(
     edges_fpr = len(false_positive_edges) / len(false_positive_edges | true_negative_edges)
     make_summary(f" - Edges FP rate: {edges_fpr}")
 
-  return {
-    "nodes": {
-      "true_positive": true_positive_nodes,
-      "false_positive": false_positive_nodes,
-      "false_negative": false_negative_nodes,
-      "true_negative": true_negative_nodes,
-      "tpr": nodes_tpr,
-      "fpr": nodes_fpr,
-    },
-    "edges": {
-      "true_positive": true_positive_edges,
-      "false_positive": false_positive_edges,
-      "false_negative": false_negative_edges,
-      "true_negative": true_negative_edges,
-      "tpr": edges_tpr,
-      "fpr": edges_fpr,
-    },
-  }
+  return CircuitEvalResult(
+    nodes=CircuitEvalNodesResult(
+      true_positive=true_positive_nodes,
+      false_positive=false_positive_nodes,
+      false_negative=false_negative_nodes,
+      true_negative=true_negative_nodes,
+      tpr=nodes_tpr,
+      fpr=nodes_fpr,
+    ),
+    edges=CircuitEvalEdgesResult(
+      true_positive=true_positive_edges,
+      false_positive=false_positive_edges,
+      false_negative=false_negative_edges,
+      true_negative=true_negative_edges,
+      tpr=edges_tpr,
+      fpr=edges_fpr,
+    ),
+  )
 
 def evaluate_hypothesis_circuit(
     hypothesis_circuit: Circuit,
-    ll_model: HookedTracrTransformer,
+    ll_model: HookedTransformer,
     hl_ll_corr: Correspondence,
     case: BenchmarkCase,
-    full_circuit: Optional[Circuit] = None,
-    **kwargs,
-):
-  if full_circuit is None:
-    full_corr = TLACDCCorrespondence.setup_from_model(
-      ll_model, use_pos_embed=True
-    )
-    full_circuit = build_from_acdc_correspondence(full_corr)
+    gt_circuit: Optional[Circuit] = None,
+    use_embeddings: bool = True,
+) -> CircuitEvalResult:
+  full_corr = TLACDCCorrespondence.setup_from_model(
+    ll_model, use_pos_embed=use_embeddings
+  )
+  full_circuit = build_from_acdc_correspondence(full_corr)
 
-  gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads, case)
+  if gt_circuit is None:
+    if "ioi" in case.get_name():
+      gt_circuit = case.get_ll_gt_circuit(corr=hl_ll_corr)
+    else:
+      gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads, case)
 
   return calculate_fpr_and_tpr(
-    hypothesis_circuit, gt_circuit, full_circuit, **kwargs
+    hypothesis_circuit, gt_circuit, full_circuit
   )
 
 

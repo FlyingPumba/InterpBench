@@ -1,6 +1,7 @@
 from typing import Optional, Callable
 
 import torch as t
+from iit.model_pairs.nodes import LLNode
 from jaxtyping import Float
 from torch import Tensor
 from transformer_lens import HookedTransformer, HookedTransformerConfig
@@ -12,8 +13,10 @@ from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.model_pairs.ioi_model_pair import IOI_ModelPair
-from iit.tasks.ioi import ioi_cfg, IOI_HL, NAMES, IOIDatasetWrapper, make_corr_dict, suffixes
+from iit.tasks.ioi import ioi_cfg, IOI_HL, NAMES, IOIDatasetWrapper, make_corr_dict, suffixes, make_ll_edges
 from iit.utils.correspondence import Correspondence
+
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 
 
 class CaseIOI(BenchmarkCase):
@@ -46,9 +49,27 @@ class CaseIOI(BenchmarkCase):
                          unique_data: Optional[bool] = False) -> CaseDataset:
     return self.get_clean_data(min_samples=min_samples, max_samples=max_samples, seed=seed, unique_data=unique_data)
 
-  def get_validation_metric(self) -> Callable[[Tensor], Float[Tensor, ""]]:
+  def get_validation_metric(
+      self,
+      ll_model: HookedTransformer,
+      data: t.Tensor,
+      *args, **kwargs
+  ) -> Callable[[Tensor], Float[Tensor, ""]]:
     """Returns the validation metric for the benchmark case."""
-    raise NotImplementedError()
+    label_idx = IOI_ModelPair.get_label_idxs()
+    clean_outputs = ll_model(data)
+
+    def validation_metric(model_outputs):
+      output_slice = model_outputs[label_idx.as_index]
+      clean_outputs_slice = clean_outputs[label_idx.as_index]
+
+      return t.nn.functional.kl_div(
+        t.nn.functional.log_softmax(output_slice, dim=-1),
+        t.nn.functional.softmax(clean_outputs_slice, dim=-1),
+        reduction="batchmean",
+      )
+
+    return validation_metric
 
   def build_model_pair(
       self,
@@ -78,14 +99,24 @@ class CaseIOI(BenchmarkCase):
       training_args=training_args,
     )
 
-  def get_ll_model_cfg(self, *args, **kwargs) -> HookedTransformerConfig:
+  def get_ll_model_cfg(
+      self,
+      eval: bool = False,
+      *args, **kwargs
+  ) -> HookedTransformerConfig:
     """Returns the configuration for the LL model for this benchmark case."""
     ll_cfg = HookedTransformer.from_pretrained(
       "gpt2"
     ).cfg.to_dict()
     ll_cfg.update(ioi_cfg)
 
-    ll_cfg["init_weights"] = True
+    if not eval:
+      ll_cfg["init_weights"] = True
+    else:
+      ll_cfg["use_hook_mlp_in"] = True
+      ll_cfg["use_attn_result"] = True
+      ll_cfg["use_split_qkv_input"] = True
+
     return HookedTransformerConfig.from_dict(ll_cfg)
 
   def get_ll_model(
@@ -122,14 +153,42 @@ class CaseIOI(BenchmarkCase):
   def get_correspondence(self,
                          include_mlp: bool = False,
                          eval: bool = False,
+                         use_pos_embed: bool = False,
                          *args, **kwargs) -> Correspondence:
     """Returns the correspondence between the reference and the benchmark model."""
-    corr_dict = make_corr_dict(include_mlp=include_mlp, eval=eval)
+    corr_dict = make_corr_dict(include_mlp=include_mlp, eval=eval, use_pos_embed=use_pos_embed)
     return Correspondence.make_corr_from_dict(corr_dict, suffixes=suffixes)
 
-  def get_ll_gt_circuit(self, granularity: CircuitGranularity = "acdc_hooks", *args, **kwargs) -> Circuit:
+  def is_categorical(self) -> bool:
+    """Returns whether the benchmark case is categorical."""
+    return True
+
+  def get_ll_gt_circuit(self,
+                        granularity: CircuitGranularity = "acdc_hooks",
+                        corr: Correspondence | None = None,
+                        *args, **kwargs) -> Circuit:
     """Returns the ground truth circuit for the LL model."""
-    raise NotImplementedError()
+    if corr is None:
+      corr = self.get_correspondence()
+
+    def make_circuit_node(ll_node: LLNode):
+      if 'attn' in ll_node.name:
+        index = ll_node.index
+        head = index.as_index[2]
+        node_name = ll_node.name.replace("hook_z", "hook_result")
+        return CircuitNode(node_name, head)
+      if "mlp" in ll_node.name:
+        node_name = ll_node.name.replace("mlp.hook_post", "hook_mlp_out")
+        return CircuitNode(node_name, None)
+      return CircuitNode(ll_node.name, None)
+
+    gt_circuit = Circuit()
+    for edge in make_ll_edges(corr):
+      circuit_node_from = make_circuit_node(edge[0])
+      circuit_node_to = make_circuit_node(edge[1])
+      gt_circuit.add_edge(circuit_node_from, circuit_node_to)
+
+    return gt_circuit
 
   def get_hl_gt_circuit(self, granularity: CircuitGranularity = "acdc_hooks", *args, **kwargs) -> Circuit:
     """Returns the ground truth circuit for the HL model."""

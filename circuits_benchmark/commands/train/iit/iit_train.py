@@ -10,8 +10,6 @@ import torch as t
 import wandb
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel

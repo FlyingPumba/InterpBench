@@ -1,6 +1,11 @@
-from argparse import Namespace, ArgumentParser
+import os
+import pickle
+import shutil
+from argparse import Namespace
+from copy import deepcopy
+from dataclasses import dataclass
+from typing import Tuple, Optional
 
-import numpy as np
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
 from auto_circuit.prune_algos.mask_gradient import mask_gradient_prune_scores
@@ -9,75 +14,157 @@ from auto_circuit.utils.graph_utils import patchable_model
 from auto_circuit.utils.tensor_ops import prune_scores_threshold
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
 from circuits_benchmark.utils.auto_circuit_utils import build_circuit
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, CircuitEvalResult
+from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
+from circuits_benchmark.utils.project_paths import get_default_output_dir
 
+
+@dataclass
+class EAPConfig:
+  threshold: Optional[float] = None
+  seed: Optional[int] = 42
+  edge_count: Optional[int] = None
+  data_size: Optional[int] = 1000
+  integrated_grad_steps: Optional[int] = None
+  regression_loss_fn: Optional[str] = "mae"
+  normalize_scores: Optional[bool] = False
+  using_wandb: Optional[bool] = False
+  output_dir: Optional[str] = get_default_output_dir()
+  device: Optional[str] = "cpu"
+  same_size: Optional[bool] = False
+  include_mlp: Optional[bool] = False
+  weights: Optional[str] = None
+
+  @staticmethod
+  def from_args(args: Namespace) -> "EAPConfig":
+    return EAPConfig(
+      threshold=args.threshold,
+      seed=int(args.seed),
+      edge_count=args.edge_count,
+      data_size=args.data_size,
+      integrated_grad_steps=args.integrated_grad_steps,
+      regression_loss_fn=args.regression_loss_fn,
+      normalize_scores=args.normalize_scores,
+      using_wandb=args.using_wandb,
+      output_dir=args.output_dir,
+      device=args.device,
+      same_size=args.same_size,
+      include_mlp=args.include_mlp,
+      weights=args.weights,
+    )
 
 class EAPRunner:
-  def __init__(self, case: BenchmarkCase, args: Namespace):
+  def __init__(self,
+               case: BenchmarkCase,
+               config: EAPConfig | None = None,
+               args: Namespace | None = None):
     self.case = case
-    self.args = args
-    self.data_size = args.data_size
-    self.edge_count = args.edge_count
-    self.threshold = args.threshold
-    self.integrated_grad_steps = args.integrated_grad_steps
-    self.regression_loss_fn = args.regression_loss_fn
-    self.normalize_scores = args.normalize_scores
+    self.config = config
+    self.args = deepcopy(args)
+
+    if self.config is None:
+      self.config = EAPConfig.from_args(args)
+
+    assert self.config is not None
+
+    self.data_size = self.config.data_size
+    self.edge_count = self.config.edge_count
+    self.threshold = self.config.threshold
+    self.integrated_grad_steps = self.config.integrated_grad_steps
+    self.regression_loss_fn = self.config.regression_loss_fn
+    self.normalize_scores = self.config.normalize_scores
 
     assert (self.edge_count is not None) ^ (self.threshold is not None), \
       "Either edge_count or threshold must be provided, but not both"
 
-  def run_on_tracr_model(self):
-    assert isinstance(self.case, TracrBenchmarkCase)
-    tl_model = self.case.get_hl_model()
-    clean_dataset = self.case.get_clean_data(max_samples=self.data_size)
-    corrupted_dataset = self.case.get_corrupted_data(max_samples=self.data_size)
+  def run_using_model_loader(self, ll_model_loader: LLModelLoader) -> Tuple[Circuit, CircuitEvalResult]:
+    clean_dirname = self.prepare_output_dir(ll_model_loader)
 
-    return self.run(
-      tl_model,
-      clean_dataset.get_inputs(),
-      clean_dataset.get_targets(),
-      corrupted_dataset.get_inputs(),
-      corrupted_dataset.get_targets(),
+    print(f"Running EAP evaluation for case {self.case.get_name()} ({str(ll_model_loader)})")
+    print(f"Output directory: {clean_dirname}")
+
+    hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(
+      device=self.config.device,
+      output_dir=self.config.output_dir,
+      same_size=self.config.same_size,
+      # IOI specific args:
+      eval=True,
+      include_mlp=self.config.include_mlp,
+      use_pos_embed=False
     )
 
-  def run(self,
-          tl_model: t.nn.Module,
-          clean_inputs: np.ndarray,
-          clean_expected_outputs: np.ndarray,
-          corrupted_inputs: np.ndarray,
-          corrupted_expected_outputs: np.ndarray):
-    tl_model.to(self.args.device)
+    clean_dataset = self.case.get_clean_data(max_samples=self.config.data_size)
+    corrupted_dataset = self.case.get_corrupted_data(max_samples=self.config.data_size)
+
+    clean_outputs = clean_dataset.get_targets()
+    corrupted_outputs = corrupted_dataset.get_targets()
+    if self.case.is_categorical():
+      if isinstance(clean_outputs, list):
+        clean_outputs = [o.argmax(dim=-1).unsqueeze(dim=-1) for o in clean_outputs]
+        corrupted_outputs = [o.argmax(dim=-1).unsqueeze(dim=-1) for o in corrupted_outputs]
+      elif isinstance(clean_outputs, t.Tensor):
+        clean_outputs = clean_outputs.argmax(dim=-1).unsqueeze(dim=-1)
+        corrupted_outputs = corrupted_outputs.argmax(dim=-1).unsqueeze(dim=-1)
+      else:
+        raise ValueError(f"Unknown output type: {type(clean_outputs)}")
+
+    eap_circuit = self.run(
+      ll_model,
+      clean_dataset.get_inputs(),
+      clean_outputs,
+      corrupted_dataset.get_inputs(),
+      corrupted_outputs,
+    )
+
+    print("hl_ll_corr:", hl_ll_corr)
+    hl_ll_corr.save(f"{clean_dirname}/hl_ll_corr.pkl")
+
+    print("Calculating FPR and TPR")
+    result = evaluate_hypothesis_circuit(
+      eap_circuit,
+      ll_model,
+      hl_ll_corr,
+      self.case,
+      use_embeddings=False,
+    )
+
+    # save the result
+    with open(f"{clean_dirname}/result.txt", "w") as f:
+      f.write(str(result))
+
+    pickle.dump(result, open(f"{clean_dirname}/result.pkl", "wb"))
+    print(f"Saved result to {clean_dirname}/result.txt and {clean_dirname}/result.pkl")
+    if self.config.using_wandb:
+      import wandb
+
+      wandb.init(
+        project="circuit_discovery",
+        group=f"eap_{self.case.get_name()}_{self.config.weights}",
+        name=f"{self.config.threshold}",
+      )
+      wandb.save(f"{clean_dirname}/*", base_path=self.config.output_dir)
+
+    return eap_circuit, result
+
+  def run(
+      self,
+      tl_model: t.nn.Module,
+      clean_inputs: t.Tensor,
+      clean_outputs: t.Tensor,
+      corrupted_inputs: t.Tensor,
+      corrupted_outputs: t.Tensor
+  ):
+    tl_model.to(self.config.device)
     auto_circuit_model = patchable_model(
       tl_model,
       factorized=True,
       slice_output=None,
       separate_qkv=True,
-      device=self.args.device,
+      device=t.device(self.config.device),
     )
-
-    # remove from inputs the rows that have the same expected output
-    idxs_to_remove = []
-    for i in range(len(clean_expected_outputs)):
-      if clean_expected_outputs[i] == corrupted_expected_outputs[i]:
-        idxs_to_remove.append(i)
-
-    clean_inputs = [clean_inputs[i] for i in range(len(clean_inputs)) if i not in idxs_to_remove]
-    corrupted_inputs = [corrupted_inputs[i] for i in range(len(corrupted_inputs)) if i not in idxs_to_remove]
-
-    # Convert inputs to tensors using tracr encoder
-    clean_inputs = tl_model.map_tracr_input_to_tl_input(clean_inputs)
-    corrupted_inputs = tl_model.map_tracr_input_to_tl_input(corrupted_inputs)
-
-    # Use as correct and wrong answers the output of tracr model on the filtered inputs
-    with t.no_grad():
-      if tl_model.is_categorical():
-        clean_outputs = tl_model(clean_inputs).argmax(dim=-1).unsqueeze(dim=-1)
-        corrupted_outputs = tl_model(corrupted_inputs).argmax(dim=-1).unsqueeze(dim=-1)
-      else:
-        clean_outputs = tl_model(clean_inputs)
-        corrupted_outputs = tl_model(corrupted_inputs)
 
     dataset = PromptDataset(
       clean_inputs,
@@ -101,22 +188,7 @@ class EAPRunner:
     else:
       eap_args["mask_val"] = 0.0
 
-    if tl_model.is_categorical():
-      # For categorical models we use as loss function the diff between the correct and wrong answers
-      eap_args["answer_function"] = "avg_diff"
-    else:
-      # Auto-circuit assumes that all models are categorical, so we need to provide a custom loss function for
-      # regression ones
-      print(f"Using regression loss function: {self.regression_loss_fn}")
-      def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
-        if self.regression_loss_fn == "mse":
-          return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
-        elif self.regression_loss_fn == "mae":
-            return t.nn.functional.l1_loss(logits, batch.answers)
-        else:
-          raise ValueError(f"Unknown regression loss function: {self.regression_loss_fn}")
-
-      eap_args["answer_function"] = loss_fn
+    eap_args["answer_function"] = self.get_answer_function_for_case()
 
     attribution_scores: PruneScores = mask_gradient_prune_scores(**eap_args)
     if self.normalize_scores:
@@ -130,7 +202,7 @@ class EAPRunner:
       threshold = self.threshold
 
     eap_circuit = build_circuit(auto_circuit_model, attribution_scores, threshold)
-    eap_circuit.save(f"{self.args.output_dir}/final_circuit.pkl")
+    eap_circuit.save(f"{self.config.output_dir}/final_circuit.pkl")
 
     return eap_circuit
 
@@ -145,6 +217,25 @@ class EAPRunner:
 
     return normalized_scores
 
+  def get_answer_function_for_case(self):
+    if self.case.is_categorical():
+      # For categorical models we use as loss function the diff between the correct and wrong answers
+      return "avg_diff"
+    else:
+      # Auto-circuit assumes that all models are categorical, so we need to provide a custom loss function for
+      # regression ones
+      print(f"Using regression loss function: {self.regression_loss_fn}")
+
+      def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
+        if self.regression_loss_fn == "mse":
+          return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
+        elif self.regression_loss_fn == "mae":
+          return t.nn.functional.l1_loss(logits, batch.answers)
+        else:
+          raise ValueError(f"Unknown regression loss function: {self.regression_loss_fn}")
+
+      return loss_fn
+
   @staticmethod
   def setup_subparser(subparsers):
     parser = subparsers.add_parser("eap")
@@ -155,6 +246,9 @@ class EAPRunner:
     add_common_args(parser)
     add_evaluation_common_ags(parser)
 
+    parser.add_argument(
+      "--include-mlp", type=int, help="Evaluate group 'with_mlp'", default=1
+    )
     parser.add_argument(
         "-wandb", "--using_wandb", action="store_true", help="Use wandb"
     )
@@ -170,9 +264,19 @@ class EAPRunner:
     parser.add_argument("--normalize-scores", action="store_true",
                         help="Normalize the scores so that they all lie between 0 and 1.")
 
-  @classmethod
-  def make_default_runner(cls, task: str):
-    parser = ArgumentParser()
-    cls.add_args_to_parser(parser)
-    args = parser.parse_args([])
-    return cls(task, args)
+  def prepare_output_dir(self, ll_model_loader):
+    if self.edge_count is not None:
+      output_suffix = f"{ll_model_loader.get_output_suffix()}/edge_count_{self.edge_count}"
+    else:
+      output_suffix = f"{ll_model_loader.get_output_suffix()}/threshold_{self.threshold}"
+
+    clean_dirname = f"{self.config.output_dir}/eap/{self.case.get_name()}/{output_suffix}"
+
+    # remove everything in the directory
+    if os.path.exists(clean_dirname):
+      shutil.rmtree(clean_dirname)
+
+    # mkdir
+    os.makedirs(clean_dirname, exist_ok=True)
+
+    return clean_dirname
