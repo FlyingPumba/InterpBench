@@ -70,7 +70,6 @@ class EAPRunner:
 
     assert self.config is not None
 
-
     self.data_size = self.config.data_size
     self.edge_count = self.config.edge_count
     self.threshold = self.config.threshold
