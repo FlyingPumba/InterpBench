@@ -5,7 +5,7 @@ import wandb
 from jaxtyping import Float
 from torch import Tensor
 from torch.utils.data import DataLoader
-from transformer_lens import ActivationCache
+from transformer_lens import ActivationCache, HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
@@ -20,7 +20,7 @@ class AutoEncoderTrainer(GenericTrainer):
   def __init__(self,
                case: BenchmarkCase,
                autoencoder: AutoEncoder,
-               tl_model: HookedTracrTransformer,
+               tl_model: HookedTransformer,
                args: TrainingArgs,
                activations_cache: ActivationCache | None = None,
                hook_name_filter_for_input_activations: str | None = None,

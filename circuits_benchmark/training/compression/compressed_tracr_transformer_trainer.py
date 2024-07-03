@@ -125,7 +125,18 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.test_metrics["avg_node_effect_diff"] = avg_node_effect_diff / len(original_model_node_effect_results)
 
     if self.epoch % 100 == 0:
-      self.test_metrics["iia"] = self.sample_iia(self.test_dataset)
+      dataset_loader = self.test_dataset.make_loader(batch_size=self.args.batch_size, num_workers=0)
+
+      compressed_model = self.get_compressed_model()
+      hl_ll_corr = self.case.get_correspondence(same_size=True)
+      model_pair = self.case.build_model_pair(model_pair_name="strict",
+                                              ll_model=compressed_model,
+                                              hl_ll_corr=hl_ll_corr)
+      eval_result = model_pair._run_eval_epoch(dataset_loader, model_pair.loss_fn)
+      self.test_metrics["iia"] = eval_result.to_dict()["val/IIA"]
+      self.test_metrics["siia"] = eval_result.to_dict()["val/strict_accuracy"]
+      self.test_metrics["val/accuracy"] = eval_result.to_dict()["val/accuracy"]
+      self.test_metrics["val/iit_loss"] = eval_result.to_dict()["val/iit_loss"]
 
     if self.args.resample_ablation_test_loss:
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
@@ -163,68 +174,6 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
 
-  def sample_iia(self, dataset: IITDataset, percentage_nodes_to_sample: Optional[float] = 1):
-    iia = 0.0
-
-    base_model = self.get_original_model()
-    compressed_model = self.get_compressed_model()
-
-    full_circuit = get_full_circuit(base_model.cfg.n_layers, base_model.cfg.n_heads)
-    relevant_nodes: Set[CircuitNode] = set([node for node in full_circuit.nodes
-                                            if "mlp_in" not in str(node) and not is_qkv_granularity_hook(str(node))])
-    nodes_to_sample = random.sample(list(relevant_nodes), int(len(relevant_nodes) * percentage_nodes_to_sample))
-
-    dataset_loader = dataset.make_loader(batch_size=len(dataset), num_workers=0)
-    clean_data, corrupted_data = next(iter(dataset_loader))
-    clean_inputs = clean_data[0]
-    corrupted_inputs = corrupted_data[0]
-
-    _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_inputs)
-    _, compressed_model_corrupted_cache = compressed_model.run_with_cache(corrupted_inputs)
-
-    for node in nodes_to_sample:
-      hook_name = node.name
-      head_index = node.index
-
-      # run clean data on both models, patching corrupted data where necessary
-      base_model_patching_data = {}
-      base_model_patching_data[hook_name] = base_model_corrupted_cache[hook_name]
-      base_model_hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=base_model_patching_data,
-                                   head_index=head_index)
-
-      compressed_model_patching_data = {}
-      compressed_model_patching_data[hook_name] = compressed_model_corrupted_cache[hook_name]
-      compressed_model_hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=compressed_model_patching_data,
-                                         head_index=head_index)
-
-      with base_model.hooks([(hook_name, base_model_hook_fn)]):
-        base_model_intervened_logits = base_model(clean_inputs)
-
-      with compressed_model.hooks([(hook_name, compressed_model_hook_fn)]):
-        compressed_model_intervened_logits = compressed_model(clean_inputs)
-
-      # Remove BOS from logits
-      base_model_intervened_logits = base_model_intervened_logits[:, 1:]
-      compressed_model_intervened_logits = compressed_model_intervened_logits[:, 1:]
-
-      if base_model.is_categorical():
-        # calculate labels for each position
-        base_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(base_model_intervened_logits, dim=-1)
-        compressed_intervened_labels: Int[Tensor, "batch pos"] = t.argmax(compressed_model_intervened_logits, dim=-1)
-
-        same_outputs_between_both_models_after_intervention = (
-            base_intervened_labels == compressed_intervened_labels).all(dim=-1).float()
-        iia = iia + same_outputs_between_both_models_after_intervention.mean().item()
-      else:
-        same_outputs_between_both_models_after_intervention = t.isclose(base_model_intervened_logits,
-                                                                        compressed_model_intervened_logits,
-                                                                        atol=self.args.test_accuracy_atol).float()
-        iia = iia + same_outputs_between_both_models_after_intervention.mean().item()
-
-    # return average over sampled nodes
-    iia = iia / len(nodes_to_sample)
-    return iia
-
   def evaluate_node_effect(self, model, dataset: IITDataset):
     effect_by_node = {}
 
@@ -258,7 +207,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       original_logits = original_logits[:, 1:]
       intervened_logits = intervened_logits[:, 1:]
 
-      if model.is_categorical():
+      if self.case.is_categorical():
         # calculate labels for each position
         original_labels: Int[Tensor, "batch pos"] = t.argmax(original_logits, dim=-1)
         intervened_labels: Int[Tensor, "batch pos"] = t.argmax(intervened_logits, dim=-1)

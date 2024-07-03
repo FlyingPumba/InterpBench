@@ -59,24 +59,28 @@ def setup_args_parser(subparsers):
 def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
   """Compresses the residual stream of a Tracr model using a linear compression."""
   assert isinstance(case, TracrBenchmarkCase), "Only TracrBenchmarkCase is supported for autoencoder training."
-  tl_model: HookedTracrTransformer = case.get_hl_model()
-  original_d_model_size = tl_model.cfg.d_model
-  original_d_head_size = tl_model.cfg.d_head
+  hl_model: HookedTracrTransformer = case.get_hl_model()
+  original_d_model_size = hl_model.cfg.d_model
+  original_d_head_size = hl_model.cfg.d_head
 
   training_args, _ = ArgumentParser(TrainingArgs).parse_known_args(args.original_args)
 
-  compressed_d_model_size = parse_d_model(args, tl_model)
-  compressed_d_head_size = parse_d_head(args, tl_model)
+  compressed_d_model_size = parse_d_model(args, hl_model)
+  compressed_d_head_size = parse_d_head(args, hl_model)
 
-  new_tl_model = HookedTracrTransformer.from_hooked_tracr_transformer(
-    tl_model,
+  # Get LL model with compressed dimensions
+  ll_model = case.get_ll_model(
     overwrite_cfg_dict={
       "d_model": compressed_d_model_size,
       "d_head": compressed_d_head_size,
     },
-    init_params_fn=wang_init_method(tl_model.cfg.n_layers, compressed_d_model_size),
+    same_size=True
   )
-  # new_tl_model.normalize_output = True
+
+  # reset params
+  init_fn=wang_init_method(hl_model.cfg.n_layers, compressed_d_model_size)
+  for name, param in ll_model.named_parameters():
+    init_fn(param)
 
   # Set up autoencoders
   autoencoders_dict = {}
@@ -84,8 +88,8 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                                            compressed_d_model_size,
                                                            args.ae_layers,
                                                            args.ae_first_hidden_layer_shape)
-  for layer in range(tl_model.cfg.n_layers):
-    for head in range(tl_model.cfg.n_heads):
+  for layer in range(hl_model.cfg.n_layers):
+    for head in range(hl_model.cfg.n_heads):
       autoencoders_dict[f"blocks.{layer}.attn.hook_result[{head}]"] = AutoEncoder(original_d_model_size,
                                                                                   compressed_d_model_size,
                                                                                   args.ae_layers,
@@ -101,8 +105,8 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}.")
   trainer = NonLinearCompressedTracrTransformerTrainer(case,
-                                                       tl_model,
-                                                       new_tl_model,
+                                                       hl_model,
+                                                       ll_model,
                                                        autoencoders_dict,
                                                        training_args,
                                                        output_dir=args.output_dir,
@@ -114,7 +118,7 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
         f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
 
-  iia_eval_results = evaluate_iia_on_all_ablation_types(case, tl_model, new_tl_model, trainer.test_dataset)
+  iia_eval_results = evaluate_iia_on_all_ablation_types(case, hl_model, ll_model, trainer.test_dataset)
   print(f" >>> IIA evaluation results:")
   for node_str, result in iia_eval_results.items():
     print(result)

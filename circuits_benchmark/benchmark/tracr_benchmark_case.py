@@ -90,20 +90,31 @@ class TracrBenchmarkCase(BenchmarkCase):
       training_args=training_args,
     )
 
-  def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
+  def get_ll_model_cfg(self,
+                       overwrite_cfg_dict: dict | None = None,
+                       same_size: bool = False,
+                       *args, **kwargs) -> dict:
     """Returns the configuration for the LL model for this benchmark case."""
     hl_model = self.get_hl_model()
-    return make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size)
+    cfg_dict = make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size)
+
+    if overwrite_cfg_dict is not None:
+      cfg_dict.update(overwrite_cfg_dict)
+
+    return cfg_dict
 
   def get_ll_model(
       self,
       device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+      overwrite_cfg_dict: dict | None = None,
       same_size: bool = False,
       *args, **kwargs
   ) -> HookedTransformer:
     """Returns the untrained transformer_lens model for this benchmark case.
     In IIT terminology, this is the LL model before training."""
-    ll_cfg = self.get_ll_model_cfg(same_size=same_size, *args, **kwargs)
+    ll_cfg = self.get_ll_model_cfg(same_size=same_size,
+                                   overwrite_cfg_dict=overwrite_cfg_dict,
+                                   *args, **kwargs)
     ll_model = HookedTransformer(ll_cfg)
     ll_model.to(device)
     return ll_model

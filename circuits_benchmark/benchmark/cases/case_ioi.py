@@ -101,6 +101,7 @@ class CaseIOI(BenchmarkCase):
 
   def get_ll_model_cfg(
       self,
+      overwrite_cfg_dict: dict | None = None,
       eval: bool = False,
       *args, **kwargs
   ) -> HookedTransformerConfig:
@@ -109,6 +110,9 @@ class CaseIOI(BenchmarkCase):
       "gpt2"
     ).cfg.to_dict()
     ll_cfg.update(ioi_cfg)
+
+    if overwrite_cfg_dict is not None:
+      ll_cfg.update(overwrite_cfg_dict)
 
     if not eval:
       ll_cfg["init_weights"] = True
@@ -122,6 +126,7 @@ class CaseIOI(BenchmarkCase):
   def get_ll_model(
       self,
       device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+      overwrite_cfg_dict: dict | None = None,
       *args, **kwargs
   ) -> HookedTransformer:
     """Returns the untrained transformer_lens model for this case.
@@ -129,7 +134,7 @@ class CaseIOI(BenchmarkCase):
     if self.ll_model is not None:
       return self.ll_model
 
-    ll_cfg = self.get_ll_model_cfg(*args, **kwargs)
+    ll_cfg = self.get_ll_model_cfg(overwrite_cfg_dict=overwrite_cfg_dict, *args, **kwargs)
     self.ll_model = HookedTransformer(ll_cfg).to(device)
 
     return self.ll_model

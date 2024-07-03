@@ -18,24 +18,23 @@ from circuits_benchmark.training.compression.autoencoder_trainer import AutoEnco
 from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
   CausallyCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit.iit_dataset_batch import IITDatasetBatch
 
 
 class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformerTrainer):
   def __init__(self, case: BenchmarkCase,
-               old_tl_model: HookedTracrTransformer,
-               new_tl_model: HookedTracrTransformer,
+               old_tl_model: HookedTransformer,
+               new_tl_model: HookedTransformer,
                autoencoders_dict: Dict[str, AutoEncoder],
                args: TrainingArgs,
                output_dir: str | None = None,
                ae_desired_test_mse: float = 1e-3,
                ae_training_args: TrainingArgs = None,
                ae_train_loss_weight: int = 10):
-    self.old_tl_model: HookedTracrTransformer = old_tl_model
+    self.old_tl_model: HookedTransformer = old_tl_model
     self.old_tl_model.freeze_all_weights()
 
-    self.new_tl_model: HookedTracrTransformer = new_tl_model
+    self.new_tl_model: HookedTransformer = new_tl_model
     self.autoencoders_dict: Dict[str, AutoEncoder] = autoencoders_dict
     self.autoencoder_trainers_dict: Dict[str, AutoEncoderTrainer] = {}
     self.device = old_tl_model.device
