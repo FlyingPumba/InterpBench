@@ -18,9 +18,6 @@ WORKDIR /circuits-benchmark
 COPY pyproject.toml poetry.lock ./
 RUN touch README.md
 
-# We need to copy the submodules to properly install all the dependencies.
-COPY submodules ./submodules
-
 RUN apt-get update -q && apt-get install -y --no-install-recommends libgl1-mesa-glx graphviz graphviz-dev tmux \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
