@@ -20,9 +20,9 @@ def get_ll_model_loader_from_args(case: BenchmarkCase, args: Namespace) -> LLMod
 
 def get_ll_model_loader(
     case: BenchmarkCase,
-    natural: bool,
-    tracr: bool,
-    interp_bench: bool,
+    natural: bool = False,
+    tracr: bool = False,
+    interp_bench: bool = False,
     siit_weights: str | None = None,
     load_from_wandb: bool = False,
 ) -> LLModelLoader:

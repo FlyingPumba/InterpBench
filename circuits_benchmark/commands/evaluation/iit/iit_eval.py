@@ -1,5 +1,6 @@
 import pickle
 from argparse import Namespace
+from typing import Literal
 
 import numpy as np
 import torch as t
@@ -76,15 +77,18 @@ def setup_args_parser(subparsers):
 
 def get_node_effects(
     case: BenchmarkCase,
-    args: Namespace,
     model_pair: BaseModelPair,
     use_mean_cache: bool,
     individual_nodes: bool = True,
+    seed: int = 42,
+    max_len: int = 18000,
+    batch_size: int = 512,
+    categorical_metric: Literal["accuracy", "kl_div", "kl_div_self"] = "accuracy",
 ):
-    np.random.seed(args.seed)
-    t.manual_seed(args.seed)
+    np.random.seed(seed)
+    t.manual_seed(seed)
 
-    unique_dataset = case.get_clean_data(max_samples=args.max_len, unique_data=True)
+    unique_dataset = case.get_clean_data(max_samples=max_len, unique_data=True)
     test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
 
     with t.no_grad():
@@ -92,19 +96,19 @@ def get_node_effects(
             model_pair,
             test_set,
             node_type="n",
-            categorical_metric=Categorical_Metric(args.categorical_metric),
+            categorical_metric=Categorical_Metric(categorical_metric),
             verbose=False,
         )
         result_in_circuit = check_causal_effect(
             model_pair,
             test_set,
             node_type="c" if not individual_nodes else "individual_c",
-            categorical_metric=Categorical_Metric(args.categorical_metric),
+            categorical_metric=Categorical_Metric(categorical_metric),
             verbose=False,
         )
 
         metric_collection = model_pair._run_eval_epoch(
-            test_set.make_loader(args.batch_size, 0), model_pair.loss_fn
+            test_set.make_loader(batch_size, 0), model_pair.loss_fn
         )
 
         # zero/mean ablation
@@ -178,7 +182,15 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         ll_model.requires_grad_(False)
 
     model_pair = case.build_model_pair(hl_model=hl_model, ll_model=ll_model, hl_ll_corr=hl_ll_corr)
-    df, metric_collection = get_node_effects(case, args, model_pair, use_mean_cache)
+    df, metric_collection = get_node_effects(
+        case,
+        model_pair,
+        use_mean_cache,
+        seed=args.seed,
+        max_len=args.max_len,
+        batch_size=args.batch_size,
+        categorical_metric=args.categorical_metric,
+    )
 
     save_dir = f"{output_dir}/ll_models/{case.get_name()}/results_{weight}"
     suffix = f"_{args.categorical_metric}" if hl_model.is_categorical() else ""
