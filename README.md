@@ -32,11 +32,12 @@ To check the arguments available for a specific command, you can use the `--help
 
 ### Circuit discovery commands
 
-There are two main circuit discovery techniques that are supported for now: [ACDC](https://arxiv.org/abs/2304.14997) and [SP](https://arxiv.org/abs/2104.03514). Some examples:
+There are three circuit discovery techniques that are supported for now: [ACDC](https://arxiv.org/abs/2304.14997), [SP](https://arxiv.org/abs/2104.03514), and [EAP](http://arxiv.org/abs/2310.10348). Some examples:
 
-- Running ACDC on Tracr task 3: `./main.py run acdc -i 3 --threshold 0.71`
-- Running SP on Tracr tasks 1 and 2: `./main.py run sp -i 1,2 --lambda-reg 0.5`
-- Running edgewise SP on all Tracr tasks: `./main.py run sp --edgewise`
+- Running ACDC on Tracr-generated model for task 3: `./main.py run acdc -i 3 --tracr --threshold 0.71`
+- Running SP on a locally trained SIIT model for task 1: `./main.py run sp -i 1 --siit-weights 510 --lambda-reg 0.5`
+- Running edgewise SP on InterpBench models for all tasks: `./main.py run sp --interp-bench --edgewise`
+- Running EAP with integrated gradients on a locally trained SIIT model for IOI task: `./main.py run eap -i ioi --siit-weights 510 --integrated-grad-steps=5`
 
 After running an algorith, the output can be found in the `results` folder.
 
