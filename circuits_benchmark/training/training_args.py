@@ -12,7 +12,7 @@ class TrainingArgs():
   # data management
   batch_size: Optional[int] = 256
   train_data_size: Optional[int] = None  # use all data available
-  test_data_ratio: Optional[float] = None  # same as train data
+  test_data_ratio: Optional[float] = 0.2  # same as train data
 
   # training time and early stopping
   epochs: Optional[int] = None

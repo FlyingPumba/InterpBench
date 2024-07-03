@@ -44,7 +44,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
   def setup_dataset(self):
     dataset = self.case.get_clean_data(max_samples=self.args.train_data_size)
     train_dataset, test_dataset = train_test_split(
-      dataset, test_size=0.2, random_state=42
+      dataset, test_size=self.args.test_data_ratio, random_state=42
     )
     self.train_dataset = IITDataset(train_dataset, train_dataset)
     self.test_dataset = IITDataset(test_dataset, test_dataset)
