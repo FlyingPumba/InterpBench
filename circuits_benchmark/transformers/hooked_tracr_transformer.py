@@ -5,13 +5,11 @@ from typing import List, Literal, Any, Union, Callable, Optional, Dict
 import einops
 import jax.numpy as jnp
 import numpy as np
-import pandas as pd
 import torch as t
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import HookedTransformerConfig
+from transformer_lens import HookedTransformerConfig, HookedTransformer
 
-from circuits_benchmark.transformers.hooked_benchmark_transformer import HookedBenchmarkTransformer
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
@@ -21,7 +19,7 @@ HookedTracrTransformerBatchInput = List[List[Any]] | np.ndarray
 HookedTracrTransformerReturnType = Literal["logits", "decoded"]
 
 
-class HookedTracrTransformer(HookedBenchmarkTransformer):
+class HookedTracrTransformer(HookedTransformer):
   """A TransformerLens model built from a Tracr model."""
 
   def __init__(self,
@@ -98,6 +96,11 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
   def load_weights_from_file(self, path: str):
     """Loads the transformer weights from file."""
     self.load_state_dict(t.load(path, map_location=self.device))
+
+  def reset_parameters(self, init_fn: Callable[[Tensor], Tensor]):
+    """Resets all parameters in the model."""
+    for name, param in self.named_parameters():
+      init_fn(param)
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
