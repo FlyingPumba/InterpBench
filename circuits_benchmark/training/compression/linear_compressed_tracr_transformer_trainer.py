@@ -1,6 +1,4 @@
-from jaxtyping import Float
-from torch import Tensor
-from transformer_lens import ActivationCache, HookedTransformer
+from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
@@ -9,8 +7,7 @@ from circuits_benchmark.training.compression.causally_compressed_tracr_transform
   CausallyCompressedTracrTransformerTrainer
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput, \
-  HookedTracrTransformer
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 
 class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformerTrainer):
@@ -28,19 +25,6 @@ class LinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformer
                      original_model.is_categorical(),
                      original_model.cfg.n_layers,
                      output_dir=output_dir)
-
-  def get_logits_and_cache_from_compressed_model(
-      self,
-      inputs: HookedTracrTransformerBatchInput
-  ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
-    compressed_model_logits, compressed_model_cache = self.compressed_model.run_with_cache(inputs)
-    return compressed_model_logits, compressed_model_cache
-
-  def get_logits_and_cache_from_original_model(
-      self,
-      inputs: HookedTracrTransformerBatchInput
-  ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
-    return self.original_model.run_with_cache(inputs)
 
   def get_original_model(self) -> HookedTransformer:
     return self.original_model

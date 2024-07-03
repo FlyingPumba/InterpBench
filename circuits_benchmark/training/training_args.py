@@ -10,7 +10,7 @@ class TrainingArgs():
   wandb_name: Optional[str] = None
 
   # data management
-  batch_size: Optional[int] = None # use all data available
+  batch_size: Optional[int] = 256
   train_data_size: Optional[int] = None  # use all data available
   test_data_ratio: Optional[float] = None  # same as train data
 

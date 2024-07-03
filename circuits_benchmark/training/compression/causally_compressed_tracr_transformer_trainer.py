@@ -1,21 +1,18 @@
-import random
-from typing import List, Dict
+from typing import List
 
 import torch as t
 import wandb
 from jaxtyping import Float, Int
 from torch import Tensor
 from torch.nn import Parameter
-from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
-  get_resample_ablation_loss_from_inputs
+  get_resample_ablation_loss
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
   CompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
+from circuits_benchmark.utils.iit.iit_dataset_batch import IITDatasetBatch
 
 
 class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTrainer):
@@ -34,23 +31,20 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     self.epochs_since_last_train_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
-  def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
-    clean_data = self.case.get_clean_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
-    corrupted_data = self.case.get_corrupted_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
+  def compute_train_loss(self, batch: IITDatasetBatch) -> Float[Tensor, ""]:
+    clean_data, corrupted_data = batch
+    clean_inputs = clean_data[0]
 
-    # We calculate the output loss on the "corrupted data", which is the same as the clean data but generated on another seed,
-    # so we can reuse the activation cache for the resample ablation loss
-    original_model_logits = self.get_original_model()(corrupted_data.get_inputs())
-    compressed_model_logits, compressed_model_corrupted_cache = self.get_compressed_model().run_with_cache(corrupted_data.get_inputs())
-
-    # Independently of the train loss level, we always compute the output loss since we want the compressed model to
+    # We always compute the output loss since we want the compressed model to
     # have the same output as the original model.
+    compressed_model_logits = self.get_compressed_model()(clean_inputs)
+    original_model_logits = self.get_original_model()(clean_inputs)
     loss = self.get_output_loss(compressed_model_logits, original_model_logits)
 
     if self.epochs_since_last_train_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
       self.epochs_since_last_train_resample_ablation_loss = 0
 
-      intervention_loss = self.get_intervention_level_loss(clean_data, corrupted_data, compressed_model_corrupted_cache)
+      intervention_loss = self.get_intervention_level_loss(batch)
       loss = loss + self.args.resample_ablation_loss_weight * intervention_loss
 
     self.epochs_since_last_train_resample_ablation_loss += 1
@@ -125,20 +119,14 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
 
     return loss
 
-  def get_intervention_level_loss(self,
-                                  clean_data: TracrDataset,
-                                  corrupted_data: TracrDataset,
-                                  compressed_model_corrupted_cache: ActivationCache):
+  def get_intervention_level_loss(self, batch: IITDatasetBatch):
     resample_ablation_loss_args = {
-      "clean_inputs": clean_data,
-      "corrupted_inputs": corrupted_data,
-      "hypothesis_model_corrupted_cache": compressed_model_corrupted_cache,
+      "data": batch,
       "base_model": self.get_original_model(),
       "hypothesis_model": self.get_compressed_model(),
       "max_interventions": self.args.resample_ablation_max_interventions,
       "max_components": self.args.resample_ablation_max_components,
       "is_categorical": self.is_categorical,
-      "batch_size": self.args.resample_ablation_batch_size,
     }
 
     activation_mapper = self.get_activation_mapper()
@@ -148,7 +136,7 @@ class CausallyCompressedTracrTransformerTrainer(CompressedTracrTransformerTraine
     if self.effect_diffs_by_node is not None:
       resample_ablation_loss_args["effect_diffs_by_node"] = self.effect_diffs_by_node
 
-    resample_ablation_output = get_resample_ablation_loss_from_inputs(**resample_ablation_loss_args)
+    resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
 
     if self.use_wandb:
       wandb.log({"train_resample_ablation_loss": resample_ablation_output.loss,

@@ -20,10 +20,10 @@ class TrainTest(unittest.TestCase):
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
 
-  def test_non_linear_compression_works_for_case_3(self):
+  def test_non_linear_compression_works(self):
     args, _ = build_main_parser().parse_known_args(["train",
                                                     "non-linear-compression",
-                                                    "-i=3",
+                                                    "-i=1,2,3",
                                                     "--d-model=8",
                                                     "--train-data-size=10",
                                                     "--test-data-ratio=0.3",

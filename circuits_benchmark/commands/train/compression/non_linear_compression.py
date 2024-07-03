@@ -114,7 +114,7 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
         f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
 
-  iia_eval_results = evaluate_iia_on_all_ablation_types(case, tl_model, new_tl_model)
+  iia_eval_results = evaluate_iia_on_all_ablation_types(case, tl_model, new_tl_model, trainer.test_dataset)
   print(f" >>> IIA evaluation results:")
   for node_str, result in iia_eval_results.items():
     print(result)

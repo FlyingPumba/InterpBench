@@ -14,6 +14,7 @@ from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_inter
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import \
   MultiHookActivationMapper
+from circuits_benchmark.utils.iit.iit_dataset_batch import IITDatasetBatch
 
 
 @dataclass
@@ -26,47 +27,7 @@ class ResampleAblationLossOutput:
   intervened_nodes: List[str]
 
 
-def get_resample_ablation_loss_from_inputs(
-    clean_inputs: TracrDataset,
-    corrupted_inputs: TracrDataset,
-    base_model: HookedTransformer,
-    hypothesis_model: HookedTransformer,
-    activation_mapper: MultiHookActivationMapper | ActivationMapper | None = None,
-    hook_filters: List[str] | None = None,
-    batch_size: int = 2048,
-    max_interventions: int = 10,
-    max_components: int = 1,
-    is_categorical: bool = False,
-    hypothesis_model_corrupted_cache: ActivationCache | None = None,
-    effect_diffs_by_node: Optional[Dict[str, float]] = None,
-    verbose: bool = False,
-  ) -> ResampleAblationLossOutput:
-
-  # assert that clean_input and corrupted_input have the same length
-  assert len(clean_inputs) == len(corrupted_inputs), "clean and corrupted inputs should have same length."
-  # assert that clean and corrupted inputs are not exactly the same, otherwise the comparison is flawed.
-  assert clean_inputs != corrupted_inputs, "clean and corrupted inputs should have different data."
-
-  # Build data for interventions before starting to avoid recomputing the same data for each intervention.
-  batched_intervention_data = get_batched_intervention_data(clean_inputs,
-                                                            corrupted_inputs,
-                                                            base_model,
-                                                            hypothesis_model,
-                                                            activation_mapper,
-                                                            batch_size,
-                                                            hypothesis_model_corrupted_cache=hypothesis_model_corrupted_cache)
-
-  return get_resample_ablation_loss(batched_intervention_data, base_model, hypothesis_model,
-                                    activation_mapper=activation_mapper,
-                                    hook_filters=hook_filters,
-                                    max_interventions=max_interventions,
-                                    max_components=max_components,
-                                    is_categorical=is_categorical,
-                                    effect_diffs_by_node=effect_diffs_by_node,
-                                    verbose=verbose)
-
-
-def get_resample_ablation_loss(batched_intervention_data: List[InterventionData],
+def get_resample_ablation_loss(data: IITDatasetBatch,
                                base_model: HookedTransformer,
                                hypothesis_model: HookedTransformer,
                                activation_mapper: MultiHookActivationMapper | ActivationMapper | None,
@@ -100,13 +61,27 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
 
   assert max_interventions > 0, "max_interventions should be greater than 0."
 
+  # Prepare intervention data beforehand to avoid recomputing clean and corrupted activations on both models for each
+  # intervention.
+  clean_data, corrupted_data = data
+  clean_inputs = clean_data[0]
+  corrupted_inputs = corrupted_data[0]
+
+  _, base_model_clean_cache = base_model.run_with_cache(clean_inputs)
+  _, hypothesis_model_clean_cache = hypothesis_model.run_with_cache(clean_inputs)
+  _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_inputs)
+  _, hypothesis_model_corrupted_cache = hypothesis_model.run_with_cache(corrupted_inputs)
+
+  intervention_data = InterventionData(
+    clean_inputs,
+    base_model_corrupted_cache,
+    hypothesis_model_corrupted_cache,
+    base_model_clean_cache,
+    hypothesis_model_clean_cache
+  )
+
   # Calculate the variance of the base model logits.
-  base_model_logits_variance = []
-  for intervention_data in batched_intervention_data:
-    clean_inputs_batch = intervention_data.clean_inputs
-    base_model_intervened_logits = base_model(clean_inputs_batch)
-    base_model_logits_variance.append(t.var(base_model_intervened_logits).item())
-  base_model_logits_variance = np.mean(base_model_logits_variance)
+  base_model_logits_variance = base_model(clean_inputs).var().item()
 
   # for each intervention, run both models, calculate MSE and add it to the losses.
   losses = []
@@ -132,92 +107,79 @@ def get_resample_ablation_loss(batched_intervention_data: List[InterventionData]
       else:
         interventions_per_node[node_name] = 1
 
-    # We may have more than one batch of inputs, so we need to iterate over them, and average at the end.
-    batched_data_intervention_losses = []
-    batched_data_intervention_variance_explained = []
-    for intervention_data in batched_intervention_data:
-      clean_inputs_batch = intervention_data.clean_inputs
+    with intervention.hooks(base_model, hypothesis_model, intervention_data):
+      base_model_intervened_logits = base_model(clean_inputs)
+      hypothesis_model_intervened_logits = hypothesis_model(clean_inputs)
 
-      with intervention.hooks(base_model, hypothesis_model, intervention_data):
-        base_model_intervened_logits = base_model(clean_inputs_batch)
-        hypothesis_model_intervened_logits = hypothesis_model(clean_inputs_batch)
+    # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
+    base_model_intervened_logits = base_model_intervened_logits[:, 1:]
+    hypothesis_model_intervened_logits = hypothesis_model_intervened_logits[:, 1:]
 
-      # The output has unspecified behavior for the BOS token, so we discard it on the loss calculation.
-      base_model_intervened_logits = base_model_intervened_logits[:, 1:]
-      hypothesis_model_intervened_logits = hypothesis_model_intervened_logits[:, 1:]
+    if use_node_effect_diff:
+      # We will compare the clean vs intervened logits of both models.
+      base_model_clean_logits = base_model(clean_inputs)
+      hypothesis_model_clean_logits = hypothesis_model(clean_inputs)
 
-      if use_node_effect_diff:
-        # We will compare the clean vs intervened logits of both models.
-        base_model_clean_logits = base_model(clean_inputs_batch)
-        hypothesis_model_clean_logits = hypothesis_model(clean_inputs_batch)
+      # Remove BOS
+      base_model_clean_logits = base_model_clean_logits[:, 1:]
+      hypothesis_model_clean_logits = hypothesis_model_clean_logits[:, 1:]
 
-        # Remove BOS
-        base_model_clean_logits = base_model_clean_logits[:, 1:]
-        hypothesis_model_clean_logits = hypothesis_model_clean_logits[:, 1:]
+      if is_categorical:
+        # calculate log softmax and compare using mse loss
+        # we want to know how much the distribution of probabilities changes for each model.
+        base_model_clean_logits = t.nn.functional.log_softmax(base_model_clean_logits, dim=-1)
+        hypothesis_model_clean_logits = t.nn.functional.log_softmax(hypothesis_model_clean_logits, dim=-1)
+        base_model_intervened_logits = t.nn.functional.log_softmax(base_model_intervened_logits, dim=-1)
+        hypothesis_model_intervened_logits = t.nn.functional.log_softmax(hypothesis_model_intervened_logits, dim=-1)
 
-        if is_categorical:
-          # calculate log softmax and compare using mse loss
-          # we want to know how much the distribution of probabilities changes for each model.
-          base_model_clean_logits = t.nn.functional.log_softmax(base_model_clean_logits, dim=-1)
-          hypothesis_model_clean_logits = t.nn.functional.log_softmax(hypothesis_model_clean_logits, dim=-1)
-          base_model_intervened_logits = t.nn.functional.log_softmax(base_model_intervened_logits, dim=-1)
-          hypothesis_model_intervened_logits = t.nn.functional.log_softmax(hypothesis_model_intervened_logits, dim=-1)
+        base_model_effect = t.nn.functional.mse_loss(base_model_clean_logits, base_model_intervened_logits)
+        hypothesis_model_effect = t.nn.functional.mse_loss(hypothesis_model_clean_logits, hypothesis_model_intervened_logits)
 
-          base_model_effect = t.nn.functional.mse_loss(base_model_clean_logits, base_model_intervened_logits)
-          hypothesis_model_effect = t.nn.functional.mse_loss(hypothesis_model_clean_logits, hypothesis_model_intervened_logits)
-
-          loss = t.abs(base_model_effect - hypothesis_model_effect)
-
-        else:
-          base_model_effect = t.nn.functional.mse_loss(base_model_clean_logits, base_model_intervened_logits)
-          hypothesis_model_effect = t.nn.functional.mse_loss(hypothesis_model_clean_logits, hypothesis_model_intervened_logits)
-          loss = t.abs(base_model_effect - hypothesis_model_effect)
+        intervention_loss = t.abs(base_model_effect - hypothesis_model_effect)
 
       else:
-        # Just compare the intervened logits of both models.
-        if is_categorical:
-          # Use Cross Entropy loss for categorical outputs.
-          flattened_intervened_logits: Float[
-            Tensor, "batch*pos, vocab_out"] = hypothesis_model_intervened_logits.flatten(end_dim=-2)
-          flattened_intervened_expected_labels: Int[Tensor, "batch*pos"] = base_model_intervened_logits.argmax(
-            dim=-1).flatten()
-          loss = t.nn.functional.cross_entropy(flattened_intervened_logits,
-                                               flattened_intervened_expected_labels)
-        else:
-          # Use MSE loss for numerical outputs.
-          loss = t.nn.functional.mse_loss(base_model_intervened_logits, hypothesis_model_intervened_logits)
+        base_model_effect = t.nn.functional.mse_loss(base_model_clean_logits, base_model_intervened_logits)
+        hypothesis_model_effect = t.nn.functional.mse_loss(hypothesis_model_clean_logits, hypothesis_model_intervened_logits)
+        intervention_loss = t.abs(base_model_effect - hypothesis_model_effect)
 
-      batched_data_intervention_losses.append(loss.reshape(1))
+    else:
+      # Just compare the intervened logits of both models.
+      if is_categorical:
+        # Use Cross Entropy loss for categorical outputs.
+        flattened_intervened_logits: Float[
+          Tensor, "batch*pos, vocab_out"] = hypothesis_model_intervened_logits.flatten(end_dim=-2)
+        flattened_intervened_expected_labels: Int[Tensor, "batch*pos"] = base_model_intervened_logits.argmax(
+          dim=-1).flatten()
+        intervention_loss = t.nn.functional.cross_entropy(flattened_intervened_logits,
+                                             flattened_intervened_expected_labels)
+      else:
+        # Use MSE loss for numerical outputs.
+        intervention_loss = t.nn.functional.mse_loss(base_model_intervened_logits, hypothesis_model_intervened_logits)
 
-      var_explained = 1 - loss / base_model_logits_variance
-      batched_data_intervention_variance_explained.append(var_explained.reshape(1))
+    var_explained = 1 - intervention_loss / base_model_logits_variance
 
-    intervention_loss = t.cat(batched_data_intervention_losses).mean().reshape(1)
     losses.append(intervention_loss)
-
-    intervention_var_exp = t.cat(batched_data_intervention_variance_explained).mean().reshape(1)
-    variance_explained.append(intervention_var_exp)
-
+    variance_explained.append(var_explained)
     intervened_nodes.update(intervention.get_intervened_nodes())
 
     # store the max and mean loss per hook for the intervention.
     for node_name in intervention.get_intervened_nodes():
       if node_name in max_loss_per_node:
-        max_loss_per_node[node_name] = max(max_loss_per_node[node_name], intervention_loss)
+        max_loss_per_node[node_name] = max(max_loss_per_node[node_name], intervention_loss.item())
       else:
         max_loss_per_node[node_name] = intervention_loss
 
       if node_name in mean_loss_per_node:
-        mean_loss_per_node[node_name] = t.cat([mean_loss_per_node[node_name], intervention_loss])
+        mean_loss_per_node[node_name].append(intervention_loss)
       else:
-        mean_loss_per_node[node_name] = intervention_loss
+        mean_loss_per_node[node_name] = [intervention_loss]
 
   for node_name in mean_loss_per_node:
-    mean_loss_per_node[node_name] = mean_loss_per_node[node_name].mean()
+    mean_loss_per_node[node_name] = t.stack(mean_loss_per_node[node_name], dim=0).mean()
 
   return ResampleAblationLossOutput(
-    loss=t.cat(losses).mean(),
-    variance_explained=t.cat(variance_explained).mean(),
+    loss=t.stack(losses).mean(),
+    variance_explained=t.stack(variance_explained).mean(),
     max_loss_per_node=max_loss_per_node,
     mean_loss_per_node=mean_loss_per_node,
     interventions_per_node=interventions_per_node,

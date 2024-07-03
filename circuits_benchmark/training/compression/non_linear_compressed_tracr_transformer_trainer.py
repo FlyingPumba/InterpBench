@@ -6,7 +6,7 @@ import torch as t
 import wandb
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import ActivationCache, HookedTransformer
+from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
@@ -18,8 +18,8 @@ from circuits_benchmark.training.compression.autoencoder_trainer import AutoEnco
 from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
   CausallyCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
-  HookedTracrTransformerBatchInput
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from circuits_benchmark.utils.iit.iit_dataset_batch import IITDatasetBatch
 
 
 class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformerTrainer):
@@ -95,7 +95,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
         wandb.log({f"ae_{ae_key}_train_loss": avg_ae_train_loss}, step=self.step)
         wandb.log({f"ae_{ae_key}_{k}": v for k, v in ae_trainer.test_metrics.items()}, step=self.step)
 
-  def compute_train_loss(self, batch: Dict[str, HookedTracrTransformerBatchInput]) -> Float[Tensor, ""]:
+  def compute_train_loss(self, batch: IITDatasetBatch) -> Float[Tensor, ""]:
     """Computes the training loss and adds the AEs reconstruction loss to it."""
     train_loss = super().compute_train_loss(batch)
 
@@ -139,19 +139,6 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     if self.use_wandb:
       for name, param in self.new_tl_model.named_parameters():
         wandb.log({f"param_{name}_norm": param.norm()}, step=self.step)
-
-  def get_logits_and_cache_from_compressed_model(
-      self,
-      inputs: HookedTracrTransformerBatchInput
-  ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
-    compressed_model_logits, compressed_model_cache = self.new_tl_model.run_with_cache(inputs)
-    return compressed_model_logits, compressed_model_cache
-
-  def get_logits_and_cache_from_original_model(
-      self,
-      inputs: HookedTracrTransformerBatchInput
-  ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
-    return self.old_tl_model.run_with_cache(inputs)
 
   def get_original_model(self) -> HookedTransformer:
     return self.old_tl_model

@@ -5,24 +5,22 @@ from typing import List, Set, Optional
 import numpy as np
 import torch as t
 import wandb
-from jaxtyping import Float, Int
+from iit.utils.iit_dataset import train_test_split, IITDataset
+from jaxtyping import Int
 from torch import Tensor
 from torch.nn import Parameter
-from torch.utils.data import DataLoader
-from transformer_lens import ActivationCache, HookedTransformer
+from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.metrics.iia import is_qkv_granularity_hook, regular_intervention_hook_fn
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
-  get_resample_ablation_loss_from_inputs
+  get_resample_ablation_loss
 from circuits_benchmark.metrics.sparsity import get_zero_weights_pct
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.utils.circuit.circuit_eval import get_full_circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-from iit.utils.iit_dataset import train_test_split
 
 
 class CompressedTracrTransformerTrainer(GenericTrainer):
@@ -44,36 +42,15 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def setup_dataset(self):
-    self.clean_dataset = self.case.get_clean_data(max_samples=self.args.train_data_size)
-    self.corrupted_dataset = self.case.get_corrupted_data(max_samples=self.args.train_data_size)
-
-    train_dataset_subset, test_dataset_subset = train_test_split(
-      self.clean_dataset, test_size=0.2, random_state=42
+    dataset = self.case.get_clean_data(max_samples=self.args.train_data_size)
+    train_dataset, test_dataset = train_test_split(
+      dataset, test_size=0.2, random_state=42
     )
-    self.train_loader = DataLoader(
-      train_dataset_subset,
-      batch_size=2,
-      shuffle=True,
-      collate_fn=lambda x: self.clean_dataset.collate_fn(x),
-    )
-    self.test_loader = DataLoader(
-      test_dataset_subset,
-      batch_size=self.args.batch_size,
-      shuffle=False,
-      collate_fn=lambda x: self.clean_dataset.collate_fn(x),
-    )
+    self.train_dataset = IITDataset(train_dataset, train_dataset)
+    self.test_dataset = IITDataset(test_dataset, test_dataset)
 
-  def get_logits_and_cache_from_original_model(
-      self,
-      inputs: HookedTracrTransformerBatchInput
-  ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
-    raise NotImplementedError
-
-  def get_logits_and_cache_from_compressed_model(
-      self,
-      inputs: HookedTracrTransformerBatchInput
-  ) -> (Float[Tensor, "batch seq_len d_vocab"], ActivationCache):
-    raise NotImplementedError
+    self.train_loader = self.train_dataset.make_loader(batch_size=self.args.batch_size, num_workers=0)
+    self.test_loader = self.test_dataset.make_loader(batch_size=self.args.batch_size, num_workers=0)
 
   def get_original_model(self) -> HookedTransformer:
     raise NotImplementedError
@@ -113,13 +90,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     # measure the effect of each node on the compressed model's output
     if self.epoch % 50 == 0:
-      corrupted_data = self.case.get_corrupted_data(max_samples=self.args.train_data_size,
-                                                    seed=random.randint(0, 1000000))
-
       compressed_model_node_effect_results = self.evaluate_node_effect(
         self.get_compressed_model(),
-        clean_data,
-        corrupted_data,
+        self.test_dataset
       )
 
       for node_str, node_effect in compressed_model_node_effect_results.items():
@@ -130,8 +103,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
       original_model_node_effect_results = self.evaluate_node_effect(
         self.get_original_model(),
-        clean_data,
-        corrupted_data,
+        self.test_dataset
       )
 
       for node_str, node_effect in original_model_node_effect_results.items():
@@ -153,25 +125,19 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.test_metrics["avg_node_effect_diff"] = avg_node_effect_diff / len(original_model_node_effect_results)
 
     if self.epoch % 100 == 0:
-      self.test_metrics["iia"] = self.sample_iia(self.clean_dataset, self.corrupted_dataset)
+      self.test_metrics["iia"] = self.sample_iia(self.test_dataset)
 
     if self.args.resample_ablation_test_loss:
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
         self.epochs_since_last_test_resample_ablation_loss = 0
 
-        if corrupted_data is None:
-          corrupted_data = self.case.get_corrupted_data(max_samples=self.args.train_data_size,
-                                                        seed=random.randint(0, 1000000))
-
         # Compute the resampling ablation loss
         resample_ablation_loss_args = {
-          "clean_inputs": clean_data,
-          "corrupted_inputs": corrupted_data,
+          "data": next(iter(self.test_loader)),
           "base_model": self.get_original_model(),
           "hypothesis_model": self.get_compressed_model(),
           "max_interventions": self.args.resample_ablation_max_interventions,
           "max_components": self.args.resample_ablation_max_components,
-          "batch_size": self.args.resample_ablation_batch_size,
           "is_categorical": self.is_categorical,
         }
 
@@ -179,7 +145,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         if activation_mapper is not None:
           resample_ablation_loss_args["activation_mapper"] = activation_mapper
 
-        resample_ablation_output = get_resample_ablation_loss_from_inputs(**resample_ablation_loss_args)
+        resample_ablation_output = get_resample_ablation_loss(**resample_ablation_loss_args)
         self.test_metrics["test_resample_ablation_loss"] = resample_ablation_output.loss
         self.test_metrics["test_resample_ablation_var_exp"] = resample_ablation_output.variance_explained
 
@@ -197,7 +163,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     if self.use_wandb:
       wandb.log(self.test_metrics, step=self.step)
 
-  def sample_iia(self, clean_data, corrupted_data, percentage_nodes_to_sample: Optional[float] = 1):
+  def sample_iia(self, dataset: IITDataset, percentage_nodes_to_sample: Optional[float] = 1):
     iia = 0.0
 
     base_model = self.get_original_model()
@@ -208,8 +174,13 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
                                             if "mlp_in" not in str(node) and not is_qkv_granularity_hook(str(node))])
     nodes_to_sample = random.sample(list(relevant_nodes), int(len(relevant_nodes) * percentage_nodes_to_sample))
 
-    _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_data.get_inputs())
-    _, compressed_model_corrupted_cache = compressed_model.run_with_cache(corrupted_data.get_inputs())
+    dataset_loader = dataset.make_loader(batch_size=len(dataset), num_workers=0)
+    clean_data, corrupted_data = next(iter(dataset_loader))
+    clean_inputs = clean_data[0]
+    corrupted_inputs = corrupted_data[0]
+
+    _, base_model_corrupted_cache = base_model.run_with_cache(corrupted_inputs)
+    _, compressed_model_corrupted_cache = compressed_model.run_with_cache(corrupted_inputs)
 
     for node in nodes_to_sample:
       hook_name = node.name
@@ -227,10 +198,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
                                          head_index=head_index)
 
       with base_model.hooks([(hook_name, base_model_hook_fn)]):
-        base_model_intervened_logits = base_model(clean_data.get_inputs())
+        base_model_intervened_logits = base_model(clean_inputs)
 
       with compressed_model.hooks([(hook_name, compressed_model_hook_fn)]):
-        compressed_model_intervened_logits = compressed_model(clean_data.get_inputs())
+        compressed_model_intervened_logits = compressed_model(clean_inputs)
 
       # Remove BOS from logits
       base_model_intervened_logits = base_model_intervened_logits[:, 1:]
@@ -254,7 +225,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     iia = iia / len(nodes_to_sample)
     return iia
 
-  def evaluate_node_effect(self, model, clean_data, corrupted_data):
+  def evaluate_node_effect(self, model, dataset: IITDataset):
     effect_by_node = {}
 
     full_circuit = get_full_circuit(self.get_original_model().cfg.n_layers, self.get_original_model().cfg.n_heads)
@@ -269,15 +240,19 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       if is_qkv_granularity_hook(hook_name):
         continue
 
-      original_logits = model(clean_data.get_inputs())
-      _, corrupted_cache = model.run_with_cache(corrupted_data.get_inputs())
+      clean_data, corrupted_data = next(iter(dataset.make_loader(batch_size=len(dataset), num_workers=0)))
+      clean_inputs = clean_data[0]
+      corrupted_inputs = corrupted_data[0]
+
+      original_logits = model(clean_inputs)
+      _, corrupted_cache = model.run_with_cache(corrupted_inputs)
 
       patching_data = {}
       patching_data[hook_name] = corrupted_cache[hook_name]
       hook_fn = partial(regular_intervention_hook_fn, corrupted_cache=patching_data,
                         head_index=head_index)
       with model.hooks([(hook_name, hook_fn)]):
-        intervened_logits = model(clean_data.get_inputs())
+        intervened_logits = model(clean_inputs)
 
       # Remove BOS from logits
       original_logits = original_logits[:, 1:]
