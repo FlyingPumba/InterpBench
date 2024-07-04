@@ -42,7 +42,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def setup_dataset(self):
-    dataset = self.case.get_clean_data(max_samples=self.args.train_data_size)
+    dataset = self.case.get_clean_data(min_samples=20000, max_samples=120_000)
     train_dataset, test_dataset = train_test_split(
       dataset, test_size=self.args.test_data_ratio, random_state=42
     )
@@ -63,7 +63,6 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
   def compute_test_metrics(self):
     clean_data = self.case.get_clean_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
-    corrupted_data = None
 
     inputs = clean_data.get_inputs()
     targets = clean_data.get_targets()
@@ -89,54 +88,52 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.test_metrics["test_mse"] = t.nn.functional.mse_loss(predictions, targets).item()
 
     # measure the effect of each node on the compressed model's output
-    if self.epoch % 50 == 0:
-      compressed_model_node_effect_results = self.evaluate_node_effect(
-        self.get_compressed_model(),
-        self.test_dataset
-      )
+    compressed_model_node_effect_results = self.evaluate_node_effect(
+      self.get_compressed_model(),
+      self.test_dataset
+    )
 
-      for node_str, node_effect in compressed_model_node_effect_results.items():
-        self.test_metrics[f"{node_str}_compressed_model_node_effect"] = node_effect
+    for node_str, node_effect in compressed_model_node_effect_results.items():
+      self.test_metrics[f"{node_str}_compressed_model_node_effect"] = node_effect
 
-      self.test_metrics["avg_compressed_model_node_effect"] = np.mean(
-        list(compressed_model_node_effect_results.values()))
+    self.test_metrics["avg_compressed_model_node_effect"] = np.mean(
+      list(compressed_model_node_effect_results.values()))
 
-      original_model_node_effect_results = self.evaluate_node_effect(
-        self.get_original_model(),
-        self.test_dataset
-      )
+    original_model_node_effect_results = self.evaluate_node_effect(
+      self.get_original_model(),
+      self.test_dataset
+    )
 
-      for node_str, node_effect in original_model_node_effect_results.items():
-        self.test_metrics[f"{node_str}_original_model_node_effect"] = node_effect
+    for node_str, node_effect in original_model_node_effect_results.items():
+      self.test_metrics[f"{node_str}_original_model_node_effect"] = node_effect
 
-      self.test_metrics["avg_original_model_node_effect"] = np.mean(list(original_model_node_effect_results.values()))
+    self.test_metrics["avg_original_model_node_effect"] = np.mean(list(original_model_node_effect_results.values()))
 
-      # log abs diff of node effects
-      avg_node_effect_diff = 0
-      for node_str, original_model_node_effect in original_model_node_effect_results.items():
-        compressed_model_node_effect = compressed_model_node_effect_results[node_str]
-        node_effect_diff = abs(original_model_node_effect - compressed_model_node_effect)
+    # log abs diff of node effects
+    avg_node_effect_diff = 0
+    for node_str, original_model_node_effect in original_model_node_effect_results.items():
+      compressed_model_node_effect = compressed_model_node_effect_results[node_str]
+      node_effect_diff = abs(original_model_node_effect - compressed_model_node_effect)
 
-        self.test_metrics[f"{node_str}_node_effect_diff"] = node_effect_diff
-        self.effect_diffs_by_node[node_str] = node_effect_diff
+      self.test_metrics[f"{node_str}_node_effect_diff"] = node_effect_diff
+      self.effect_diffs_by_node[node_str] = node_effect_diff
 
-        avg_node_effect_diff += node_effect_diff
+      avg_node_effect_diff += node_effect_diff
 
-      self.test_metrics["avg_node_effect_diff"] = avg_node_effect_diff / len(original_model_node_effect_results)
+    self.test_metrics["avg_node_effect_diff"] = avg_node_effect_diff / len(original_model_node_effect_results)
 
-    if self.epoch % 100 == 0:
-      dataset_loader = self.test_dataset.make_loader(batch_size=self.args.batch_size, num_workers=0)
+    dataset_loader = self.test_dataset.make_loader(batch_size=self.args.batch_size, num_workers=0)
 
-      compressed_model = self.get_compressed_model()
-      hl_ll_corr = self.case.get_correspondence(same_size=True)
-      model_pair = self.case.build_model_pair(model_pair_name="strict",
-                                              ll_model=compressed_model,
-                                              hl_ll_corr=hl_ll_corr)
-      eval_result = model_pair._run_eval_epoch(dataset_loader, model_pair.loss_fn)
-      self.test_metrics["iia"] = eval_result.to_dict()["val/IIA"]
-      self.test_metrics["siia"] = eval_result.to_dict()["val/strict_accuracy"]
-      self.test_metrics["val/accuracy"] = eval_result.to_dict()["val/accuracy"]
-      self.test_metrics["val/iit_loss"] = eval_result.to_dict()["val/iit_loss"]
+    compressed_model = self.get_compressed_model()
+    hl_ll_corr = self.case.get_correspondence(same_size=True)
+    model_pair = self.case.build_model_pair(model_pair_name="strict",
+                                            ll_model=compressed_model,
+                                            hl_ll_corr=hl_ll_corr)
+    eval_result = model_pair._run_eval_epoch(dataset_loader, model_pair.loss_fn)
+    self.test_metrics["iia"] = eval_result.to_dict()["val/IIA"] / 100
+    self.test_metrics["siia"] = eval_result.to_dict()["val/strict_accuracy"] / 100
+    self.test_metrics["val/accuracy"] = eval_result.to_dict()["val/accuracy"] / 100
+    self.test_metrics["val/iit_loss"] = eval_result.to_dict()["val/iit_loss"]
 
     if self.args.resample_ablation_test_loss:
       if self.epochs_since_last_test_resample_ablation_loss >= self.args.resample_ablation_loss_epochs_gap:
@@ -222,7 +219,12 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     return effect_by_node
 
   def get_lr_validation_metric(self):
-    return self.test_metrics["iia"]
+    return self.test_metrics["siia"] + self.test_metrics["iia"] + super().get_lr_validation_metric()
+  def check_early_stop_condition(self):
+    return (self.args.early_stop_threshold is not None and
+            self.test_metrics["test_accuracy"] >= self.args.early_stop_threshold and
+            self.test_metrics["iia"] >= self.args.early_stop_threshold and
+            self.test_metrics["siia"] >= self.args.early_stop_threshold)
 
   def build_test_metrics_string(self):
     return f", iia: {self.test_metrics.get('iia', 0):.3f}"

@@ -47,6 +47,9 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
     self.ae_desired_test_mse = ae_desired_test_mse
     self.ae_train_loss_weight = ae_train_loss_weight
     self.ae_training_args = ae_training_args if ae_training_args is not None else args
+    print(f"AutoEncoder training args for non-linear compression: {self.ae_training_args}")
+    print(f"AutoEncoder desired test MSE for non-linear compression: {self.ae_desired_test_mse}")
+    print(f"AutoEncoder training loss weight for non-linear compression: {self.ae_train_loss_weight}")
 
     super().__init__(case,
                      parameters,
@@ -151,6 +154,7 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
 
   def build_test_metrics_string(self):
     return (f", iia: {self.test_metrics.get('iia', 0):.3f}, "
+            f"siia: {self.test_metrics.get('siia', 0):.3f}, "
             f"avg_ae_test_mse: {self.test_metrics.get('avg_ae_test_mse', 0):.3f}")
 
   def build_wandb_name(self):

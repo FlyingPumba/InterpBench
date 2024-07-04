@@ -17,22 +17,22 @@ class TrainingArgs():
   # training time and early stopping
   epochs: Optional[int] = None
   steps: Optional[int] = None
-  early_stop_test_accuracy: Optional[float] = None
+  early_stop_threshold: Optional[float] = None
 
   # AdamW optimizer config
-  weight_decay: Optional[float] = 0.1
+  weight_decay: Optional[float] = 0
   beta_1: Optional[float] = 0.9
   beta_2: Optional[float] = 0.95
-  gradient_clip: Optional[float] = 0.01
+  gradient_clip: Optional[float] = 1
 
   # lr scheduler config
-  lr_start: Optional[float] = 1e-3
-  lr_factor: Optional[float] = 0.9
-  lr_patience: Optional[int] = 500
-  lr_threshold: Optional[float] = 0.005
+  lr_start: Optional[float] = 1e-2
+  lr_factor: Optional[float] = 0.75
+  lr_patience: Optional[int] = 10
+  lr_threshold: Optional[float] = 1e-4
 
   # test metrics config
-  test_accuracy_atol: Optional[float] = 1e-2
+  test_accuracy_atol: Optional[float] = 5e-2
 
   # resample ablation loss config
   resample_ablation_test_loss: Optional[bool] = False

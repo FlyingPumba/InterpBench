@@ -116,8 +116,7 @@ class GenericTrainer:
 
       self.lr_scheduler.step(self.get_lr_validation_metric())
 
-      if (self.args.early_stop_test_accuracy is not None and
-          self.test_metrics["test_accuracy"] >= self.args.early_stop_test_accuracy):
+      if self.check_early_stop_condition():
         break
 
     if self.output_dir is not None:
@@ -178,6 +177,10 @@ class GenericTrainer:
 
   def get_lr_validation_metric(self):
     return self.test_metrics["test_accuracy"]
+
+  def check_early_stop_condition(self):
+    return (self.args.early_stop_threshold is not None and
+            self.test_metrics["test_accuracy"] >= self.args.early_stop_threshold)
 
   def build_test_metrics_string(self):
     if len(self.test_metrics.items()) == 0:
