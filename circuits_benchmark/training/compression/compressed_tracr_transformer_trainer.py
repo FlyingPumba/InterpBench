@@ -126,8 +126,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
 
     compressed_model = self.get_compressed_model()
     hl_ll_corr = self.case.get_correspondence(same_size=True)
-    model_pair = self.case.build_model_pair(model_pair_name="strict",
-                                            ll_model=compressed_model,
+    model_pair = self.case.build_model_pair(ll_model=compressed_model,
                                             hl_ll_corr=hl_ll_corr)
     eval_result = model_pair._run_eval_epoch(dataset_loader, model_pair.loss_fn)
     self.test_metrics["iia"] = eval_result.to_dict()["val/IIA"] / 100

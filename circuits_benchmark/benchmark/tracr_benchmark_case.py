@@ -5,31 +5,29 @@ from typing import Optional, Sequence, Set, Callable
 
 import numpy as np
 import torch as t
+from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.utils.correspondence import Correspondence
 from jaxtyping import Float
 from torch import Tensor
+from tracr.compiler import compiling
+from tracr.compiler.compiling import TracrOutput
+from tracr.rasp import rasp
 from tracr.rasp.rasp import RASPExpr
-from transformer_lens import HookedTransformer, HookedTransformerConfig
+from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.metrics.validation_metrics import l2_metric, kl_metric
-from circuits_benchmark.utils.circuit.circuit import Circuit
-from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
   HookedTracrTransformerBatchInput
 from circuits_benchmark.transformers.tracr_circuits_builder import build_tracr_circuits
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from iit.model_pairs.base_model_pair import BaseModelPair
-from iit.model_pairs.freeze_model_pair import FreezedModelPair
-from iit.model_pairs.stop_grad_pair import StopGradModelPair
-from iit.model_pairs.strict_iit_model_pair import StrictIITModelPair
-from iit.utils.correspondence import Correspondence
-from tracr.compiler import compiling
-from tracr.compiler.compiling import TracrOutput
-from tracr.rasp import rasp
+from circuits_benchmark.utils.tracr_model_pair import TracrModelPair
 
 
 class TracrBenchmarkCase(BenchmarkCase):
@@ -54,7 +52,6 @@ class TracrBenchmarkCase(BenchmarkCase):
 
   def build_model_pair(
       self,
-      model_pair_name: str | None = None,
       training_args: dict | None = None,
       ll_model: HookedTransformer | None = None,
       hl_model: HookedRootModule | None = None,
@@ -62,15 +59,6 @@ class TracrBenchmarkCase(BenchmarkCase):
       *args, **kwargs
   ) -> BaseModelPair:
     """Returns a model pair for training the LL model."""
-    mp_map = {
-      "freeze": FreezedModelPair,
-      "strict": StrictIITModelPair,
-      "stop_grad": StopGradModelPair,
-    }
-
-    if model_pair_name is None:
-      model_pair_name = "strict"
-
     if training_args is None:
       training_args = {}
 
@@ -83,7 +71,7 @@ class TracrBenchmarkCase(BenchmarkCase):
     if hl_ll_corr is None:
       hl_ll_corr = self.get_correspondence()
 
-    return mp_map[model_pair_name](
+    return TracrModelPair(
       ll_model=ll_model,
       hl_model=hl_model,
       corr=hl_ll_corr,
