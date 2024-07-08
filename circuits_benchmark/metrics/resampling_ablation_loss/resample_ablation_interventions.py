@@ -48,9 +48,8 @@ def get_interventions(
       node_names_for_patching.append(hook_name)
 
   # For each hook name we need to decide what type of intervention we want to apply.
-  # options = InterventionType.get_available_interventions(activation_mapper)
-  # options.remove(InterventionType.NO_INTERVENTION)
-  options = [InterventionType.REGULAR_CORRUPTED]
+  options = InterventionType.get_available_interventions(activation_mapper)
+  options.remove(InterventionType.NO_INTERVENTION)
 
   for _ in range(max_interventions):
     components_to_intervene = random.randint(1, min(max_components, len(node_names_for_patching)))
