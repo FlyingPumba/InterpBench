@@ -110,8 +110,8 @@ def is_qkv_granularity_hook(hook_name):
 
 
 def evaluate_iia(case: BenchmarkCase,
-                 base_model: HookedTracrTransformer,
-                 hypothesis_model: HookedTracrTransformer,
+                 base_model: LLModel,
+                 hypothesis_model: LLModel,
                  clean_data: IITDatasetBatch,
                  corrupted_data: IITDatasetBatch,
                  base_model_corrupted_cache: ActivationCache,
