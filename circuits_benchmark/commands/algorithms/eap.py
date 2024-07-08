@@ -9,7 +9,7 @@ from typing import Tuple, Optional
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
 from auto_circuit.prune_algos.mask_gradient import mask_gradient_prune_scores
-from auto_circuit.types import PruneScores
+from auto_circuit.types import PruneScores, OutputSlice
 from auto_circuit.utils.graph_utils import patchable_model
 from auto_circuit.utils.tensor_ops import prune_scores_threshold
 
@@ -160,11 +160,15 @@ class EAPRunner:
       corrupted_inputs: t.Tensor,
       corrupted_outputs: t.Tensor
   ):
+    slice_output: OutputSlice = "not_first_seq"  # This drops the first token from the output (e.g., BOS)
+    if "ioi" in self.case.get_name():
+      slice_output = "last_seq"  # Consider the last token as the output
+
     tl_model.to(self.config.device)
     auto_circuit_model = patchable_model(
       tl_model,
       factorized=True,
-      slice_output=None,
+      slice_output=slice_output,
       separate_qkv=True,
       device=t.device(self.config.device),
     )
@@ -191,7 +195,10 @@ class EAPRunner:
     else:
       eap_args["mask_val"] = 0.0
 
-    eap_args["answer_function"] = self.get_answer_function_for_case(tl_model)
+    eap_args["answer_function"] = self.get_answer_function_for_case(
+      tl_model,
+      auto_circuit_model.out_slice  # type: ignore
+    )
 
     attribution_scores: PruneScores = mask_gradient_prune_scores(**eap_args)
     if self.normalize_scores:
@@ -209,10 +216,12 @@ class EAPRunner:
 
     return eap_circuit
 
-  def get_answer_function_for_case(self, tl_model):
+  def get_answer_function_for_case(self,
+                                   tl_model: t.nn.Module,
+                                   out_slice: slice):
     if self.case.is_categorical():
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
-        answers= t.nn.functional.one_hot(batch.answers.squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
+        answers= t.nn.functional.one_hot(batch.answers[out_slice].squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
         log_probs = t.nn.functional.log_softmax(logits, dim=-1)
         kl = t.nn.functional.kl_div(log_probs, answers, reduction="batchmean", log_target=False)
         return kl
@@ -226,9 +235,9 @@ class EAPRunner:
 
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
         if self.regression_loss_fn == "mse":
-          return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
+          return t.nn.functional.mse_loss(logits, batch.answers[out_slice]) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
         elif self.regression_loss_fn == "mae":
-          return t.nn.functional.l1_loss(logits, batch.answers)
+          return t.nn.functional.l1_loss(logits, batch.answers[out_slice])
         else:
           raise ValueError(f"Unknown regression loss function: {self.regression_loss_fn}")
 

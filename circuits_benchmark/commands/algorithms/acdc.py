@@ -11,7 +11,7 @@ import torch as t
 import wandb
 from auto_circuit.data import PromptDataset, PromptDataLoader
 from auto_circuit.prune_algos.ACDC import acdc_prune_scores
-from auto_circuit.types import PruneScores
+from auto_circuit.types import PruneScores, OutputSlice
 from auto_circuit.utils.graph_utils import patchable_model
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
@@ -140,11 +140,15 @@ class ACDCRunner:
         corrupted_outputs: t.Tensor,
         faithfulness_metric: Literal["kl_div", "mse"],
     ) -> Circuit:
+      slice_output: OutputSlice = "not_first_seq"  # This drops the first token from the output (e.g., BOS)
+      if "ioi" in self.case.get_name():
+        slice_output = "last_seq"  # Consider the last token as the output
+
       tl_model.to(self.config.device)
       auto_circuit_model = patchable_model(
         tl_model,
         factorized=True,
-        slice_output=None,
+        slice_output=slice_output,
         separate_qkv=True,
         device=t.device(self.config.device),
       )

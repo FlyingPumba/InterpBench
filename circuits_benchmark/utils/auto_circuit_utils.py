@@ -16,7 +16,7 @@ def build_circuit(model: PatchableModel,
     dst_node = edge.dest
     score = attribution_scores[dst_node.module_name][edge.patch_idx]
 
-    if score >= threshold:
+    if score > threshold:
       from_node = CircuitNode(src_node.module_name, src_node.head_idx)
       to_node = CircuitNode(dst_node.module_name, dst_node.head_idx)
       circuit.add_edge(from_node, to_node)

@@ -5,9 +5,10 @@ from circuits_benchmark.benchmark.cases.case_3 import Case3
 from circuits_benchmark.benchmark.cases.case_ioi import CaseIOI
 from circuits_benchmark.commands.algorithms.acdc import ACDCRunner, ACDCConfig
 from circuits_benchmark.commands.build_main_parser import build_main_parser
+from circuits_benchmark.commands.train import train
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader
 from circuits_benchmark.utils.project_paths import get_default_output_dir
-from circuits_benchmark.commands.train import train
+
 
 class ACDCTest(unittest.TestCase):
   def setup_method(self, test_method):
