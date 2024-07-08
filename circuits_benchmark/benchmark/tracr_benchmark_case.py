@@ -3,9 +3,11 @@ import random
 from functools import partial
 from typing import Optional, Sequence, Set, Callable
 
+import iit
 import numpy as np
 import torch as t
 from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.model_pairs.ll_model import LLModel
 from iit.utils.correspondence import Correspondence
 from jaxtyping import Float
 from torch import Tensor
@@ -97,15 +99,16 @@ class TracrBenchmarkCase(BenchmarkCase):
       overwrite_cfg_dict: dict | None = None,
       same_size: bool = False,
       *args, **kwargs
-  ) -> HookedTransformer:
+  ) -> LLModel:
     """Returns the untrained transformer_lens model for this benchmark case.
     In IIT terminology, this is the LL model before training."""
     ll_cfg = self.get_ll_model_cfg(same_size=same_size,
                                    overwrite_cfg_dict=overwrite_cfg_dict,
                                    *args, **kwargs)
-    ll_model = HookedTransformer(ll_cfg)
-    ll_model.to(device)
-    return ll_model
+    hooked_transformer = HookedTransformer(ll_cfg)
+    hooked_transformer.to(device)
+
+    return LLModel(hooked_transformer)
 
   def get_hl_model(
       self,
