@@ -94,16 +94,6 @@ class AutoEncoder(nn.Module):
     decoded = self.decoder(encoded)
     return decoded
 
-  def freeze_all_weights(self):
-    """Freezes all weights in the autoencoder."""
-    for param in self.parameters():
-      param.requires_grad = False
-
-  def unfreeze_all_weights(self):
-    """Unfreezes all weights in the autoencoder."""
-    for param in self.parameters():
-      param.requires_grad = True
-
   def print_architecture(self):
     print("AutoEncoder architecture:")
     print(self)

@@ -32,12 +32,14 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
                ae_training_args: TrainingArgs = None,
                ae_train_loss_weight: int = 10):
     self.old_tl_model: LLModel = old_tl_model
-    self.old_tl_model.freeze_all_weights()
-
     self.new_tl_model: LLModel = new_tl_model
     self.autoencoders_dict: Dict[str, AutoEncoder] = autoencoders_dict
     self.autoencoder_trainers_dict: Dict[str, AutoEncoderTrainer] = {}
     self.device = old_tl_model.device
+
+    # freeze old_tl_model parameters
+    for param in self.old_tl_model.parameters():
+      param.requires_grad = False
 
     parameters = list(new_tl_model.parameters())
     for ae in self.autoencoders_dict.values():

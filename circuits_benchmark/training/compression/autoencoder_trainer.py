@@ -28,7 +28,6 @@ class AutoEncoderTrainer(GenericTrainer):
     self.autoencoder = autoencoder
     self.tl_model = tl_model
     self.tl_model_n_layers = tl_model.cfg.n_layers
-    self.tl_model.freeze_all_weights()
     self.activations_cache = activations_cache
     self.hook_name_for_input_activations = hook_name_filter_for_input_activations
     super().__init__(case, list(autoencoder.parameters()), args, output_dir=output_dir)
