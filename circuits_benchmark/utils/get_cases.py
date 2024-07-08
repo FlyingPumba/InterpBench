@@ -20,7 +20,7 @@ def get_cases(args: Namespace | None = None, indices: List[str] | None = None) -
 
   # sort classes. if id is a number, numerically, otherwise alphabetically
   classes.sort(key=lambda cls:
-    int(cls.__name__[4:]) if cls.__name__[4:].isnumeric() else cls.__name__[4:]
+    cls.__name__[4:] if cls.__name__[4:].isnumeric() else cls.__name__[4:]
   )
 
   # instantiate all classes found
