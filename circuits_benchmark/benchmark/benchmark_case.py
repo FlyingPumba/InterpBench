@@ -54,13 +54,14 @@ class BenchmarkCase(object):
     """Returns the validation metric for the benchmark case."""
     raise NotImplementedError()
 
-  def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
+  def get_ll_model_cfg(self,
+                       overwrite_cfg_dict: dict | None = None,
+                       *args, **kwargs) -> HookedTransformerConfig:
     """Returns the configuration for the LL model for this benchmark case."""
     raise NotImplementedError()
 
   def build_model_pair(
       self,
-      model_pair_name: str | None = None,
       training_args: dict | None = None,
       ll_model: HookedTransformer | None = None,
       hl_model: HookedRootModule | None = None,
@@ -73,6 +74,7 @@ class BenchmarkCase(object):
   def get_ll_model(
       self,
       device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+      overwrite_cfg_dict: dict | None = None,
       *args, **kwargs
   ) -> HookedTransformer:
     """Returns the untrained transformer_lens model for this case.

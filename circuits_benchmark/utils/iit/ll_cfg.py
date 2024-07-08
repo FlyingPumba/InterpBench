@@ -1,3 +1,5 @@
+from transformer_lens import HookedTransformerConfig
+
 compression_ratio_map = {
     "5": 1.8,
     "18": 1.6,
@@ -29,7 +31,7 @@ def make_ll_cfg_for_case(
     case_index: str,
     compression_ratio: float | None = None,
     same_size: bool = False,
-):
+) -> dict:
     compress_resid = case_index in cases_with_resid_compression
     if compression_ratio is None:
         compression_ratio = compression_ratio_map.get(
@@ -45,7 +47,7 @@ def make_ll_cfg_for_case(
 
 def make_ll_cfg(
     hl_model, compress_resid: bool, compression_ratio: float, same_size: bool
-):
+) -> dict:
     ll_cfg = hl_model.cfg.to_dict().copy()
     if same_size:
         n_heads = ll_cfg["n_heads"]

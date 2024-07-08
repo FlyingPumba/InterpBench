@@ -14,7 +14,6 @@ class CaseIOI_Next_Token(CaseIOI):
 
   def build_model_pair(
       self,
-      model_pair_name: str | None = None,
       training_args: dict | None = None,
       ll_model: HookedTransformer | None = None,
       hl_model: HookedRootModule | None = None,

@@ -3,33 +3,33 @@ import random
 from functools import partial
 from typing import Optional, Sequence, Set, Callable
 
+import iit
 import numpy as np
 import torch as t
+from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.model_pairs.ll_model import LLModel
+from iit.utils.correspondence import Correspondence
 from jaxtyping import Float
 from torch import Tensor
+from tracr.compiler import compiling
+from tracr.compiler.compiling import TracrOutput
+from tracr.rasp import rasp
 from tracr.rasp.rasp import RASPExpr
-from transformer_lens import HookedTransformer, HookedTransformerConfig
+from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.metrics.validation_metrics import l2_metric, kl_metric
-from circuits_benchmark.utils.circuit.circuit import Circuit
-from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
   HookedTracrTransformerBatchInput
 from circuits_benchmark.transformers.tracr_circuits_builder import build_tracr_circuits
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from iit.model_pairs.base_model_pair import BaseModelPair
-from iit.model_pairs.freeze_model_pair import FreezedModelPair
-from iit.model_pairs.stop_grad_pair import StopGradModelPair
-from iit.model_pairs.strict_iit_model_pair import StrictIITModelPair
-from iit.utils.correspondence import Correspondence
-from tracr.compiler import compiling
-from tracr.compiler.compiling import TracrOutput
-from tracr.rasp import rasp
+from circuits_benchmark.utils.iit.tracr_model_pair import TracrModelPair
 
 
 class TracrBenchmarkCase(BenchmarkCase):
@@ -54,7 +54,6 @@ class TracrBenchmarkCase(BenchmarkCase):
 
   def build_model_pair(
       self,
-      model_pair_name: str | None = None,
       training_args: dict | None = None,
       ll_model: HookedTransformer | None = None,
       hl_model: HookedRootModule | None = None,
@@ -62,15 +61,6 @@ class TracrBenchmarkCase(BenchmarkCase):
       *args, **kwargs
   ) -> BaseModelPair:
     """Returns a model pair for training the LL model."""
-    mp_map = {
-      "freeze": FreezedModelPair,
-      "strict": StrictIITModelPair,
-      "stop_grad": StopGradModelPair,
-    }
-
-    if model_pair_name is None:
-      model_pair_name = "strict"
-
     if training_args is None:
       training_args = {}
 
@@ -83,30 +73,42 @@ class TracrBenchmarkCase(BenchmarkCase):
     if hl_ll_corr is None:
       hl_ll_corr = self.get_correspondence()
 
-    return mp_map[model_pair_name](
+    return TracrModelPair(
       ll_model=ll_model,
       hl_model=hl_model,
       corr=hl_ll_corr,
       training_args=training_args,
     )
 
-  def get_ll_model_cfg(self, same_size: bool = False, *args, **kwargs) -> HookedTransformerConfig:
+  def get_ll_model_cfg(self,
+                       overwrite_cfg_dict: dict | None = None,
+                       same_size: bool = False,
+                       *args, **kwargs) -> dict:
     """Returns the configuration for the LL model for this benchmark case."""
     hl_model = self.get_hl_model()
-    return make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size)
+    cfg_dict = make_ll_cfg_for_case(hl_model, self.get_name(), same_size=same_size)
+
+    if overwrite_cfg_dict is not None:
+      cfg_dict.update(overwrite_cfg_dict)
+
+    return cfg_dict
 
   def get_ll_model(
       self,
       device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
+      overwrite_cfg_dict: dict | None = None,
       same_size: bool = False,
       *args, **kwargs
-  ) -> HookedTransformer:
+  ) -> LLModel:
     """Returns the untrained transformer_lens model for this benchmark case.
     In IIT terminology, this is the LL model before training."""
-    ll_cfg = self.get_ll_model_cfg(same_size=same_size, *args, **kwargs)
-    ll_model = HookedTransformer(ll_cfg)
-    ll_model.to(device)
-    return ll_model
+    ll_cfg = self.get_ll_model_cfg(same_size=same_size,
+                                   overwrite_cfg_dict=overwrite_cfg_dict,
+                                   *args, **kwargs)
+    hooked_transformer = HookedTransformer(ll_cfg)
+    hooked_transformer.to(device)
+
+    return LLModel(hooked_transformer)
 
   def get_hl_model(
       self,
