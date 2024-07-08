@@ -16,8 +16,7 @@ class TrainingArgs():
   test_data_ratio: Optional[float] = 0.2  # same as train data
 
   # training time and early stopping
-  epochs: Optional[int] = None
-  steps: Optional[int] = None
+  epochs: int = 100
   early_stop_threshold: Optional[float] = None
 
   # AdamW optimizer config

@@ -42,17 +42,8 @@ class GenericTrainer:
     self.test_loader: DataLoader = None
     self.setup_dataset()
 
-    # calculate number of epochs and steps
-    assert self.args.epochs is not None or self.args.steps is not None, "Must specify either epochs or steps."
-    assert self.args.epochs is None or self.args.steps is None, "Cannot specify both epochs and steps."
-
-    if self.args.epochs is not None:
-      self.epochs = self.args.epochs
-      self.steps = self.epochs * len(self.train_loader)
-
-    if self.args.steps is not None:
-      self.epochs = (self.steps // len(self.train_loader)) + 1
-      self.steps = self.args.steps
+    self.epochs = self.args.epochs
+    self.steps = self.epochs * len(self.train_loader)
 
     # assert at least one parameter
     assert len(self.parameters) > 0, "No parameters to optimize."

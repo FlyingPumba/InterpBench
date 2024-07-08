@@ -53,7 +53,7 @@ def setup_args_parser(subparsers):
                       help="The max number of epochs to use for training when autoencoder weights are not frozen.")
   parser.add_argument("--ae-desired-test-mse", type=float, default=1e-3,
                       help="The desired test mean squared error for the autoencoder.")
-  parser.add_argument("--ae-train-loss-weight", type=float, default=100,
+  parser.add_argument("--ae-train-loss-weight", type=float, default=0.5,
                       help="The weight for the autoencoder training loss in the total loss.")
 
 
