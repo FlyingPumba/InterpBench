@@ -172,7 +172,7 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
     mean_cache = None
     if use_mean_cache:
-        mean_cache = get_mean_cache(model_pair, test_set, batch_size=args.batch_size)
+        mean_cache = get_mean_cache(model_pair, unique_dataset, batch_size=args.batch_size)
     if args.load_from_wandb:
         hyperparam = (
             args.lambda_reg

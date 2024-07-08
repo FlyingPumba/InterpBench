@@ -147,7 +147,7 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     mean_cache = None
     if use_mean_cache:
         mean_cache = get_mean_cache(
-            model_pair, test_set, batch_size=args.batch_size
+            model_pair, unique_dataset, batch_size=args.batch_size
         )
 
     nodes_in_hypothesis = list(gt_circuit.nodes)
