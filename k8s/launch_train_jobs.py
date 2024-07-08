@@ -26,19 +26,23 @@ def build_commands():
   compressed_d_head_size_by_case = {}
   for case in case_instances:
     case_name = case.get_name()
-    hl_model_cfg = case.get_hl_model().cfg
+
+    if "ioi" in case_name:
+      gt_model_cfg = case.get_ll_model().cfg
+    else:
+      gt_model_cfg = case.get_hl_model().cfg
 
     # Decide compressed d_model size
     if case_name in compression_ratio_map:
-      compressed_d_model_size = ceil(hl_model_cfg.d_model / compression_ratio_map[case_name])
+      compressed_d_model_size = ceil(gt_model_cfg.d_model / compression_ratio_map[case_name])
     else:
-      compressed_d_model_size = ceil(hl_model_cfg.d_model / compression_ratio_map["default"])
+      compressed_d_model_size = ceil(gt_model_cfg.d_model / compression_ratio_map["default"])
 
     compressed_d_model_size = max(2, compressed_d_model_size)
     compressed_d_model_size_by_case[case_name] = compressed_d_model_size
 
     # Decide compressed d_head size
-    compressed_d_head_size_by_case[case_name] = max(1, compressed_d_model_size // hl_model_cfg.n_heads)
+    compressed_d_head_size_by_case[case_name] = max(1, compressed_d_model_size // gt_model_cfg.n_heads)
 
     cases.append(case_name)
 
@@ -46,21 +50,19 @@ def build_commands():
   lr_starts = [1e-2]
 
   linear_compression_args = {
-    "train-loss": ["intervention"],
     "linear-compression-initialization": ["linear"],  # ["orthogonal", "linear"],
   }
 
   non_linear_compression_args = {
-    "train-loss": ["intervention"],
-    "ae-layers": [2],
-    "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
-    "ae-epochs": [100],
-    "freeze-ae-weights": [False],
+    # "ae-layers": [2],
+    # "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
+    # "ae-epochs": [100],
+    # "freeze-ae-weights": [False],
   }
 
   non_linear_compression_continuous_ae_training_args = {
-    "ae-training-epochs-gap": [50],
-    "ae-desired-test-mse": [1e-5]
+    # "ae-training-epochs-gap": [50],
+    # "ae-desired-test-mse": [1e-5]
   }
 
   autoencoder_args = {
@@ -74,19 +76,19 @@ def build_commands():
     for case in cases:
         for seed in seeds:
           for lr_start in lr_starts:
-            wandb_project = f"non-linear-compression"
+            wandb_project = f"new-non-linear-compression"
 
-            command = [".venv/bin/python", "main.py",
-                       "train", method,
-                       f"-i={case}",
-                       f"--d-model={compressed_d_model_size_by_case[case]}",
-                       f"--d-head={compressed_d_head_size_by_case[case]}",
-                       f"--seed={seed}",
-                       f"--epochs={100}",
-                       f"--lr-start={lr_start}",
-                       "--early-stop-threshold=1",
-                       f"--wandb-project={wandb_project}",
-                       ]
+            command = [
+              ".venv/bin/python", "main.py",
+              "train", method,
+              f"-i={case}",
+              f"--d-model={compressed_d_model_size_by_case[case]}",
+              f"--d-head={compressed_d_head_size_by_case[case]}",
+              f"--seed={seed}",
+              f"--lr-start={lr_start}",
+              "--early-stop-threshold=1",
+              f"--wandb-project={wandb_project}",
+            ]
 
             if method == "linear-compression":
               # produce all combinations of args in linear_compression_args
