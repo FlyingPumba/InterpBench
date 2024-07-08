@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List
 
 from circuits_benchmark.utils.get_cases import get_cases
+from circuits_benchmark.utils.iit.ll_cfg import compression_ratio_map
 
 JOB_TEMPLATE_PATH = Path(__file__).parent / "runner.yaml"
 with JOB_TEMPLATE_PATH.open() as f:
@@ -18,21 +19,31 @@ with JOB_TEMPLATE_PATH.open() as f:
 def build_commands():
   # training_methods = ["linear-compression", "non-linear-compression", "natural-compression", "autoencoder"]
   training_methods = ["non-linear-compression"]
-  case_instances = get_cases(indices=["3"])
+  case_instances = get_cases()
 
   cases = []
-  compression_sizes_by_case = {}
+  compressed_d_model_size_by_case = {}
+  compressed_d_head_size_by_case = {}
   for case in case_instances:
-    original_resid_size = case.get_tl_model().cfg.d_model
-    compression_sizes_by_case[case.get_index()] = [ceil(original_resid_size * 2 / 3)]
-    cases.append(case.get_index())
+    case_name = case.get_name()
+    hl_model_cfg = case.get_hl_model().cfg
+
+    # Decide compressed d_model size
+    if case_name in compression_ratio_map:
+      compressed_d_model_size = ceil(hl_model_cfg.d_model / compression_ratio_map[case_name])
+    else:
+      compressed_d_model_size = ceil(hl_model_cfg.d_model / compression_ratio_map["default"])
+
+    compressed_d_model_size = max(2, compressed_d_model_size)
+    compressed_d_model_size_by_case[case_name] = compressed_d_model_size
+
+    # Decide compressed d_head size
+    compressed_d_head_size_by_case[case_name] = max(1, compressed_d_model_size // hl_model_cfg.n_heads)
+
+    cases.append(case_name)
 
   seeds = [67]
-  lr_starts = [0.001]
-  epochs = 30 * 1000
-  train_data_sizes = [1000]
-  test_data_ratios = [0.3]
-  batch_sizes = [2048]
+  lr_starts = [1e-2]
 
   linear_compression_args = {
     "train-loss": ["intervention"],
@@ -61,115 +72,102 @@ def build_commands():
 
   for method in training_methods:
     for case in cases:
-      for compression_size in compression_sizes_by_case[case]:
         for seed in seeds:
           for lr_start in lr_starts:
-            for train_data_size in train_data_sizes:
-              for test_data_ratio in test_data_ratios:
-                for batch_size in batch_sizes:
+            wandb_project = f"non-linear-compression"
 
-                  wandb_project = f"head-level-compression"
+            command = [".venv/bin/python", "main.py",
+                       "train", method,
+                       f"-i={case}",
+                       f"--d-model={compressed_d_model_size_by_case[case]}",
+                       f"--d-head={compressed_d_head_size_by_case[case]}",
+                       f"--seed={seed}",
+                       f"--epochs={100}",
+                       f"--lr-start={lr_start}",
+                       "--early-stop-threshold=1",
+                       f"--wandb-project={wandb_project}",
+                       ]
 
-                  command = [".venv/bin/python", "main.py",
-                             "train", method,
-                             f"-i={case}",
-                             f"--residual-stream-compression-size={compression_size}",
-                             f"--seed={seed}",
-                             f"--train-data-size={train_data_size}",
-                             f"--test-data-ratio={test_data_ratio}",
-                             f"--batch-size={batch_size}",
-                             f"--epochs={epochs}",
-                             f"--lr-start={lr_start}",
-                             f"--lr-patience=5000",
-                             f"--weight-decay=0",
-                             # "--early-stop-test-accuracy=0.97",
-                             "--resample-ablation-data-size=1000",
-                             "--resample-ablation-max-interventions=50",
-                             "--resample-ablation-loss-epochs-gap=25",
-                             f"--wandb-project={wandb_project}",
-                             "--wandb-name=case-3-seed-67-reg-patching-no-weight-decay"
-                             ]
+            if method == "linear-compression":
+              # produce all combinations of args in linear_compression_args
+              arg_names = list(linear_compression_args.keys())
+              arg_values = list(linear_compression_args.values())
+              for arg_values_combination in product(*arg_values):
+                specific_cmd = command.copy()
+                for i, arg_name in enumerate(arg_names):
+                  arg_value = arg_values_combination[i]
+                  if arg_value == True:
+                    specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
+                  elif arg_value == False:
+                    continue  # skip the argument so that we don't trigger the store_true action
+                  else:
+                    specific_cmd.append(f"--{arg_name}={arg_value}")
 
-                  if method == "linear-compression":
-                    # produce all combinations of args in linear_compression_args
-                    arg_names = list(linear_compression_args.keys())
-                    arg_values = list(linear_compression_args.values())
-                    for arg_values_combination in product(*arg_values):
-                      specific_cmd = command.copy()
-                      for i, arg_name in enumerate(arg_names):
-                        arg_value = arg_values_combination[i]
-                        if arg_value == True:
-                          specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
-                        elif arg_value == False:
-                          continue  # skip the argument so that we don't trigger the store_true action
-                        else:
-                          specific_cmd.append(f"--{arg_name}={arg_value}")
+                if all("--wandb-name=" not in part for part in specific_cmd):
+                  specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
 
-                      if all("--wandb-name=" not in part for part in specific_cmd):
-                        specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                commands.append(specific_cmd)
 
-                      commands.append(specific_cmd)
+            if method == "non-linear-compression":
+              # produce all combinations of args in non_linear_compression_args
+              arg_names = list(non_linear_compression_args.keys())
+              arg_values = list(non_linear_compression_args.values())
+              frozen_ae_weights_arg_idx = arg_names.index("freeze-ae-weights")
+              for arg_values_combination in product(*arg_values):
+                specific_cmd = command.copy()
+                for i, arg_name in enumerate(arg_names):
+                  arg_value = arg_values_combination[i]
+                  if arg_value == True:
+                    specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
+                  elif arg_value == False:
+                    continue  # skip the argument so that we don't trigger the store_true action
+                  else:
+                    specific_cmd.append(f"--{arg_name}={arg_value}")
 
-                  if method == "non-linear-compression":
-                    # produce all combinations of args in non_linear_compression_args
-                    arg_names = list(non_linear_compression_args.keys())
-                    arg_values = list(non_linear_compression_args.values())
-                    frozen_ae_weights_arg_idx = arg_names.index("freeze-ae-weights")
-                    for arg_values_combination in product(*arg_values):
-                      specific_cmd = command.copy()
-                      for i, arg_name in enumerate(arg_names):
-                        arg_value = arg_values_combination[i]
-                        if arg_value == True:
-                          specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
-                        elif arg_value == False:
-                          continue  # skip the argument so that we don't trigger the store_true action
-                        else:
-                          specific_cmd.append(f"--{arg_name}={arg_value}")
+                # If this is a non-frozen autoencoder training, add the autoencoder training command args
+                if not arg_values_combination[frozen_ae_weights_arg_idx]:
+                  non_frozen_arg_names = list(non_linear_compression_continuous_ae_training_args.keys())
+                  non_frozen_arg_values = list(non_linear_compression_continuous_ae_training_args.values())
+                  for non_frozen_arg_values_combination in product(*non_frozen_arg_values):
+                    more_specific_cmd = specific_cmd.copy()
+                    for i, arg_name in enumerate(non_frozen_arg_names):
+                      more_specific_cmd.append(f"--{arg_name}={non_frozen_arg_values_combination[i]}")
 
-                      # If this is a non-frozen autoencoder training, add the autoencoder training command args
-                      if not arg_values_combination[frozen_ae_weights_arg_idx]:
-                        non_frozen_arg_names = list(non_linear_compression_continuous_ae_training_args.keys())
-                        non_frozen_arg_values = list(non_linear_compression_continuous_ae_training_args.values())
-                        for non_frozen_arg_values_combination in product(*non_frozen_arg_values):
-                          more_specific_cmd = specific_cmd.copy()
-                          for i, arg_name in enumerate(non_frozen_arg_names):
-                            more_specific_cmd.append(f"--{arg_name}={non_frozen_arg_values_combination[i]}")
+                    if all("--wandb-name=" not in part for part in more_specific_cmd):
+                      more_specific_cmd.append(f"--wandb-name={build_wandb_name(more_specific_cmd)}")
 
-                          if all("--wandb-name=" not in part for part in more_specific_cmd):
-                            more_specific_cmd.append(f"--wandb-name={build_wandb_name(more_specific_cmd)}")
+                    commands.append(more_specific_cmd)
+                else:
+                  if all("--wandb-name=" not in part for part in specific_cmd):
+                    specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
 
-                          commands.append(more_specific_cmd)
-                      else:
-                        if all("--wandb-name=" not in part for part in specific_cmd):
-                          specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                  commands.append(specific_cmd)
 
-                        commands.append(specific_cmd)
+            if method == "autoencoder":
+              # produce all combinations of args in autoencoder_args
+              arg_names = list(autoencoder_args.keys())
+              arg_values = list(autoencoder_args.values())
+              for arg_values_combination in product(*arg_values):
+                specific_cmd = command.copy()
+                for i, arg_name in enumerate(arg_names):
+                  arg_value = arg_values_combination[i]
+                  if arg_value == True:
+                    specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
+                  elif arg_value == False:
+                    continue  # skip the argument so that we don't trigger the store_true action
+                  else:
+                    specific_cmd.append(f"--{arg_name}={arg_value}")
 
-                  if method == "autoencoder":
-                    # produce all combinations of args in autoencoder_args
-                    arg_names = list(autoencoder_args.keys())
-                    arg_values = list(autoencoder_args.values())
-                    for arg_values_combination in product(*arg_values):
-                      specific_cmd = command.copy()
-                      for i, arg_name in enumerate(arg_names):
-                        arg_value = arg_values_combination[i]
-                        if arg_value == True:
-                          specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
-                        elif arg_value == False:
-                          continue  # skip the argument so that we don't trigger the store_true action
-                        else:
-                          specific_cmd.append(f"--{arg_name}={arg_value}")
+                if all("--wandb-name=" not in part for part in specific_cmd):
+                  specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
 
-                      if all("--wandb-name=" not in part for part in specific_cmd):
-                        specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
+                commands.append(specific_cmd)
 
-                      commands.append(specific_cmd)
+            if method == "natural-compression":
+              if all("--wandb-name=" not in part for part in command):
+                command.append(f"--wandb-name={build_wandb_name(command)}")
 
-                  if method == "natural-compression":
-                    if all("--wandb-name=" not in part for part in command):
-                      command.append(f"--wandb-name={build_wandb_name(command)}")
-
-                    commands.append(command)
+              commands.append(command)
 
   return commands
 
@@ -263,5 +261,5 @@ def print_commands():
 
 
 if __name__ == "__main__":
-  launch_kubernetes_jobs()
+  # launch_kubernetes_jobs()
   print_commands()
