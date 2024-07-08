@@ -1,107 +1,27 @@
-import datetime
 import os
 import pickle
 import random
 import shutil
 from argparse import Namespace
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import Callable, Tuple, Optional, Literal
+from typing import Tuple, Literal
 
 import numpy as np
-import torch
+import torch as t
 import wandb
-from acdc.TLACDCExperiment import TLACDCExperiment
-from acdc.acdc_graphics import show
-from transformer_lens import HookedTransformer
+from auto_circuit.data import PromptDataset, PromptDataLoader
+from auto_circuit.prune_algos.ACDC import acdc_prune_scores
+from auto_circuit.types import PruneScores
+from auto_circuit.utils.graph_utils import patchable_model
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.commands.algorithms.legacy_acdc import ACDCConfig, LegacyACDCRunner
 from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
+from circuits_benchmark.utils.auto_circuit_utils import build_circuit
 from circuits_benchmark.utils.circuit.circuit import Circuit
-from circuits_benchmark.utils.circuit.circuit_eval import build_from_acdc_correspondence, evaluate_hypothesis_circuit, \
-  CircuitEvalResult
+from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, CircuitEvalResult
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
-from circuits_benchmark.utils.project_paths import get_default_output_dir
 
-
-@dataclass
-class ACDCConfig:
-    threshold: Optional[float] = 0.025
-    data_size: Optional[int] = 1000
-    include_mlp: Optional[bool] = False
-    next_token: Optional[bool] = False
-    use_pos_embed: Optional[bool] = False
-    indices_mode: Literal["normal", "reverse", "shuffle"] = "reverse",
-    names_mode: Literal["normal", "reverse", "shuffle"] = "normal",
-    torch_num_threads: Optional[int] = 0
-    max_num_epochs: Optional[int] = 100_000
-    single_step: Optional[bool] = False
-    abs_value_threshold: Optional[bool] = False
-    online_cache_cpu: Optional[bool] = True
-    corrupted_cache_cpu: Optional[bool] = True
-    zero_ablation: Optional[bool] = False
-    using_wandb: Optional[bool] = False
-    wandb_entity_name: Optional[str] = None
-    wandb_group_name: Optional[str] = None
-    wandb_project_name: Optional[str] = None
-    wandb_run_name: Optional[str] = None
-    wandb_dir: Optional[str] = "/tmp/wandb"
-    wandb_mode: Optional[str] = "online"
-    seed: Optional[int] = 42
-    output_dir: Optional[str] = get_default_output_dir()
-    same_size: Optional[bool] = False
-    device: Optional[str] = "cpu"
-    testing: Optional[bool] = False
-
-    @staticmethod
-    def from_args(args: Namespace) -> "ACDCConfig":
-        config = ACDCConfig(
-            threshold=args.threshold,
-            seed=int(args.seed),
-            data_size=args.data_size,
-            include_mlp=args.include_mlp,
-            next_token=args.next_token,
-            use_pos_embed=args.use_pos_embed,
-            indices_mode=args.indices_mode,
-            names_mode=args.names_mode,
-            torch_num_threads=args.torch_num_threads,
-            max_num_epochs=args.max_num_epochs,
-            single_step=args.single_step,
-            abs_value_threshold=args.abs_value_threshold,
-            online_cache_cpu=True,
-            corrupted_cache_cpu=True,
-            zero_ablation=args.zero_ablation,
-            using_wandb=args.using_wandb,
-            wandb_entity_name=args.wandb_entity_name,
-            wandb_group_name=args.wandb_group_name,
-            wandb_project_name=args.wandb_project_name,
-            wandb_run_name=args.wandb_run_name,
-            wandb_dir=args.wand,
-            wandb_mode=args.wandb_mode,
-            output_dir=args.output_dir,
-            same_size=args.same_size,
-            device=args.device,
-        )
-
-        if args.first_cache_cpu is None:
-          config.online_cache_cpu = True
-        elif args.first_cache_cpu.lower() == "false":
-          config.online_cache_cpu = False
-        elif args.first_cache_cpu.lower() == "true":
-          config.online_cache_cpu = True
-        else:
-          raise ValueError(f"first_cache_cpu must be either True or False, got {args.first_cache_cpu}")
-
-        if args.config.second_cache_cpu is None:
-          config.corrupted_cache_cpu = True
-        elif args.config.second_cache_cpu.lower() == "false":
-          config.corrupted_cache_cpu = False
-        elif args.config.second_cache_cpu.lower() == "true":
-          config.corrupted_cache_cpu = True
-        else:
-          raise ValueError(f"second_cache_cpu must be either True or False, got {args.config.second_cache_cpu}")
-
-        return config
 
 class ACDCRunner:
     def __init__(self,
@@ -118,21 +38,20 @@ class ACDCRunner:
         assert self.config is not None
         self.configure_acdc()
 
-        # Check that dot program is in path
-        if not shutil.which("dot"):
-          raise ValueError("dot program not in path, cannot generate graphs for ACDC.")
-
     def configure_acdc(self):
       if self.config.torch_num_threads > 0:
-        torch.set_num_threads(self.config.torch_num_threads)
+        t.set_num_threads(self.config.torch_num_threads)
 
       # Set the seed
-      torch.manual_seed(self.config.seed)
+      t.manual_seed(self.config.seed)
       random.seed(self.config.seed)
       np.random.seed(self.config.seed)
 
     def run_using_model_loader(self, ll_model_loader: LLModelLoader) -> Tuple[Circuit, CircuitEvalResult]:
       clean_dirname = self.prepare_output_dir(ll_model_loader)
+
+      print(f"Running ACDC evaluation for case {self.case.get_name()} ({str(ll_model_loader)})")
+      print(f"Output directory: {clean_dirname}")
 
       hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(
         device=self.config.device,
@@ -150,20 +69,30 @@ class ACDCRunner:
           param.requires_grad = False
 
       # prepare data
-      data_size = self.config.data_size
-      clean_data = self.case.get_clean_data(max_samples=data_size).get_inputs()
-      corrupted_data = self.case.get_corrupted_data(max_samples=data_size).get_inputs()
+      clean_dataset = self.case.get_clean_data(max_samples=self.config.data_size)
+      corrupted_dataset = self.case.get_corrupted_data(max_samples=self.config.data_size)
 
-      # prepare validation metric
-      metric_name = "l2" if not hl_model.is_categorical() else "kl"
-      validation_metric = self.case.get_validation_metric(ll_model, metric_name=metric_name, data=clean_data)
+      clean_outputs = clean_dataset.get_targets()
+      corrupted_outputs = corrupted_dataset.get_targets()
+      if self.case.is_categorical():
+        if isinstance(clean_outputs, list):
+          clean_outputs = [o.argmax(dim=-1).unsqueeze(dim=-1) for o in clean_outputs]
+          corrupted_outputs = [o.argmax(dim=-1).unsqueeze(dim=-1) for o in corrupted_outputs]
+        elif isinstance(clean_outputs, t.Tensor):
+          clean_outputs = clean_outputs.argmax(dim=-1).unsqueeze(dim=-1)
+          corrupted_outputs = corrupted_outputs.argmax(dim=-1).unsqueeze(dim=-1)
+        else:
+          raise ValueError(f"Unknown output type: {type(clean_outputs)}")
+
+      faithfulness_metric: Literal["kl_div", "mse"] = "mse" if not hl_model.is_categorical() else "kl_div"
 
       acdc_circuit = self.run(
         ll_model,
-        clean_data,
-        corrupted_data,
-        validation_metric,
-        clean_dirname,
+        clean_dataset.get_inputs(),
+        clean_outputs,
+        corrupted_dataset.get_inputs(),
+        corrupted_outputs,
+        faithfulness_metric,
       )
 
       print("Done running acdc: ")
@@ -204,101 +133,46 @@ class ACDCRunner:
 
     def run(
         self,
-        tl_model: HookedTransformer,
-        clean_dataset: torch.Tensor,
-        corrupt_dataset: torch.Tensor,
-        validation_metric: Callable[[torch.Tensor], torch.Tensor],
-        output_dir: str,
+        tl_model: t.nn.Module,
+        clean_inputs: t.Tensor,
+        clean_outputs: t.Tensor,
+        corrupted_inputs: t.Tensor,
+        corrupted_outputs: t.Tensor,
+        faithfulness_metric: Literal["kl_div", "mse"],
     ) -> Circuit:
-        images_output_dir = os.path.join(output_dir, "images")
-        os.makedirs(images_output_dir, exist_ok=True)
+      tl_model.to(self.config.device)
+      auto_circuit_model = patchable_model(
+        tl_model,
+        factorized=True,
+        slice_output=None,
+        separate_qkv=True,
+        device=t.device(self.config.device),
+      )
 
-        corrupted_cache_cpu = self.config.corrupted_cache_cpu
-        online_cache_cpu = self.config.online_cache_cpu
+      dataset = PromptDataset(
+        clean_inputs,
+        corrupted_inputs,
+        clean_outputs,
+        corrupted_outputs,
+      )
+      train_loader = PromptDataLoader(dataset,
+                                      seq_len=self.case.get_max_seq_len(),
+                                      diverge_idx=0,
+                                      batch_size=len(dataset))
 
-        threshold = self.config.threshold  # only used if >= 0.0
-        zero_ablation = True if self.config.zero_ablation else False
-        using_wandb = True if self.config.using_wandb else False
-        wandb_entity_name = self.config.wandb_entity_name
-        wandb_project_name = self.config.wandb_project_name
-        wandb_run_name = self.config.wandb_run_name
-        wandb_group_name = self.config.wandb_group_name
-        indices_mode = self.config.indices_mode
-        names_mode = self.config.names_mode
-        single_step = True if self.config.single_step else False
-        use_pos_embed = self.config.use_pos_embed
+      attribution_scores: PruneScores = acdc_prune_scores(
+        model=auto_circuit_model,
+        dataloader=train_loader,
+        official_edges=None,
+        tao_exps=[0],  # i.e., threshold * (10**0) = threshold
+        tao_bases=[self.config.threshold],  # type: ignore
+        faithfulness_target=faithfulness_metric,
+      )
 
-        tl_model.reset_hooks()
-        exp = TLACDCExperiment(
-            model=tl_model,
-            threshold=threshold,
-            images_output_dir=images_output_dir,
-            using_wandb=using_wandb,
-            wandb_entity_name=wandb_entity_name,
-            wandb_project_name=wandb_project_name,
-            wandb_run_name=wandb_run_name,
-            wandb_group_name=wandb_group_name,
-            wandb_dir=self.config.wandb_dir,
-            wandb_mode=self.config.wandb_mode,
-            zero_ablation=zero_ablation,
-            abs_value_threshold=self.config.abs_value_threshold,
-            ds=clean_dataset,
-            ref_ds=corrupt_dataset,
-            metric=validation_metric,
-            second_metric=None,
-            verbose=True,
-            indices_mode=indices_mode,
-            names_mode=names_mode,
-            corrupted_cache_cpu=corrupted_cache_cpu,
-            hook_verbose=False,
-            online_cache_cpu=online_cache_cpu,
-            add_sender_hooks=True,
-            use_pos_embed=use_pos_embed,
-            add_receiver_hooks=False,
-            remove_redundant=False,
-            show_full_index=use_pos_embed,
-        )
+      acdc_circuit = build_circuit(auto_circuit_model, attribution_scores, self.config.threshold)
+      acdc_circuit.save(f"{self.config.output_dir}/final_circuit.pkl")
 
-        exp_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-        for i in range(self.config.max_num_epochs):
-            exp.step(testing=self.config.testing)
-
-            show(
-                exp.corr,
-                fname=f"{images_output_dir}/img_new_{i + 1}.png",
-            )
-
-            print(i, "-" * 50)
-            print(exp.count_num_edges())
-
-            if i == 0:
-                exp.save_edges(os.path.join(output_dir, "edges.pkl"))
-
-            if exp.current_node is None or single_step:
-                show(
-                    exp.corr,
-                    fname=f"{images_output_dir}/ACDC_new_{exp_time}.png",
-                    show_placeholders=True,
-                )
-                break
-
-        exp.save_edges(os.path.join(output_dir, "another_final_edges.pkl"))
-
-        exp.save_subgraph(
-            fpath=f"{output_dir}/subgraph.pth",
-            return_it=True,
-        )
-
-        acdc_circuit = build_from_acdc_correspondence(exp.corr)
-        acdc_circuit.save(f"{output_dir}/final_circuit.pkl")
-
-        return acdc_circuit
-
-    @staticmethod
-    def setup_subparser(subparsers):
-      parser = subparsers.add_parser("acdc")
-      ACDCRunner.add_args_to_parser(parser)
+      return acdc_circuit
 
     @staticmethod
     def add_args_to_parser(parser):
@@ -371,6 +245,11 @@ class ACDCRunner:
       parser.add_argument("--wandb-run-name", type=str, required=False, default=None, help="Value for wandb_run_name")
       parser.add_argument("--wandb-dir", type=str, default="/tmp/wandb")
       parser.add_argument("--wandb-mode", type=str, default="online")
+
+    @staticmethod
+    def setup_subparser(subparsers):
+      parser = subparsers.add_parser("acdc")
+      LegacyACDCRunner.add_args_to_parser(parser)
 
     def prepare_output_dir(self, ll_model_loader):
       output_suffix = f"{ll_model_loader.get_output_suffix()}/threshold_{self.config.threshold}"
