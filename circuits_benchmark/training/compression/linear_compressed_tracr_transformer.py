@@ -21,7 +21,7 @@ LinearCompressedTracrTransformerInitialization = Literal["orthogonal", "linear"]
 linear_compression_initialization_options = list(typing.get_args(LinearCompressedTracrTransformerInitialization))
 
 
-class LinearCompressedTracrTransformer(HookedTracrTransformer):
+class LinearCompressedTracrTransformer(HookedTransformer):
   """ A transformer model with a linearly compressed residual stream.
   To train the model, we multiply with a matrix W when reading from the residual stream, and with W^T when writing to
   the residual stream.
@@ -32,12 +32,7 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
                residual_stream_compression_size: int,
                linear_compression_initialization: LinearCompressedTracrTransformerInitialization = "linear",
                *args, **kwargs):
-    super().__init__(
-      cfg=tl_model.cfg,
-      tracr_input_encoder=tl_model.tracr_input_encoder,
-      tracr_output_encoder=tl_model.tracr_output_encoder,
-      residual_stream_labels=tl_model.residual_stream_labels,
-      *args, **kwargs)
+    super().__init__(cfg=tl_model.cfg, *args, **kwargs)
     self.original_residual_stream_size = tl_model.cfg.d_model
     self.residual_stream_compression_size = residual_stream_compression_size
 

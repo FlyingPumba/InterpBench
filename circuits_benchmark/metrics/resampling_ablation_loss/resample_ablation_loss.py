@@ -2,8 +2,8 @@ import gc
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 
-import numpy as np
 import torch as t
+from iit.model_pairs.ll_model import LLModel
 from jaxtyping import Float, Int
 from torch import Tensor
 from transformer_lens import HookedTransformer, ActivationCache
@@ -28,8 +28,8 @@ class ResampleAblationLossOutput:
 
 
 def get_resample_ablation_loss(data: IITDatasetBatch,
-                               base_model: HookedTransformer,
-                               hypothesis_model: HookedTransformer,
+                               base_model: LLModel,
+                               hypothesis_model: LLModel,
                                activation_mapper: MultiHookActivationMapper | ActivationMapper | None,
                                hook_filters: List[str] | None = None,
                                max_interventions: int = 10,

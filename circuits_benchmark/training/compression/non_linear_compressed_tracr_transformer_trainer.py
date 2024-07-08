@@ -4,9 +4,9 @@ from typing import Dict
 
 import torch as t
 import wandb
+from iit.model_pairs.ll_model import LLModel
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
@@ -23,18 +23,18 @@ from circuits_benchmark.utils.iit.iit_dataset_batch import IITDatasetBatch
 
 class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransformerTrainer):
   def __init__(self, case: BenchmarkCase,
-               old_tl_model: HookedTransformer,
-               new_tl_model: HookedTransformer,
+               old_tl_model: LLModel,
+               new_tl_model: LLModel,
                autoencoders_dict: Dict[str, AutoEncoder],
                args: TrainingArgs,
                output_dir: str | None = None,
                ae_desired_test_mse: float = 1e-3,
                ae_training_args: TrainingArgs = None,
                ae_train_loss_weight: int = 10):
-    self.old_tl_model: HookedTransformer = old_tl_model
+    self.old_tl_model: LLModel = old_tl_model
     self.old_tl_model.freeze_all_weights()
 
-    self.new_tl_model: HookedTransformer = new_tl_model
+    self.new_tl_model: LLModel = new_tl_model
     self.autoencoders_dict: Dict[str, AutoEncoder] = autoencoders_dict
     self.autoencoder_trainers_dict: Dict[str, AutoEncoderTrainer] = {}
     self.device = old_tl_model.device
@@ -142,10 +142,10 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
       for name, param in self.new_tl_model.named_parameters():
         wandb.log({f"param_{name}_norm": param.norm()}, step=self.step)
 
-  def get_original_model(self) -> HookedTransformer:
+  def get_original_model(self) -> LLModel:
     return self.old_tl_model
 
-  def get_compressed_model(self) -> HookedTransformer:
+  def get_compressed_model(self) -> LLModel:
     return self.new_tl_model
 
   def get_activation_mapper(self) -> MultiHookActivationMapper | ActivationMapper | None:

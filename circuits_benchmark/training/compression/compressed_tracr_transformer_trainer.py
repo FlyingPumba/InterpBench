@@ -1,15 +1,15 @@
 import random
 from functools import partial
-from typing import List, Set, Optional
+from typing import List, Set
 
 import numpy as np
 import torch as t
 import wandb
+from iit.model_pairs.ll_model import LLModel
 from iit.utils.iit_dataset import train_test_split, IITDataset
 from jaxtyping import Int
 from torch import Tensor
 from torch.nn import Parameter
-from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.metrics.iia import is_qkv_granularity_hook, regular_intervention_hook_fn
@@ -52,10 +52,10 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     self.train_loader = self.train_dataset.make_loader(batch_size=self.args.batch_size, num_workers=0)
     self.test_loader = self.test_dataset.make_loader(batch_size=self.args.batch_size, num_workers=0)
 
-  def get_original_model(self) -> HookedTransformer:
+  def get_original_model(self) -> LLModel:
     raise NotImplementedError
 
-  def get_compressed_model(self) -> HookedTransformer:
+  def get_compressed_model(self) -> LLModel:
     raise NotImplementedError
 
   def get_activation_mapper(self) -> ActivationMapper | None:

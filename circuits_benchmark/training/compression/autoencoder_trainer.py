@@ -2,16 +2,16 @@ import re
 
 import torch as t
 import wandb
+from iit.model_pairs.ll_model import LLModel
 from jaxtyping import Float
 from torch import Tensor
 from torch.utils.data import DataLoader
-from transformer_lens import ActivationCache, HookedTransformer
+from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
 
 class AutoEncoderTrainer(GenericTrainer):
@@ -20,7 +20,7 @@ class AutoEncoderTrainer(GenericTrainer):
   def __init__(self,
                case: BenchmarkCase,
                autoencoder: AutoEncoder,
-               tl_model: HookedTransformer,
+               tl_model: LLModel,
                args: TrainingArgs,
                activations_cache: ActivationCache | None = None,
                hook_name_filter_for_input_activations: str | None = None,

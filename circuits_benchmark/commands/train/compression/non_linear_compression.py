@@ -4,6 +4,7 @@ from argparse import Namespace
 import pandas as pd
 import wandb
 from argparse_dataclass import ArgumentParser
+from iit.model_pairs.ll_model import LLModel
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
@@ -105,7 +106,7 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
   print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}.")
   trainer = NonLinearCompressedTracrTransformerTrainer(case,
-                                                       hl_model,
+                                                       LLModel(model=hl_model),
                                                        ll_model,
                                                        autoencoders_dict,
                                                        training_args,
@@ -118,7 +119,7 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
         f"compressed head size {compressed_d_head_size}:")
   print(final_metrics)
 
-  iia_eval_results = evaluate_iia_on_all_ablation_types(case, hl_model, ll_model, trainer.test_dataset)
+  iia_eval_results = evaluate_iia_on_all_ablation_types(case, LLModel(model=hl_model), ll_model, trainer.test_dataset)
   print(f" >>> IIA evaluation results:")
   for node_str, result in iia_eval_results.items():
     print(result)

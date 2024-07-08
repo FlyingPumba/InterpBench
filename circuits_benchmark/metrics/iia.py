@@ -3,6 +3,7 @@ from functools import partial
 from typing import Set, Optional, Literal, Dict
 
 import torch as t
+from iit.model_pairs.ll_model import LLModel
 from iit.utils import IITDataset
 from jaxtyping import Float, Bool, Int
 from torch import Tensor
@@ -42,8 +43,8 @@ def regular_intervention_hook_fn(
 
 def evaluate_iia_on_all_ablation_types(
     case: BenchmarkCase,
-    base_model: HookedTracrTransformer,
-    hypothesis_model: HookedTracrTransformer,
+    base_model: LLModel,
+    hypothesis_model: LLModel,
     data: IITDataset,
     iia_granularity: Optional[IIAGranularity] = "head",
     accuracy_atol: Optional[float] = 1e-2):
