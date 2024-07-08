@@ -42,7 +42,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def setup_dataset(self):
-    dataset = self.case.get_clean_data(min_samples=20000, max_samples=120_000)
+    dataset = self.case.get_clean_data(min_samples=self.args.min_train_samples, max_samples=self.args.max_train_samples)
     train_dataset, test_dataset = train_test_split(
       dataset, test_size=self.args.test_data_ratio, random_state=42
     )
@@ -62,7 +62,9 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
     return None
 
   def compute_test_metrics(self):
-    clean_data = self.case.get_clean_data(max_samples=self.args.train_data_size, seed=random.randint(0, 1000000))
+    clean_data = self.case.get_clean_data(min_samples=self.args.min_train_samples,
+                                          max_samples=self.args.max_train_samples,
+                                          seed=random.randint(0, 1000000))
 
     inputs = clean_data.get_inputs()
     targets = clean_data.get_targets()
@@ -157,7 +159,7 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
         self.test_metrics["test_resample_ablation_var_exp"] = resample_ablation_output.variance_explained
 
         for hook_name, loss in resample_ablation_output.max_loss_per_node.items():
-          self.test_metrics[f"test_{hook_name}_max_cp_loss"] = loss.squeeze(-1)
+          self.test_metrics[f"test_{hook_name}_max_cp_loss"] = loss
 
         for hook_name, loss in resample_ablation_output.mean_loss_per_node.items():
           self.test_metrics[f"test_{hook_name}_mean_cp_loss"] = loss

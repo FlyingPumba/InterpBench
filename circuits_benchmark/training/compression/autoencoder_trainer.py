@@ -35,7 +35,8 @@ class AutoEncoderTrainer(GenericTrainer):
 
   def setup_dataset(self):
     if self.activations_cache is None:
-      tl_dataset = self.case.get_clean_data(max_samples=self.args.train_data_size)
+      tl_dataset = self.case.get_clean_data(min_samples=self.args.min_train_samples,
+                                            max_samples=self.args.max_train_samples)
       tl_inputs = tl_dataset.get_inputs()
       _, self.activations_cache = self.tl_model.run_with_cache(tl_inputs)
 

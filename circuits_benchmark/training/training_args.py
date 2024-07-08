@@ -11,7 +11,8 @@ class TrainingArgs():
 
   # data management
   batch_size: Optional[int] = 256
-  train_data_size: Optional[int] = None  # use all data available
+  min_train_samples: Optional[int] = 20_000
+  max_train_samples: Optional[int] = 120_000
   test_data_ratio: Optional[float] = 0.2  # same as train data
 
   # training time and early stopping

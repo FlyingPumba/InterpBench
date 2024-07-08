@@ -40,7 +40,7 @@ class LinearCompressedTracrTransformer(HookedTransformer):
 
     self.W_compress: Linear = nn.Linear(self.residual_stream_compression_size,
                                         self.original_residual_stream_size,
-                                        device=self.device,
+                                        device=self.cfg.device,
                                         bias=False)
 
     if linear_compression_initialization == "orthogonal":
