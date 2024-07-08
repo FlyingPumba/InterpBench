@@ -74,6 +74,7 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
     overwrite_cfg_dict={
       "d_model": compressed_d_model_size,
       "d_head": compressed_d_head_size,
+      "d_mlp": compressed_d_model_size * 4
     },
     same_size=True
   )
