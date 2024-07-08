@@ -15,7 +15,7 @@ from auto_circuit.utils.tensor_ops import prune_scores_threshold
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
-from circuits_benchmark.utils.auto_circuit_utils import build_circuit
+from circuits_benchmark.utils.auto_circuit_utils import build_circuit, build_normalized_scores
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, CircuitEvalResult
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
@@ -195,7 +195,7 @@ class EAPRunner:
 
     attribution_scores: PruneScores = mask_gradient_prune_scores(**eap_args)
     if self.normalize_scores:
-      attribution_scores = self.build_normalized_scores(attribution_scores)
+      attribution_scores = build_normalized_scores(attribution_scores)
 
     if self.edge_count is not None:
       # find the threshold for the top-k edges
@@ -208,17 +208,6 @@ class EAPRunner:
     eap_circuit.save(f"{self.config.output_dir}/final_circuit.pkl")
 
     return eap_circuit
-
-  def build_normalized_scores(self, attribution_scores: PruneScores) -> PruneScores:
-    """Normalize the scores so that they all lie between 0 and 1."""
-    max_score = max(scores.max() for scores in attribution_scores.values())
-    min_score = min(scores.min() for scores in attribution_scores.values())
-
-    normalized_scores = attribution_scores.copy()
-    for module_name, scores in normalized_scores.items():
-      normalized_scores[module_name] = (normalized_scores[module_name] - min_score) / (max_score - min_score)
-
-    return normalized_scores
 
   def get_answer_function_for_case(self, tl_model):
     if self.case.is_categorical():

@@ -22,3 +22,14 @@ def build_circuit(model: PatchableModel,
       circuit.add_edge(from_node, to_node)
 
   return circuit
+
+def build_normalized_scores(attribution_scores: PruneScores) -> PruneScores:
+  """Normalize the scores so that they all lie between 0 and 1."""
+  max_score = max(scores.max() for scores in attribution_scores.values())
+  min_score = min(scores.min() for scores in attribution_scores.values())
+
+  normalized_scores = attribution_scores.copy()
+  for module_name, scores in normalized_scores.items():
+    normalized_scores[module_name] = (normalized_scores[module_name] - min_score) / (max_score - min_score)
+
+  return normalized_scores
