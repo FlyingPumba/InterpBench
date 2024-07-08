@@ -30,6 +30,7 @@ class EAPConfig:
   data_size: Optional[int] = 1000
   integrated_grad_steps: Optional[int] = None
   regression_loss_fn: Optional[str] = "mae"
+  classification_loss_fn: Optional[str] = "kl_div"
   normalize_scores: Optional[bool] = False
   using_wandb: Optional[bool] = False
   output_dir: Optional[str] = get_default_output_dir()
@@ -47,6 +48,7 @@ class EAPConfig:
       data_size=args.data_size,
       integrated_grad_steps=args.integrated_grad_steps,
       regression_loss_fn=args.regression_loss_fn,
+      classification_loss_fn=args.classification_loss_fn,
       normalize_scores=args.normalize_scores,
       using_wandb=args.using_wandb,
       output_dir=args.output_dir,
@@ -75,6 +77,7 @@ class EAPRunner:
     self.threshold = self.config.threshold
     self.integrated_grad_steps = self.config.integrated_grad_steps
     self.regression_loss_fn = self.config.regression_loss_fn
+    self.classification_loss_fn = self.config.classification_loss_fn
     self.normalize_scores = self.config.normalize_scores
 
     assert (self.edge_count is not None) ^ (self.threshold is not None), \
@@ -226,7 +229,7 @@ class EAPRunner:
         return kl
     
       # For categorical models we use as loss function the diff between the correct and wrong answers
-      return "avg_diff" if self.args.classification_loss_fn == "avg_diff" else loss_fn
+      return "avg_diff" if self.classification_loss_fn == "avg_diff" else loss_fn
     else:
       # Auto-circuit assumes that all models are categorical, so we need to provide a custom loss function for
       # regression ones

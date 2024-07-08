@@ -42,6 +42,11 @@ class CaseIOI(BenchmarkCase):
     # We need to change IOIDatasetWrapper to inherit from CaseDataset if we want to remove the type ignore below
     return ioi_dataset  # type: ignore
 
+  def get_max_seq_len(self) -> int:
+    ioi_dataset = self.get_clean_data()
+    x, *_ = ioi_dataset[0]
+    return x.shape[0]
+
   def get_corrupted_data(self,
                          min_samples: Optional[int] = 10,
                          max_samples: Optional[int] = 10,

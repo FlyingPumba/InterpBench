@@ -33,6 +33,10 @@ class BenchmarkCase(object):
     """Returns whether the benchmark case is categorical."""
     raise NotImplementedError()
 
+  def get_max_seq_len(self) -> int:
+    """Returns the maximum sequence length for the benchmark case (including BOS)."""
+    raise NotImplementedError()
+
   def get_clean_data(self,
                      min_samples: Optional[int] = 10,
                      max_samples: Optional[int] = 10,
