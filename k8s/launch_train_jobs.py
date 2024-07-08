@@ -53,18 +53,6 @@ def build_commands():
     "linear-compression-initialization": ["linear"],  # ["orthogonal", "linear"],
   }
 
-  non_linear_compression_args = {
-    # "ae-layers": [2],
-    # "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
-    # "ae-epochs": [100],
-    # "freeze-ae-weights": [False],
-  }
-
-  non_linear_compression_continuous_ae_training_args = {
-    # "ae-training-epochs-gap": [50],
-    # "ae-desired-test-mse": [1e-5]
-  }
-
   autoencoder_args = {
     "ae-layers": [2],
     "ae-first-hidden-layer-shape": ["wide"],  # ["narrow", "wide"],
@@ -111,39 +99,11 @@ def build_commands():
                 commands.append(specific_cmd)
 
             if method == "non-linear-compression":
-              # produce all combinations of args in non_linear_compression_args
-              arg_names = list(non_linear_compression_args.keys())
-              arg_values = list(non_linear_compression_args.values())
-              frozen_ae_weights_arg_idx = arg_names.index("freeze-ae-weights")
-              for arg_values_combination in product(*arg_values):
-                specific_cmd = command.copy()
-                for i, arg_name in enumerate(arg_names):
-                  arg_value = arg_values_combination[i]
-                  if arg_value == True:
-                    specific_cmd.append(f"--{arg_name}") # just set the flag to trigger the store_true action
-                  elif arg_value == False:
-                    continue  # skip the argument so that we don't trigger the store_true action
-                  else:
-                    specific_cmd.append(f"--{arg_name}={arg_value}")
+              specific_cmd = command.copy()
+              if all("--wandb-name=" not in part for part in specific_cmd):
+                specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
 
-                # If this is a non-frozen autoencoder training, add the autoencoder training command args
-                if not arg_values_combination[frozen_ae_weights_arg_idx]:
-                  non_frozen_arg_names = list(non_linear_compression_continuous_ae_training_args.keys())
-                  non_frozen_arg_values = list(non_linear_compression_continuous_ae_training_args.values())
-                  for non_frozen_arg_values_combination in product(*non_frozen_arg_values):
-                    more_specific_cmd = specific_cmd.copy()
-                    for i, arg_name in enumerate(non_frozen_arg_names):
-                      more_specific_cmd.append(f"--{arg_name}={non_frozen_arg_values_combination[i]}")
-
-                    if all("--wandb-name=" not in part for part in more_specific_cmd):
-                      more_specific_cmd.append(f"--wandb-name={build_wandb_name(more_specific_cmd)}")
-
-                    commands.append(more_specific_cmd)
-                else:
-                  if all("--wandb-name=" not in part for part in specific_cmd):
-                    specific_cmd.append(f"--wandb-name={build_wandb_name(specific_cmd)}")
-
-                  commands.append(specific_cmd)
+              commands.append(specific_cmd)
 
             if method == "autoencoder":
               # produce all combinations of args in autoencoder_args
@@ -221,14 +181,14 @@ def build_wandb_name(command: List[str]):
   important_args = important_args_aliases.keys()
   wandb_name = ""
 
-  wandb_name += command[3] + "-"  # training method
+  # wandb_name += command[3] + "-"  # training method
 
   for arg in important_args:
     for part in command:
       if arg in part:
         alias = important_args_aliases[arg]
         if "=" in part:
-          arg_value = part.split("=")[1]
+          arg_value = part.split("=")[1].replace("_", "-")
           wandb_name += f"{alias}-{arg_value}-"
         else:
           wandb_name += f"{alias}-"
@@ -263,5 +223,5 @@ def print_commands():
 
 
 if __name__ == "__main__":
-  # launch_kubernetes_jobs()
+  launch_kubernetes_jobs()
   print_commands()
