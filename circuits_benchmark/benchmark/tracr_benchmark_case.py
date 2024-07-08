@@ -27,7 +27,7 @@ from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.utils.iit import make_ll_cfg_for_case
 from circuits_benchmark.utils.iit.correspondence import TracrCorrespondence
-from circuits_benchmark.utils.tracr_model_pair import TracrModelPair
+from circuits_benchmark.utils.iit.tracr_model_pair import TracrModelPair
 
 
 class TracrBenchmarkCase(BenchmarkCase):

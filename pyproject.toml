@@ -36,7 +36,7 @@ mlcroissant = "^1.0.5"
 matplotlib = "3.8.2"
 auto-circuit = { git = "https://github.com/FlyingPumba/auto-circuit.git" }
 tracr = { git = "https://github.com/FlyingPumba/tracr.git" }
-iit = { git = "https://github.com/FlyingPumba/iit.git" }
+iit = { git = "https://github.com/cybershiptrooper/iit.git" }
 acdc = { git = "https://github.com/FlyingPumba/Automatic-Circuit-Discovery.git" }
 
 [tool.poetry.group.dev.dependencies]

@@ -101,12 +101,24 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
 
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
-    if isinstance(args[0], list) or isinstance(args[0], np.ndarray):
+    first_arg = args[0]
+    if isinstance(first_arg, list) or isinstance(first_arg, np.ndarray):
       # Input is a HookedTracrTransformerBatchInput
       return self.run_tracr_input(*args, **kwargs)
+    elif isinstance(first_arg, tuple):
+      # Input is a tuple, e.g. the way IIT calls HL models. We take only the first element
+      return super().__call__(first_arg[0], **kwargs)
     else:
       # Input is a Tensor
       return super().__call__(*args, **kwargs)
+
+  def forward(self, *args, **kwargs):
+    """Applies the internal transformer_lens model to an input."""
+    first_arg = args[0]
+    if isinstance(first_arg, tuple):
+      # replace first_args with its first element. This is needed for IIT to work.
+      args = (first_arg[0],) + args[1:]
+    return super().forward(*args, **kwargs)
 
   def run_tracr_input(self, batch_input: HookedTracrTransformerBatchInput,
                       return_type: HookedTracrTransformerReturnType = "logits") -> HookedTracrTransformerBatchInput | \
