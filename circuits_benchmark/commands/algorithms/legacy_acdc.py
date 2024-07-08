@@ -103,7 +103,7 @@ class ACDCConfig:
 
         return config
 
-class ACDCRunner:
+class LegacyACDCRunner:
     def __init__(self,
                  case: BenchmarkCase,
                  config: ACDCConfig | None = None,
@@ -118,10 +118,6 @@ class ACDCRunner:
         assert self.config is not None
         self.configure_acdc()
 
-        # Check that dot program is in path
-        if not shutil.which("dot"):
-          raise ValueError("dot program not in path, cannot generate graphs for ACDC.")
-
     def configure_acdc(self):
       if self.config.torch_num_threads > 0:
         torch.set_num_threads(self.config.torch_num_threads)
@@ -130,6 +126,10 @@ class ACDCRunner:
       torch.manual_seed(self.config.seed)
       random.seed(self.config.seed)
       np.random.seed(self.config.seed)
+
+      # Check that dot program is in path
+      if not shutil.which("dot"):
+        raise ValueError("dot program not in path, cannot generate graphs for ACDC.")
 
     def run_using_model_loader(self, ll_model_loader: LLModelLoader) -> Tuple[Circuit, CircuitEvalResult]:
       clean_dirname = self.prepare_output_dir(ll_model_loader)
@@ -297,8 +297,8 @@ class ACDCRunner:
 
     @staticmethod
     def setup_subparser(subparsers):
-      parser = subparsers.add_parser("acdc")
-      ACDCRunner.add_args_to_parser(parser)
+      parser = subparsers.add_parser("legacy_acdc")
+      LegacyACDCRunner.add_args_to_parser(parser)
 
     @staticmethod
     def add_args_to_parser(parser):
@@ -374,7 +374,7 @@ class ACDCRunner:
 
     def prepare_output_dir(self, ll_model_loader):
       output_suffix = f"{ll_model_loader.get_output_suffix()}/threshold_{self.config.threshold}"
-      clean_dirname = f"{self.config.output_dir}/acdc/{self.case.get_name()}/{output_suffix}"
+      clean_dirname = f"{self.config.output_dir}/legacy_acdc/{self.case.get_name()}/{output_suffix}"
 
       # remove everything in the directory
       if os.path.exists(clean_dirname):

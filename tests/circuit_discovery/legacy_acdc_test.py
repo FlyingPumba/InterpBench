@@ -3,13 +3,13 @@ import unittest
 
 from circuits_benchmark.benchmark.cases.case_3 import Case3
 from circuits_benchmark.benchmark.cases.case_ioi import CaseIOI
-from circuits_benchmark.commands.algorithms.acdc import ACDCRunner, ACDCConfig
+from circuits_benchmark.commands.algorithms.legacy_acdc import LegacyACDCRunner, ACDCConfig
 from circuits_benchmark.commands.build_main_parser import build_main_parser
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader
 from circuits_benchmark.utils.project_paths import get_default_output_dir
 from circuits_benchmark.commands.train import train
 
-class ACDCTest(unittest.TestCase):
+class LegacyACDCTest(unittest.TestCase):
   def setup_method(self, test_method):
     # detect if SIIT and Natural model for Case 3 are available, and train them if not
     output_dir = get_default_output_dir()
@@ -42,7 +42,7 @@ class ACDCTest(unittest.TestCase):
       train.run(args)
     assert os.path.exists(siit_model_path)
 
-  def test_acdc_works_on_siit_model_for_case_3(self):
+  def test_legacy_acdc_works_on_siit_model_for_case_3(self):
     case = Case3()
     config = ACDCConfig(
       threshold=0.001,
@@ -58,11 +58,11 @@ class ACDCTest(unittest.TestCase):
       siit_weights="510",
       load_from_wandb=False
     )
-    circuit, circuit_eval_result = ACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
+    circuit, circuit_eval_result = LegacyACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
     assert circuit is not None
     assert circuit_eval_result is not None
 
-  def test_acdc_works_on_natural_model_for_case_3(self):
+  def test_legacy_acdc_works_on_natural_model_for_case_3(self):
     case = Case3()
     config = ACDCConfig(
       threshold=0.001,
@@ -78,11 +78,11 @@ class ACDCTest(unittest.TestCase):
       siit_weights=None,
       load_from_wandb=False
     )
-    circuit, circuit_eval_result = ACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
+    circuit, circuit_eval_result = LegacyACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
     assert circuit is not None
     assert circuit_eval_result is not None
 
-  def test_acdc_works_on_tracr_model_for_case_3(self):
+  def test_legacy_acdc_works_on_tracr_model_for_case_3(self):
     case = Case3()
     config = ACDCConfig(
       threshold=0.001,
@@ -98,11 +98,11 @@ class ACDCTest(unittest.TestCase):
       siit_weights=None,
       load_from_wandb=False
     )
-    circuit, circuit_eval_result = ACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
+    circuit, circuit_eval_result = LegacyACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
     assert circuit is not None
     assert circuit_eval_result is not None
 
-  def test_acdc_works_on_interp_bench_model_for_case_3(self):
+  def test_legacy_acdc_works_on_interp_bench_model_for_case_3(self):
     case = Case3()
     config = ACDCConfig(
       threshold=0.001,
@@ -118,11 +118,11 @@ class ACDCTest(unittest.TestCase):
       siit_weights=None,
       load_from_wandb=False
     )
-    circuit, circuit_eval_result = ACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
+    circuit, circuit_eval_result = LegacyACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
     assert circuit is not None
     assert circuit_eval_result is not None
 
-  def test_acdc_works_on_interp_bench_model_for_case_ioi(self):
+  def test_legacy_acdc_works_on_interp_bench_model_for_case_ioi(self):
     case = CaseIOI()
     config = ACDCConfig(
       threshold=0.001,
@@ -139,6 +139,6 @@ class ACDCTest(unittest.TestCase):
       siit_weights=None,
       load_from_wandb=False
     )
-    circuit, circuit_eval_result = ACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
+    circuit, circuit_eval_result = LegacyACDCRunner(case, config=config).run_using_model_loader(ll_model_loader)
     assert circuit is not None
     assert circuit_eval_result is not None
