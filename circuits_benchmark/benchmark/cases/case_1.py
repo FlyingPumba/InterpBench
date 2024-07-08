@@ -3,14 +3,14 @@ from math import ceil, floor
 from typing import Set
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.common_programs import shift_by
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.vocabs import TRACR_PAD, TRACR_BOS
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 from tracr.rasp import rasp
 
 
-class Case1(BenchmarkCase):
+class Case1(TracrBenchmarkCase):
   def get_program(self) -> rasp.SOp:
     return make_token_rotation_identifier(rasp.tokens, 2)
 

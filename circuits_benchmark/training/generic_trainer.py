@@ -34,7 +34,7 @@ class GenericTrainer:
 
     self.step = 0
     self.epoch = 0
-    self.train_loss = np.nan
+    self.train_loss: Tensor = t.tensor(np.nan)
     self.test_metrics = {}
     self.training_progress_bar = None
 
@@ -116,8 +116,7 @@ class GenericTrainer:
 
       self.lr_scheduler.step(self.get_lr_validation_metric())
 
-      if (self.args.early_stop_test_accuracy is not None and
-          self.test_metrics["test_accuracy"] >= self.args.early_stop_test_accuracy):
+      if self.check_early_stop_condition():
         break
 
     if self.output_dir is not None:
@@ -135,11 +134,11 @@ class GenericTrainer:
       self.training_progress_bar.set_description(f"Epoch {self.epoch}, train_loss: {self.train_loss:.3f}" +
                                                  self.build_test_metrics_string())
 
-  def training_step(self, inputs) -> Float[Tensor, ""]:
+  def training_step(self, batch) -> Float[Tensor, ""]:
     """Calculates the loss on batched inputs, performs a gradient update step, and logs the loss."""
     self.optimizer.zero_grad()
 
-    loss = self.compute_train_loss(inputs)
+    loss = self.compute_train_loss(batch)
     if self.use_wandb:
       wandb.log({"train_loss": loss}, step=self.step)
 
@@ -153,7 +152,7 @@ class GenericTrainer:
     """Performs a gradient update step."""
     loss.backward()
 
-    if hasattr(self, "new_tl_model"):
+    if self.args.verbose and hasattr(self, "new_tl_model"):
       # print gradients descending by norm
       sorted_grads = sorted([(name, param.grad.norm()) for name, param in self.new_tl_model.named_parameters()
                              if param.grad is not None],
@@ -179,6 +178,10 @@ class GenericTrainer:
   def get_lr_validation_metric(self):
     return self.test_metrics["test_accuracy"]
 
+  def check_early_stop_condition(self):
+    return (self.args.early_stop_threshold is not None and
+            self.test_metrics["test_accuracy"] >= self.args.early_stop_threshold)
+
   def build_test_metrics_string(self):
     if len(self.test_metrics.items()) == 0:
       return ""
@@ -186,14 +189,14 @@ class GenericTrainer:
       return ", " + ("".join([f"{k}: {v:.3f}, " for k, v in list(self.test_metrics.items())[:3]]))[:-2]
 
   def build_wandb_name(self):
-    return f"case-{self.case.get_index()}-generic-training"
+    return f"case-{self.case.get_name()}-generic-training"
 
   def define_wandb_metrics(self):
     wandb.define_metric("train_loss", summary="min")
     wandb.define_metric("test_accuracy", summary="max")
 
   def get_wandb_tags(self):
-    return [f"case{self.case.get_index()}"]
+    return [f"case{self.case.get_name()}"]
 
   def get_wandb_notes(self):
     return f"Command: {' '.join(sys.argv)}"
@@ -203,7 +206,7 @@ class GenericTrainer:
     cfg.update({
       "resolved_epochs": self.epochs,
       "resolved_steps": self.steps,
-      "case": self.case.get_index()
+      "case": self.case.get_name()
     })
     return cfg
 

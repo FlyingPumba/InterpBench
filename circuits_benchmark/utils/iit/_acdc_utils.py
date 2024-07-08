@@ -1,13 +1,14 @@
-from circuits_benchmark.transformers.circuit import Circuit, CircuitNode
-import iit.model_pairs as mp
-from iit.utils import index
-import circuits_benchmark.utils.iit.correspondence as correspondence
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from typing import Tuple
+
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.utils.circuit.circuit import Circuit, CircuitNode
+from iit.model_pairs.nodes import LLNode
+from iit.utils import index
+from iit.utils.correspondence import Correspondence
 
 
 def get_circuit_nodes_from_ll_node(
-    ll_node: mp.LLNode, n_heads: int
+    ll_node: LLNode, n_heads: int
 ) -> list[CircuitNode]:
     circuit_nodes = []
 
@@ -78,7 +79,7 @@ def promote_node(node: CircuitNode):
 
 
 def promote_and_check_with_hl(
-    node: CircuitNode, hl_ll_corr: correspondence.TracrCorrespondence
+    node: CircuitNode, hl_ll_corr: Correspondence
 ) -> list[CircuitNode]:
     promoted_node = promote_node(node)
     for k, v in hl_ll_corr.items():
@@ -90,7 +91,7 @@ def promote_and_check_with_hl(
 def find_edge_in_circuit(
     tracr_circuit: Circuit,
     edge: Tuple[str, str],
-    hl_ll_corr: correspondence.TracrCorrespondence,
+    hl_ll_corr: Correspondence,
     n_heads: int,
 ) -> bool:
     """
@@ -135,7 +136,7 @@ def find_edge_in_circuit(
 
 
 def get_gt_circuit(
-    hl_ll_corr: correspondence.TracrCorrespondence,
+    hl_ll_corr: Correspondence,
     full_circuit: Circuit,
     n_heads: int,
     case: BenchmarkCase,
@@ -170,7 +171,7 @@ def get_gt_circuit(
         circuit.remove_node(node)
 
     # remove edges that are not a part of the tracr ground truth
-    _, tracr_ll_circuit, _ = case.get_tracr_circuit(granularity="acdc_hooks")
+    tracr_ll_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
     edges_to_remove = set()
 
     for edge in circuit.edges:
@@ -182,36 +183,5 @@ def get_gt_circuit(
     for edge in edges_to_remove:
         # print(f"Removing edge {edge}")
         circuit.remove_edge(edge[0], edge[1])
-
-    return circuit
-#############################################################
-
-def build_acdc_circuit_from_list_corr(corr: list) -> Circuit:
-    circuit = Circuit()
-    raise NotImplementedError("This does not work yet.")
-
-    for corr_item in corr:
-        if len(corr_item) == 2:
-            corr_item = corr_item[0]
-        child_name, child_index, parent_name, parent_index = corr_item
-        parent_head_index = None
-        if (
-            parent_index is not None
-            and len(parent_index.hashable_tuple) > 2
-            and parent_index.hashable_tuple[2] is not None
-        ):
-            parent_head_index = parent_index.hashable_tuple[2]
-
-        child_head_index = None
-        if (
-            child_index is not None
-            and len(child_index.hashable_tuple) > 2
-            and child_index.hashable_tuple[2] is not None
-        ):
-            child_head_index = child_index.hashable_tuple[2]
-
-        from_node = CircuitNode(parent_name, parent_head_index)
-        to_node = CircuitNode(child_name, child_head_index)
-        circuit.add_edge(from_node, to_node)
 
     return circuit

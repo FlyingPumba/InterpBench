@@ -1,7 +1,7 @@
-from subnetwork_probing.train import NodeLevelMaskedTransformer
 from acdc.docstring.utils import AllDataThings
-import torch
+from subnetwork_probing.train import NodeLevelMaskedTransformer
 from subnetwork_probing.train import train_sp as train_node_sp
+
 
 def train_sp(
     args,

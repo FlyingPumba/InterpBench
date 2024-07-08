@@ -5,23 +5,21 @@ from typing import List, Literal, Any, Union, Callable, Optional, Dict
 import einops
 import jax.numpy as jnp
 import numpy as np
-import pandas as pd
 import torch as t
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import HookedTransformerConfig
+from transformer_lens import HookedTransformerConfig, HookedTransformer
 
-from circuits_benchmark.transformers.hooked_benchmark_transformer import HookedBenchmarkTransformer
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
 from tracr.transformer.encoder import CategoricalEncoder, Encoder
 
-HookedTracrTransformerBatchInput = List[List[Any]]
+HookedTracrTransformerBatchInput = List[List[Any]] | np.ndarray
 HookedTracrTransformerReturnType = Literal["logits", "decoded"]
 
 
-class HookedTracrTransformer(HookedBenchmarkTransformer):
+class HookedTracrTransformer(HookedTransformer):
   """A TransformerLens model built from a Tracr model."""
 
   def __init__(self,
@@ -29,13 +27,11 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
                tracr_input_encoder: Encoder,
                tracr_output_encoder: Encoder,
                residual_stream_labels: List[str],
-               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
                *args, **kwargs) -> None:
     """Converts a tracr model to a transformer_lens model.
     Inspired by https://github.com/neelnanda-io/TransformerLens/blob/main/demos/Tracr_to_Transformer_Lens_Demo.ipynb"""
     super().__init__(cfg=cfg, *args, **kwargs)
 
-    self.device = device
     self.tracr_input_encoder = tracr_input_encoder
     self.tracr_output_encoder = tracr_output_encoder
     self.residual_stream_labels = residual_stream_labels
@@ -43,6 +39,10 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
 
     if "use_hook_mlp_in" in self.cfg.to_dict():  # Tracr models always include MLPs
       self.set_use_hook_mlp_in(True)
+
+  @property
+  def device(self):
+    return self.cfg.device
 
   @classmethod
   def from_tracr_model(
@@ -55,11 +55,11 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
     Initialize a HookedTracrTransformer from a Tracr model.
     """
     cfg = cls.extract_tracr_config(tracr_model)
+    cfg.device = device
     tl_model = cls(cfg,
                    tracr_model.input_encoder,
                    tracr_model.output_encoder,
                    tracr_model.residual_labels,
-                   device,
                    *args, **kwargs)
     tl_model.load_weights_from_tracr_model(tracr_model)
 
@@ -84,7 +84,6 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
                    tl_model.tracr_input_encoder,
                    tl_model.tracr_output_encoder,
                    tl_model.residual_stream_labels,
-                   tl_model.device,
                     *args, **kwargs)
 
     if init_params_fn is not None:
@@ -98,14 +97,31 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
     """Loads the transformer weights from file."""
     self.load_state_dict(t.load(path, map_location=self.device))
 
+  def reset_parameters(self, init_fn: Callable[[Tensor], Tensor]):
+    """Resets all parameters in the model."""
+    for name, param in self.named_parameters():
+      init_fn(param)
+
   def __call__(self, *args, **kwargs):
     """Applies the internal transformer_lens model to an input."""
-    if isinstance(args[0], list) or isinstance(args[0], pd.Series):
+    first_arg = args[0]
+    if isinstance(first_arg, list) or isinstance(first_arg, np.ndarray):
       # Input is a HookedTracrTransformerBatchInput
       return self.run_tracr_input(*args, **kwargs)
+    elif isinstance(first_arg, tuple):
+      # Input is a tuple, e.g. the way IIT calls HL models. We take only the first element
+      return super().__call__(first_arg[0], **kwargs)
     else:
       # Input is a Tensor
       return super().__call__(*args, **kwargs)
+
+  def forward(self, *args, **kwargs):
+    """Applies the internal transformer_lens model to an input."""
+    first_arg = args[0]
+    if isinstance(first_arg, tuple):
+      # replace first_args with its first element. This is needed for IIT to work.
+      args = (first_arg[0],) + args[1:]
+    return super().forward(*args, **kwargs)
 
   def run_tracr_input(self, batch_input: HookedTracrTransformerBatchInput,
                       return_type: HookedTracrTransformerReturnType = "logits") -> HookedTracrTransformerBatchInput | \
@@ -125,7 +141,7 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
   def map_tracr_input_to_tl_input(self, batch_input: HookedTracrTransformerBatchInput) -> t.Tensor:
     """Maps a tracr input to a transformer_lens input."""
     encoding = [self.tracr_input_encoder.encode(input) for input in batch_input]
-    return t.tensor(encoding).to(self.device)
+    return t.tensor(encoding)
 
   def map_tl_output_to_tracr_output(self, logits: t.Tensor) -> HookedTracrTransformerBatchInput:
     """Maps a transformer_lens output to a tracr output."""
@@ -311,5 +327,4 @@ class HookedTracrTransformer(HookedBenchmarkTransformer):
          device_or_dtype: Union[t.device, str, t.dtype],
          print_details: bool = True):
     """Moves the model to a device and updates the device in the config."""
-    self.device = device_or_dtype
     return super().to(device_or_dtype, print_details=print_details)

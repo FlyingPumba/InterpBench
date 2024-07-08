@@ -14,14 +14,16 @@ def detect_project_root() -> str:
     # If the project root has already been detected, return it.
     return PROJECT_ROOT
 
-  current_path = os.path.abspath(os.path.curdir)
-  while not os.path.exists(os.path.join(current_path, "pyproject.toml")):
-    current_path = os.path.abspath(os.path.join(current_path, os.pardir))
+  # Get the absolute path of the current file
+  current_file_path = os.path.abspath(__file__)
 
-  PROJECT_ROOT = current_path
+  # Get the directory name of the current file
+  current_dir = os.path.dirname(current_file_path)
 
-  return current_path
+  # Traverse upwards until you reach the root directory (assumed to be two levels up)
+  PROJECT_ROOT = os.path.abspath(os.path.join(current_dir, '..', '..'))
 
+  return PROJECT_ROOT
 
 def get_default_output_dir() -> str:
   """

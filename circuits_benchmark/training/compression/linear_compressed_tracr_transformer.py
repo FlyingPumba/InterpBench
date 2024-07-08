@@ -21,7 +21,7 @@ LinearCompressedTracrTransformerInitialization = Literal["orthogonal", "linear"]
 linear_compression_initialization_options = list(typing.get_args(LinearCompressedTracrTransformerInitialization))
 
 
-class LinearCompressedTracrTransformer(HookedTracrTransformer):
+class LinearCompressedTracrTransformer(HookedTransformer):
   """ A transformer model with a linearly compressed residual stream.
   To train the model, we multiply with a matrix W when reading from the residual stream, and with W^T when writing to
   the residual stream.
@@ -31,24 +31,16 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
                tl_model: HookedTracrTransformer,
                residual_stream_compression_size: int,
                linear_compression_initialization: LinearCompressedTracrTransformerInitialization = "linear",
-               device: t.device = t.device("cuda") if t.cuda.is_available() else t.device("cpu"),
                *args, **kwargs):
-    super().__init__(
-      cfg=tl_model.cfg,
-      tracr_input_encoder=tl_model.tracr_input_encoder,
-      tracr_output_encoder=tl_model.tracr_output_encoder,
-      residual_stream_labels=tl_model.residual_stream_labels,
-      device=device,
-      *args, **kwargs)
+    super().__init__(cfg=tl_model.cfg, *args, **kwargs)
     self.original_residual_stream_size = tl_model.cfg.d_model
     self.residual_stream_compression_size = residual_stream_compression_size
-    self.device = device
 
     self.load_weights_from_tl_model(tl_model)
 
     self.W_compress: Linear = nn.Linear(self.residual_stream_compression_size,
                                         self.original_residual_stream_size,
-                                        device=self.device,
+                                        device=self.cfg.device,
                                         bias=False)
 
     if linear_compression_initialization == "orthogonal":
@@ -212,7 +204,6 @@ class LinearCompressedTracrTransformer(HookedTracrTransformer):
       self,
       overwrite_cfg_dict={"d_model": self.residual_stream_compression_size},
       init_params_fn=lambda x: init.kaiming_uniform_(x) if len(x.shape) > 1 else init.normal_(x, std=0.02),
-      remove_extra_tensor_cloning=False,
     )
 
     for name, param in self.folded_named_parameters():

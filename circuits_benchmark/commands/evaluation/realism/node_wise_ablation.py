@@ -1,20 +1,25 @@
-import torch
-from transformer_lens import HookedTransformer
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from argparse import Namespace
-from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.utils.iit import make_iit_hl_model, make_ll_cfg
-from circuits_benchmark.utils.iit.dataset import (
-    get_unique_data,
-    TracrIITDataset,
-    TracrUniqueDataset,
-)
-from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 import pickle
-import iit.model_pairs as mp
-from iit.utils import index
+from argparse import Namespace
+
+import torch
 import wandb
-from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
+from transformer_lens import HookedTransformer
+
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
+from circuits_benchmark.commands.common_args import add_common_args
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
+from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
+from circuits_benchmark.utils.iit.wandb_loader import (
+    load_model_from_wandb,
+    load_circuit_from_wandb,
+)
+from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
+from iit.model_pairs.nodes import LLNode
+from iit.utils import index, IITDataset
+from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
 
 
 def setup_args_parser(subparsers):
@@ -45,12 +50,10 @@ def setup_args_parser(subparsers):
         "--use-compressed", action="store_true", help="Use compressed models"
     )
     parser.add_argument("--tracr", action="store_true", help="Use tracr output")
-    parser.add_argument(
-        "--relative", type=int, default=1, help="Use relative scores"
-    )
+    parser.add_argument("--relative", type=int, default=1, help="Use relative scores")
     parser.add_argument(
         "--algorithm",
-        choices=["acdc", "edge_sp", "node_sp"],
+        choices=["acdc", "edge_sp", "node_sp", "eap"],
         default="acdc",
         help="Algorithm to use",
     )
@@ -63,58 +66,61 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--load-from-wandb", action="store_true", help="Load model from wandb"
     )
+    parser.add_argument(
+        "--same-size", action="store_true", help="Use same size for ll model"
+    )
 
 
-def make_edges_path(case: BenchmarkCase, args: Namespace):
-    root_dir = f"./results/{args.algorithm}_{case.get_index()}"
+def make_result_path(case: BenchmarkCase, args: Namespace):
+    root_dir = f"./results/{args.algorithm}_{case.get_name()}"
     if not args.use_compressed:
         if args.tracr:
             root_dir += "/weight_tracr"
         else:
             root_dir += f"/weight_{args.weights}"
     if args.algorithm == "acdc":
-        return f"{root_dir}/threshold_{args.threshold}/edges.pkl"
+        return f"{root_dir}/threshold_{args.threshold}/result.pkl"
     elif args.algorithm in ["edge_sp", "node_sp"]:
-        return f"{root_dir}/lambda_{args.lambda_reg}/edges.pkl"
+        return f"{root_dir}/lambda_{args.lambda_reg}/result.pkl"
     raise ValueError(f"Invalid algorithm: {args.algorithm}")
 
 
 def make_nodes_to_ablate(
-    tl_model: HookedTransformer, edges: list, threshold: float, verbose=False
+    tl_model: HookedTransformer, hypothesis_nodes: list, threshold: float, verbose=False
 ):
     show = lambda *args, **kwargs: print(*args, **kwargs) if verbose else None
     attn = [
-        mp.LLNode(f"blocks.{layer}.attn.hook_result", index.Ix[:, :, head])
+        # LLNode(f"blocks.{layer}.attn.hook_result", index.Ix[:, :, head])
+        CircuitNode(f"blocks.{layer}.attn.hook_result", head)
         for layer in range(tl_model.cfg.n_layers)
         for head in range(tl_model.cfg.n_heads)
     ]
     mlps = [
-        mp.LLNode(f"blocks.{layer}.hook_mlp_out", index.Ix[[None]])
+        # LLNode(f"blocks.{layer}.hook_mlp_out", index.Ix[[None]])
+        CircuitNode(f"blocks.{layer}.hook_mlp_out", None)
         for layer in range(tl_model.cfg.n_layers)
     ]
-    nodes = attn + mlps
-    for edge, score in edges:
-        if score is not None and score > threshold:
-            from_node = mp.LLNode(edge[0], index.TorchIndex(edge[1].as_index))
-            to_node = mp.LLNode(edge[2], index.TorchIndex(edge[3].as_index))
-            # find the nodes in the list and remove them
-            if from_node in nodes:
-                show(f"Not ablating node: {from_node}")
-                nodes.remove(from_node)
-                assert from_node.name in tl_model.hook_dict.keys(), ValueError(
-                    f"{from_node.name} not in {tl_model.hook_dict.keys()}"
-                )
-            else:
-                show(f"Node {from_node} not in list")
-            if to_node in nodes:
-                show(f"Not ablating node: {to_node}")
-                nodes.remove(to_node)
-                assert to_node.name in tl_model.hook_dict.keys(), ValueError(
-                    f"{to_node.name} not in {tl_model.hook_dict.keys()}"
-                )
-            else:
-                show(f"Node {to_node} not in list")
-    return nodes
+    nodes_to_ablate = Circuit()
+    for node in attn + mlps:
+        nodes_to_ablate.add_node(node)
+
+    for node in hypothesis_nodes:
+        if node in nodes_to_ablate:
+            show(f"Not ablating node: {node}")
+            nodes_to_ablate.remove_node(node)
+            assert node.name in tl_model.hook_dict.keys(), ValueError(
+                f"{node.name} not in {tl_model.hook_dict.keys()}"
+            )
+        else:
+            show(f"Node {node} not in list")
+
+    ll_nodes_to_ablate = []
+    for node in nodes_to_ablate:
+        if "attn" in node.name:
+            ll_nodes_to_ablate.append(LLNode(node.name, index.Ix[:, :, node.index]))
+        else:
+            ll_nodes_to_ablate.append(LLNode(node.name, index.Ix[[None]]))
+    return ll_nodes_to_ablate
 
 
 def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
@@ -123,43 +129,73 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     use_mean_cache = args.mean
     use_wandb = args.use_wandb
 
-    hl_model = case.build_transformer_lens_model()
-    hl_model = make_iit_hl_model(hl_model, eval_mode=True)
-    tracr_output = case.get_tracr_output()
+    hl_model = case.get_hl_model()
+    if isinstance(hl_model, HookedTracrTransformer):
+        hl_model = IITHLModel(hl_model, eval_mode=True)
 
-    ll_cfg = make_ll_cfg(hl_model)
     if args.tracr:
-        model = case.get_tl_model()
+        model = case.get_hl_model()
     else:
         if args.load_from_wandb:
-            load_model_from_wandb(case.get_index(), weight, output_dir)
+            load_model_from_wandb(
+                case.get_name(), weight, output_dir, same_size=args.same_size
+            )
+        # make ll cfg
+        try:
+            ll_cfg = pickle.load(
+                open(
+                    f"{args.output_dir}/ll_models/{case.get_name()}/ll_model_cfg_{weight}.pkl",
+                    "rb",
+                )
+            )
+        except FileNotFoundError:
+            ll_cfg = case.get_ll_model_cfg(
+                same_size=args.same_size
+            )
+        ll_cfg['device'] = args.device
         model = HookedTransformer(ll_cfg)
         model.load_state_dict(
             torch.load(
-                f"{output_dir}/ll_models/{case.get_index()}/ll_model_{weight}.pth",
+                f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth",
                 map_location=args.device,
             )
         )
 
-    model_pair = mp.IITBehaviorModelPair(
+    model_pair = IITBehaviorModelPair(
         hl_model=hl_model,
         ll_model=model,
         corr={},
         training_args={},
     )
 
-    unique_test_data = get_unique_data(case, max_len=100_000)
-    test_set = TracrUniqueDataset(
-        unique_test_data, unique_test_data, hl_model, every_combination=True
-    )
+    unique_dataset = case.get_clean_data(max_samples=100_000, unique_data=True)
+    test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
     mean_cache = None
     if use_mean_cache:
-        mean_cache = get_mean_cache(
-            model_pair, test_set, batch_size=args.batch_size
+        mean_cache = get_mean_cache(model_pair, unique_dataset, batch_size=args.batch_size)
+    if args.load_from_wandb:
+        hyperparam = (
+            args.lambda_reg
+            if args.algorithm in ["edge_sp", "node_sp"]
+            else args.threshold
         )
-    edges_path = make_edges_path(case, args)
-    edges = pickle.load(open(edges_path, "rb"))
-    nodes_to_ablate = make_nodes_to_ablate(model, edges, args.threshold)
+        result_file = load_circuit_from_wandb(
+            case.get_name(),
+            args.algorithm,
+            hyperparam=str(hyperparam),
+            weights=weight,
+            output_dir=output_dir,
+            same_size=args.same_size,
+        )
+        result = pickle.load(open(output_dir + "/" + result_file.name, "rb"))
+    else:
+        result_path = make_result_path(case, args)
+        # edges = pickle.load(open(edges_path, "rb"))
+        result = pickle.load(open(result_path, "rb"))
+    nodes_in_hypothesis = list(
+        result["nodes"]["true_positive"] | result["nodes"]["false_positive"]
+    )
+    nodes_to_ablate = make_nodes_to_ablate(model, nodes_in_hypothesis, args.threshold)
     print("Ablating nodes: ", *nodes_to_ablate, sep="\n")
     score = get_circuit_score(
         model_pair,
@@ -175,12 +211,20 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
 
     if use_wandb:
         group = (
-            f"{args.algorithm}_{case.get_index()}_{args.weights}"
+            f"{args.algorithm}_{case.get_name()}_{args.weights}"
             if not args.tracr
-            else f"{args.algorithm}_{case.get_index()}_tracr"
+            else f"{args.algorithm}_{case.get_name()}_tracr"
         )
-        name = f"{args.threshold}" if args.algorithm == "acdc" else f"{args.lambda_reg}" if args.algorithm in ["edge_sp", "node_sp"] else ""
+        name = (
+            f"{args.threshold}"
+            if args.algorithm == "acdc"
+            else (
+                f"{args.lambda_reg}" if args.algorithm in ["edge_sp", "node_sp"] else ""
+            )
+        )
         wandb.init(
-            project="node_realism", group=group, name=name
+            project=f"node_realism{'_same_size' if args.same_size else ''}",
+            group=group,
+            name=name,
         )
         wandb.log({"score": score})
