@@ -75,6 +75,9 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--sweep-config-file", type=str, help="Sweep config file", default=None
     )
+    parser.add_argument(
+        "--backprop-on-cache", action="store_true", help="Don't detach while caching"
+    )
 
     # IOI specific args
     parser.add_argument(
@@ -141,6 +144,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "seed": {"values": [args.seed]},
                 "batch_size": {"values": [args.batch_size]},
                 "include_mlp": {"values": [args.include_mlp]},
+                "detach_while_caching": {"values": [not args.backprop_on_cache]},
             },
         }
         sweep_id = wandb.sweep(
@@ -168,6 +172,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "seed": args.seed,
             "batch_size": args.batch_size,
             "include_mlp": args.include_mlp,
+            "detach_while_caching": not args.backprop_on_cache,
         }
 
         args = argparse.Namespace(**config)
@@ -238,6 +243,7 @@ def train_model(
         "iit_weight": args.iit_weight,
         "strict_weight": args.strict_weight,
         "use_single_loss": args.use_single_loss,
+        "detach_while_caching": args.detach_while_caching,
     }
 
     ll_model = case.get_ll_model(same_size=args.same_size)
