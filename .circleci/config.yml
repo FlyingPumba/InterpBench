@@ -5,6 +5,7 @@ orbs:
 
 jobs:
   test:
+    working_directory: /mnt/ramdisk
     docker:
       - image: cimg/python:3.11.6
     steps:
@@ -26,6 +27,7 @@ jobs:
       - store_test_results:
           path: junit.xml
   deploy:
+    working_directory: /mnt/ramdisk
     docker:
       - image: cimg/python:3.11.6
     steps:
