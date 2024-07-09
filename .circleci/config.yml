@@ -30,7 +30,8 @@ jobs:
       - image: cimg/python:3.11.6
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: Add GitHub as known host
           command: mkdir -p ~/.ssh && ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
