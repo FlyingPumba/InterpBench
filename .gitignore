@@ -12,3 +12,11 @@ rough_*
 *.csv
 .DS_Store
 wandb
+TODO.md
+*.pdf
+*results*
+iit
+acdc
+submodules/
+tracr
+subnetwork_probing

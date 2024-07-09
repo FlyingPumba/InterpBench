@@ -1,0 +1,36 @@
+# runner.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {NAME}
+  labels:
+    kueue.x-k8s.io/queue-name: farai
+spec:
+  suspend: true
+  ttlSecondsAfterFinished: 100
+  template:
+    metadata:
+      name: {NAME}
+    spec:
+      priorityClassName: {PRIORITY}
+      containers:
+      - name: devbox-container
+        image: cybershiptrooper/db_fresh_circuits:latest 
+        command: {COMMAND}
+        resources:
+          requests:
+            cpu: {CPU}
+          limits:
+            memory: {MEMORY}
+            nvidia.com/gpu: {GPU}
+        env:
+          - name: OMP_NUM_THREADS
+            value: {OMP_NUM_THREADS}
+          - name: WANDB_DISABLE_SERVICE
+            value: "true"
+          - name: WANDB_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: wandb
+                key: api_key
+      restartPolicy: Never
