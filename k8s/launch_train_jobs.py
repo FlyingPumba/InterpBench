@@ -27,6 +27,10 @@ def build_commands():
   for case in case_instances:
     case_name = case.get_name()
 
+    if case_name == "27":
+      # Skip case 27 since it has the same output for all inputs when using fixed length sequences
+      continue
+
     if "ioi" in case_name:
       gt_model_cfg = case.get_ll_model().cfg
     else:
