@@ -42,7 +42,8 @@ class CompressedTracrTransformerTrainer(GenericTrainer):
       self.epochs_since_last_test_resample_ablation_loss = self.args.resample_ablation_loss_epochs_gap
 
   def setup_dataset(self):
-    dataset = self.case.get_clean_data(min_samples=self.args.min_train_samples, max_samples=self.args.max_train_samples)
+    dataset = self.case.get_clean_data(min_samples=self.args.min_train_samples,
+                                            max_samples=self.args.max_train_samples)
     train_dataset, test_dataset = train_test_split(
       dataset, test_size=self.args.test_data_ratio, random_state=42
     )

@@ -22,7 +22,7 @@ class AutoEncoderTrainer(GenericTrainer):
                autoencoder: AutoEncoder,
                tl_model: LLModel,
                args: TrainingArgs,
-               activations_cache: ActivationCache | None = None,
+               activations_cache: ActivationCache,
                hook_name_filter_for_input_activations: str | None = None,
                output_dir: str | None = None):
     self.autoencoder = autoencoder
@@ -33,12 +33,6 @@ class AutoEncoderTrainer(GenericTrainer):
     super().__init__(case, list(autoencoder.parameters()), args, output_dir=output_dir)
 
   def setup_dataset(self):
-    if self.activations_cache is None:
-      tl_dataset = self.case.get_clean_data(min_samples=self.args.min_train_samples,
-                                            max_samples=self.args.max_train_samples)
-      tl_inputs = tl_dataset.get_inputs()
-      _, self.activations_cache = self.tl_model.run_with_cache(tl_inputs)
-
     named_data = {}
 
     if self.hook_name_for_input_activations is None:
