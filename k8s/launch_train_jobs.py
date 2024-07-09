@@ -136,11 +136,15 @@ def build_commands():
 
 def create_jobs() -> List[str]:
   jobs = []
-  priority = "cpu-normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
-  cpu = 8
-  memory = "8Gi"
-  gpu = 0
+  cpu = 12
+  memory = "32Gi"
+  gpu = 1
+
+  if gpu == 0:
+    priority = "cpu-normal-batch"
+  else:
+    priority = "normal-batch"  # Options are: "low-batch", "normal-batch", "high-batch"
 
   commands = build_commands()
 
