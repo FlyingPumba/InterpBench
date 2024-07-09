@@ -42,7 +42,7 @@ def build_commands():
     compressed_d_model_size_by_case[case_name] = compressed_d_model_size
 
     # Decide compressed d_head size
-    compressed_d_head_size_by_case[case_name] = max(1, compressed_d_model_size // gt_model_cfg.n_heads)
+    compressed_d_head_size_by_case[case_name] = min(gt_model_cfg.d_head, max(1, compressed_d_model_size // gt_model_cfg.n_heads))
 
     cases.append(case_name)
 
