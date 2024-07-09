@@ -1,0 +1,4 @@
+python experiments/get_node_sp_results.py
+python experiments/get_acdc_results.py
+python experiments/get_acdc_results_SL.py
+python experiments/get_edge_sp_results.py

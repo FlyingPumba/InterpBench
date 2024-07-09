@@ -3,8 +3,7 @@ from transformer_lens import ActivationCache
 from fancy_einsum import einsum
 import iit.utils.index as index
 import torch
-import iit.model_pairs as mp
-from dataclasses import dataclass
+from iit.model_pairs.base_model_pair import BaseModelPair
 
 
 def residual_stack_to_logit_diff(
@@ -23,7 +22,7 @@ def residual_stack_to_logit_diff(
     )
 
 
-def do_logit_lens(model_pair: mp.BaseModelPair, loader: torch.utils.data.DataLoader):
+def do_logit_lens(model_pair: BaseModelPair, loader: torch.utils.data.DataLoader):
     model = model_pair.ll_model
     logit_lens_results = {}
     labels = None
@@ -94,34 +93,82 @@ def do_logit_lens(model_pair: mp.BaseModelPair, loader: torch.utils.data.DataLoa
         else:
             labels = batch_label
 
-    logit_lens_results.keys()
     return logit_lens_results, labels
 
 
-# @dataclass
-# class TunedLensConfig:
-#     """
-#     Configuration for trainin tuned lens maps
+def do_logit_lens_per_vocab_idx(model_pair: BaseModelPair, loader: torch.utils.data.DataLoader):
+    model = model_pair.ll_model
+    logit_lens_results = {}
+    labels = {}
+    for i in range(model.cfg.d_vocab_out):
+        labels[i] = None
 
-#     Args:
-#         num_epochs: number of epochs to train
-#         lr: learning rate
-#         from_activation: whether to train from activations. If False, train from resid stacks (default: True)
-#         to_logits: whether to train to logits. If False, train to hook_resid_post of final layer (default: True)
-#         pos_slice: slice to apply to the positional dimension. Default is to exclude the BOS token (slice(1, None, None))
-#     """
+    assert model_pair.hl_model.is_categorical()
+    for batch in loader:
+        original_logits, cache = model.run_with_cache(batch)
+        pos_slice = slice(1, None, None)
+        pos_idx = index.Ix[:, 1:]
+        # get residual stack for each layer and head
+        per_layer_residual, layers = cache.decompose_resid(
+            -1, mode="mlp", return_labels=True, pos_slice=pos_slice
+        )
+        per_head_residual, attns = cache.stack_head_results(
+            layer=-1, pos_slice=pos_slice, return_labels=True
+        )
+        per_layer_scaled_residual_stack = cache.apply_ln_to_stack(
+            per_layer_residual, layer=-1, pos_slice=pos_slice
+        )
+        per_head_scaled_residual_stack = cache.apply_ln_to_stack(
+            per_head_residual, layer=-1, pos_slice=pos_slice
+        )
+        logit_diff_directions = model.unembed.W_U.T # d_model, d_vocab_out
+        # make batch, pos, d_model, d_vocab_out by expanding
+        batch_dims = per_layer_scaled_residual_stack.shape[1]
+        pos_dims = per_layer_scaled_residual_stack.shape[2]
+        logit_diff_directions = logit_diff_directions.unsqueeze(0).unsqueeze(1).expand(
+            batch_dims, pos_dims, -1, -1
+        )
+        # logit lens
+        per_layer_logit_diffs = einsum(
+            "... batch pos d_model, batch pos d_vocab_out d_model -> ... batch pos d_vocab_out",
+            per_layer_scaled_residual_stack,
+            logit_diff_directions
+        )
+        per_head_logit_diffs = einsum(
+            "... batch pos d_model, batch pos d_vocab_out d_model -> ... batch pos d_vocab_out",
+            per_head_scaled_residual_stack,
+            logit_diff_directions
+        )
+        for i in range(model.cfg.d_vocab_out):
+            per_layer_logit_diff = per_layer_logit_diffs[..., i]
+            per_head_logit_diff = per_head_logit_diffs[..., i]
+            
+            label = original_logits[pos_idx.as_index][:, :, i]
+            # store results
+            for layer, logit_diff in zip(layers, per_layer_logit_diff):
+                if layer not in logit_lens_results:
+                    logit_lens_results[layer] = {}
+                if i not in logit_lens_results[layer]:
+                    logit_lens_results[layer][i] = logit_diff
+                else:
+                    # stack the results at dim 0
+                    logit_lens_results[layer][i] = torch.cat(
+                        [logit_lens_results[layer][i], logit_diff], dim=0
+                    )
+            
+            for attn, logit_diff in zip(attns, per_head_logit_diff):
+                if attn not in logit_lens_results:
+                    logit_lens_results[attn] = {}
+                if i not in logit_lens_results[attn]:
+                    logit_lens_results[attn][i] = logit_diff
+                else:
+                    logit_lens_results[attn][i] = torch.cat(
+                        [logit_lens_results[attn][i], logit_diff], dim=0
+                    )
+            
+            if labels[i] is not None:
+                labels[i] = torch.cat([labels[i], label], dim=0)
+            else:
+                labels[i] = label
 
-#     num_epochs: int
-#     lr: float
-#     from_activation: bool = True
-#     to_logits: bool = True
-#     pos_slice: slice = slice(1, None, None)
-
-
-# def do_tuned_lens(
-#     model_pair: mp.BaseModelPair,
-#     loader: torch.utils.data.DataLoader,
-#     config: TunedLensConfig = TunedLensConfig(3, 1e-3),
-# ):
-#     # make translator linear maps for each node
-#     pass
+    return logit_lens_results, labels
