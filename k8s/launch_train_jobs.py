@@ -141,8 +141,8 @@ def build_commands():
 def create_jobs() -> List[str]:
   jobs = []
 
-  cpu = 12
-  memory = "32Gi"
+  cpu = 4
+  memory = "8Gi"
   gpu = 1
 
   if gpu == 0:
