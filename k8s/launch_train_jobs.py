@@ -32,6 +32,10 @@ def build_commands():
       continue
 
     if "ioi" in case_name:
+      # Skip ioi cases since they don't work yet with non-linear compression
+      continue
+
+    if "ioi" in case_name:
       gt_model_cfg = case.get_ll_model().cfg
     else:
       gt_model_cfg = case.get_hl_model().cfg
