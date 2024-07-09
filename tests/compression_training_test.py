@@ -28,8 +28,9 @@ class TrainTest(unittest.TestCase):
                                                     "--max-train-samples=10",
                                                     "--min-train-samples=10",
                                                     "--test-data-ratio=0.3",
-                                                    "--ae-epochs=2",
                                                     "--epochs=1",
+                                                    "--ae-epochs=2",
+                                                    "--ae-max-train-samples=5",
                                                     "--resample-ablation-test-loss=True",
                                                     "--resample-ablation-max-interventions=1",
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
