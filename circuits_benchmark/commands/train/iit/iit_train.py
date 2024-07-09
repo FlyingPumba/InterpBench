@@ -57,6 +57,18 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--same-size", action="store_true", help="Use same size for ll model"
     )
+    parser.add_argument(
+        "--seed", type=int, default=0, help="Random seed"
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=64, help="Batch size"
+    )
+    parser.add_argument(
+        "--include-mlp", action="store_true", help="Include MLP"
+    )
+    parser.add_argument(
+        "--backprop-on-cache", action="store_true", help="Backprop on cache"
+    )
 
 
 
@@ -124,6 +136,10 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "lr_scheduler": {"values": ["plateau", ""]},
                 "model_pair": {"values": ["freeze", "strict_iit", "stop_grad"]},
                 "same_size": {"values": [args.same_size]},
+                "seed": {"values": [args.seed]},
+                "batch_size": {"values": [args.batch_size]},
+                "include_mlp": {"values": [args.include_mlp]},
+                "detach_while_caching": {"values": [not args.backprop_on_cache]},
             },
         }
         sweep_id = wandb.sweep(
@@ -148,6 +164,10 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "lr_scheduler": "",
             "model_pair": args.model_pair,
             "same_size": args.same_size,
+            "seed": args.seed,
+            "batch_size": args.batch_size,
+            "include_mlp": args.include_mlp,
+            "detach_while_caching": not args.backprop_on_cache,
         }
 
         args = argparse.Namespace(**config)
