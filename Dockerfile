@@ -14,7 +14,7 @@ ENV POETRY_NO_INTERACTION=1 \
 RUN pip install pipx && \
     pipx install "poetry==$POETRY_VERSION" && \
     apt-get update -q && \
-    apt-get install -y --no-install-recommends libgl1-mesa-glx graphviz graphviz-dev tmux && \
+    apt-get install -y --no-install-recommends libgl1-mesa-glx graphviz graphviz-dev libgl1 tmux && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
