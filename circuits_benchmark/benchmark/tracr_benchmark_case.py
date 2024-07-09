@@ -20,6 +20,7 @@ from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
+from circuits_benchmark.benchmark.tracr_encoded_dataset import TracrEncodedDataset
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.metrics.validation_metrics import l2_metric, kl_metric
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer, \
@@ -138,7 +139,7 @@ class TracrBenchmarkCase(BenchmarkCase):
                      seed: Optional[int] = 42,
                      unique_data: Optional[bool] = False,
                      variable_length_seqs: Optional[bool] = False,
-                     encoded_dataset: bool = True) -> TracrDataset:
+                     encoded_dataset: bool = True) -> TracrDataset | TracrEncodedDataset:
     """Returns clean data for the benchmark case.
     If the number of unique datapoints is between min_samples and max_samples, returns all possible unique datapoints.
     Otherwise, returns a random sample of max_samples datapoints."""
@@ -195,10 +196,10 @@ class TracrBenchmarkCase(BenchmarkCase):
     # shuffle input_data and output_data maintaining the correspondence between input and output
     indices = np.arange(len(input_data))
     np.random.shuffle(indices)
-    input_data = [input_data[i] for i in indices]
+    input_data: HookedTracrTransformerBatchInput = [input_data[i] for i in indices]
     output_data = [output_data[i] for i in indices]
 
-    tracr_dataset = TracrDataset(np.array(input_data), np.array(output_data), self.get_hl_model())
+    tracr_dataset = TracrDataset(input_data, output_data, self.get_hl_model())
 
     if encoded_dataset:
       return tracr_dataset.get_encoded_dataset()
@@ -221,7 +222,7 @@ class TracrBenchmarkCase(BenchmarkCase):
                          min_samples: Optional[int] = 10,
                          max_samples: Optional[int] = 10,
                          seed: Optional[int] = 43,
-                         unique_data: Optional[bool] = False) -> TracrDataset:
+                         unique_data: Optional[bool] = False) -> TracrDataset | TracrEncodedDataset:
     """Returns the corrupted data for the benchmark case.
     Default implementation: re-generate clean data with a different seed."""
     return self.get_clean_data(min_samples=min_samples, max_samples=max_samples, seed=seed, unique_data=unique_data)

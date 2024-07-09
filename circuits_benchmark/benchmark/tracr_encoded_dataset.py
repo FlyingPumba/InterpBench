@@ -8,9 +8,7 @@ from circuits_benchmark.benchmark.case_dataset import CaseDataset
 class TracrEncodedDataset(CaseDataset):
   """Same as TracrDataset, but with encoded inputs and outputs (i.e., tensors instead of numpy arrays)."""
 
-  def __init__(self,
-               inputs: Tensor,
-               targets: Tensor):
+  def __init__(self, inputs: Tensor, targets: Tensor):
     self.inputs = inputs
     self.targets = targets
 
