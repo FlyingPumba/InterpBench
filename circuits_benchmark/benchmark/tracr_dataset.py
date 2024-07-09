@@ -1,22 +1,23 @@
 from __future__ import annotations
 
-import numpy as np
+from typing import List, Any, Optional
+
 import torch as t
 from torch.utils.data import DataLoader
 
 from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.benchmark.tracr_encoded_dataset import TracrEncodedDataset
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 
+TracrBatchInput = List[List[Any]]
 
 class TracrDataset(CaseDataset):
   def __init__(self,
-               inputs: np.ndarray,
-               targets: np.ndarray,
-               hl_model: HookedTracrTransformer | None = None):
+               inputs: TracrBatchInput,
+               targets: TracrBatchInput,
+               hl_model: Optional["HookedTracrTransformer"] = None):
     self.inputs = inputs
     self.targets = targets
-    assert inputs.shape == targets.shape
+    assert len(inputs) == len(targets)
     self.hl_model = hl_model
 
   def __len__(self):
