@@ -32,8 +32,6 @@ jobs:
       - run:
           name: Add GitHub as known host
           command: mkdir -p ~/.ssh && ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-      - python/install-packages:
-          pkg-manager: poetry
       - run:
           name: Build Docker image
           command: docker build . -t iarcuschin/circuits-benchmark
