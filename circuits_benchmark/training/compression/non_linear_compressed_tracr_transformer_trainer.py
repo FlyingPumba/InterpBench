@@ -7,7 +7,6 @@ import wandb
 from iit.model_pairs.ll_model import LLModel
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
