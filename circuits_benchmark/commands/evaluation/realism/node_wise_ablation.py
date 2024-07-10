@@ -1,38 +1,29 @@
 import pickle
 from argparse import Namespace
 
-import torch
-import wandb
 from transformer_lens import HookedTransformer
 
+import wandb
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
-from circuits_benchmark.commands.common_args import add_common_args
-from circuits_benchmark.utils.circuit.circuit import Circuit
-from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
+from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
+from circuits_benchmark.utils.circuit.circuit import Circuit
+from circuits_benchmark.utils.circuit.circuit_eval import CircuitEvalResult
+from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
-from circuits_benchmark.utils.iit.wandb_loader import (
-    load_model_from_wandb,
-    load_circuit_from_wandb,
-)
+from circuits_benchmark.utils.iit.wandb_loader import load_circuit_from_wandb
+from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import LLModelLoader, get_ll_model_loader_from_args
 from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
 from iit.model_pairs.nodes import LLNode
-from iit.utils import index, IITDataset
-from iit.utils.eval_ablations import get_mean_cache, get_circuit_score
+from iit.utils import IITDataset, index
+from iit.utils.eval_ablations import get_circuit_score, get_mean_cache
 
 
 def setup_args_parser(subparsers):
     parser = subparsers.add_parser("node_realism")
     add_common_args(parser)
+    add_evaluation_common_ags(parser)
 
-    parser.add_argument(
-        "-w",
-        "--weights",
-        type=str,
-        default="510",
-        help="IIT, behavior, strict weights",
-    )
     parser.add_argument(
         "-m",
         "--mean",
@@ -46,10 +37,6 @@ def setup_args_parser(subparsers):
         "-t", "--threshold", type=float, default=0.025, help="Threshold"
     )
     parser.add_argument("--lambda-reg", type=float, default=1.0, help="Regularization")
-    parser.add_argument(
-        "--use-compressed", action="store_true", help="Use compressed models"
-    )
-    parser.add_argument("--tracr", action="store_true", help="Use tracr output")
     parser.add_argument("--relative", type=int, default=1, help="Use relative scores")
     parser.add_argument(
         "--algorithm",
@@ -63,21 +50,10 @@ def setup_args_parser(subparsers):
         action="store_true",
         help="Use wandb for logging",
     )
-    parser.add_argument(
-        "--load-from-wandb", action="store_true", help="Load model from wandb"
-    )
-    parser.add_argument(
-        "--same-size", action="store_true", help="Use same size for ll model"
-    )
 
 
-def make_result_path(case: BenchmarkCase, args: Namespace):
-    root_dir = f"./results/{args.algorithm}_{case.get_name()}"
-    if not args.use_compressed:
-        if args.tracr:
-            root_dir += "/weight_tracr"
-        else:
-            root_dir += f"/weight_{args.weights}"
+def make_result_path(case: BenchmarkCase, args: Namespace, ll_model_loader: LLModelLoader):
+    root_dir = f"./results/{args.algorithm}/{case.get_name()}/{ll_model_loader.get_output_suffix()}"
     if args.algorithm == "acdc":
         return f"{root_dir}/threshold_{args.threshold}/result.pkl"
     elif args.algorithm in ["edge_sp", "node_sp"]:
@@ -125,7 +101,6 @@ def make_nodes_to_ablate(
 
 def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     output_dir = args.output_dir
-    weight = args.weights
     use_mean_cache = args.mean
     use_wandb = args.use_wandb
 
@@ -133,37 +108,14 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     if isinstance(hl_model, HookedTracrTransformer):
         hl_model = IITHLModel(hl_model, eval_mode=True)
 
-    if args.tracr:
-        model = case.get_hl_model()
-    else:
-        if args.load_from_wandb:
-            load_model_from_wandb(
-                case.get_name(), weight, output_dir, same_size=args.same_size
-            )
-        # make ll cfg
-        try:
-            ll_cfg = pickle.load(
-                open(
-                    f"{args.output_dir}/ll_models/{case.get_name()}/ll_model_cfg_{weight}.pkl",
-                    "rb",
-                )
-            )
-        except FileNotFoundError:
-            ll_cfg = case.get_ll_model_cfg(
-                same_size=args.same_size
-            )
-        ll_cfg['device'] = args.device
-        model = HookedTransformer(ll_cfg)
-        model.load_state_dict(
-            torch.load(
-                f"{output_dir}/ll_models/{case.get_name()}/ll_model_{weight}.pth",
-                map_location=args.device,
-            )
-        )
+    ll_model_loader = get_ll_model_loader_from_args(case, args)
+    _, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir, same_size=args.same_size)
+    ll_model.eval()
+    ll_model.requires_grad_(False)
 
     model_pair = IITBehaviorModelPair(
         hl_model=hl_model,
-        ll_model=model,
+        ll_model=ll_model,
         corr={},
         training_args={},
     )
@@ -183,19 +135,19 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
             case.get_name(),
             args.algorithm,
             hyperparam=str(hyperparam),
-            weights=weight,
+            weights=ll_model_loader.get_output_suffix(),
             output_dir=output_dir,
             same_size=args.same_size,
         )
         result = pickle.load(open(output_dir + "/" + result_file.name, "rb"))
     else:
-        result_path = make_result_path(case, args)
-        # edges = pickle.load(open(edges_path, "rb"))
-        result = pickle.load(open(result_path, "rb"))
+        result_path = make_result_path(case, args, ll_model_loader)
+        print(f"Loading result from {result_path}")
+        result: CircuitEvalResult = pickle.load(open(result_path, "rb"))
     nodes_in_hypothesis = list(
-        result["nodes"]["true_positive"] | result["nodes"]["false_positive"]
+        result.nodes.true_positive | result.nodes.false_positive
     )
-    nodes_to_ablate = make_nodes_to_ablate(model, nodes_in_hypothesis, args.threshold)
+    nodes_to_ablate = make_nodes_to_ablate(ll_model, nodes_in_hypothesis, args.threshold)
     print("Ablating nodes: ", *nodes_to_ablate, sep="\n")
     score = get_circuit_score(
         model_pair,
@@ -210,11 +162,7 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     print(f"Score: {score}")
 
     if use_wandb:
-        group = (
-            f"{args.algorithm}_{case.get_name()}_{args.weights}"
-            if not args.tracr
-            else f"{args.algorithm}_{case.get_name()}_tracr"
-        )
+        group = f"{args.algorithm}_{case.get_name()}_{ll_model_loader.get_output_suffix()}"
         name = (
             f"{args.threshold}"
             if args.algorithm == "acdc"
@@ -222,8 +170,10 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
                 f"{args.lambda_reg}" if args.algorithm in ["edge_sp", "node_sp"] else ""
             )
         )
+        project = "node_realism_same_size" if args.same_size else "node_realism"
+        
         wandb.init(
-            project=f"node_realism{'_same_size' if args.same_size else ''}",
+            project=project,
             group=group,
             name=name,
         )
