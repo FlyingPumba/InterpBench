@@ -47,8 +47,7 @@ workflows:
       - test:
           filters:
             branches:
-              only:
-                - main
+              ignore: /.*experiment$/
       - deploy:
           filters:
             branches:
