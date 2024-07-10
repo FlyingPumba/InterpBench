@@ -69,7 +69,7 @@ class SIITModelLoader(LLModelLoader):
       )
     except FileNotFoundError:
       ll_cfg = self.case.get_ll_model_cfg(same_size=same_size, *args, **kwargs)
-
+    ll_cfg["device"] = device
     ll_model = HookedTransformer(ll_cfg)
     hl_ll_corr = self.case.get_correspondence(*args, **kwargs)
 
