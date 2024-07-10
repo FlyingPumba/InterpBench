@@ -10,11 +10,11 @@ ENV POETRY_NO_INTERACTION=1 \
     POETRY_CACHE_DIR=/tmp/poetry_cache \
     POETRY_VERSION=1.7.1
 
-# Install pipx, Poetry and other dependencies
+# Install pipx, Poetry and dependencies for poetry install
 RUN pip install pipx && \
     pipx install "poetry==$POETRY_VERSION" && \
     apt-get update -q && \
-    apt-get install -y --no-install-recommends libgl1-mesa-glx graphviz graphviz-dev tmux && \
+    apt-get install -y --no-install-recommends libgl1-mesa-glx graphviz graphviz-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -26,6 +26,14 @@ RUN touch README.md
 RUN --mount=type=cache,target=$POETRY_CACHE_DIR /root/.local/bin/poetry install --no-root
 
 FROM python:3.11-slim-buster as runtime
+
+# Install runtime dependencies
+RUN apt-get update -q && \
+    apt-get install -y --no-install-recommends libgl1-mesa-glx graphviz graphviz-dev tmux && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /circuits-benchmark
 
 ENV VIRTUAL_ENV=/circuits-benchmark/.venv \
     PATH="/circuits-benchmark/.venv/bin:/root/.local/bin/:$PATH"

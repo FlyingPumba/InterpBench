@@ -45,9 +45,11 @@ def setup_args_parser(subparsers):
   parser.add_argument("--ae-epochs", type=int, default=70,
                       help="The number of epochs to use for initial autoencoder training.")
   parser.add_argument("--ae-batch-size", type=int, default=2**12,
-                      help="The batch size to use for initial autoencoder training.")
+                      help="The batch size to use for autoencoder training.")
   parser.add_argument("--ae-lr-start", type=float, default=0.01,
-                      help="The number of epochs to use for initial autoencoder training.")
+                      help="The initial learning rate to use for autoencoder training.")
+  parser.add_argument("--ae-max-train-samples", type=int, default=2048,
+                      help="The maximum number of training samples to use for autoencoder training.")
 
   parser.add_argument("--ae-max-training-epochs", type=int, default=15,
                       help="The max number of epochs to use for training when autoencoder weights are not frozen.")
@@ -102,10 +104,9 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                          wandb_name=None,
                                          epochs=args.ae_epochs,
                                          batch_size=args.ae_batch_size,
-                                         lr_start=args.ae_lr_start)
+                                         lr_start=args.ae_lr_start,
+                                         max_train_samples=args.ae_max_train_samples)
 
-  print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
-        f"compressed head size {compressed_d_head_size}.")
   trainer = NonLinearCompressedTracrTransformerTrainer(case,
                                                        LLModel(model=hl_model),
                                                        ll_model,
@@ -115,6 +116,9 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                                        ae_training_args=ae_training_args,
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
                                                        ae_train_loss_weight=args.ae_train_loss_weight)
+  print(
+    f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
+    f"compressed head size {compressed_d_head_size}.")
   final_metrics = trainer.train(finish_wandb_run=False)
   print(f"\n >>> Final metrics for {case.get_name()}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}:")

@@ -7,7 +7,6 @@ import wandb
 from iit.model_pairs.ll_model import LLModel
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
@@ -67,27 +66,13 @@ class NonLinearCompressedTracrTransformerTrainer(CausallyCompressedTracrTransfor
   def init_autoencoders(self):
     """Perform initial training for the AutoEncoders."""
     print(" >>> Training the autoencoders before starting the transformer training.")
-
-    # Collect activations for the autoencoders. We need to do this in batches to avoid memory issues.
-    activations_cache_dict = {}
-    with t.no_grad():
-      for i, batch in enumerate(self.train_loader):
-        _, batch_activations_cache_dict = self.old_tl_model.run_with_cache(batch)
-        for key, value in batch_activations_cache_dict.items():
-          if key not in activations_cache_dict:
-            activations_cache_dict[key] = value
-          else:
-            activations_cache_dict[key] = t.cat([activations_cache_dict[key], value], dim=0)
-
-    activations_cache = ActivationCache(activations_cache_dict, self.old_tl_model)
-
     for ae_key, ae in self.autoencoders_dict.items():
       ae_trainer = AutoEncoderTrainer(
         self.case,
         ae,
         self.old_tl_model,
         self.ae_training_args,
-        activations_cache,
+        self.dataset,
         hook_name_filter_for_input_activations=ae_key,
         output_dir=self.output_dir
       )

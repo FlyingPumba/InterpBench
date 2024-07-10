@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.generic_trainer import GenericTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
@@ -22,35 +23,54 @@ class AutoEncoderTrainer(GenericTrainer):
                autoencoder: AutoEncoder,
                tl_model: LLModel,
                args: TrainingArgs,
-               activations_cache: ActivationCache,
+               dataset: CaseDataset,
                hook_name_filter_for_input_activations: str | None = None,
                output_dir: str | None = None):
     self.autoencoder = autoencoder
     self.tl_model = tl_model
     self.tl_model_n_layers = tl_model.cfg.n_layers
-    self.activations_cache = activations_cache
+    self.dataset = dataset
     self.hook_name_for_input_activations = hook_name_filter_for_input_activations
     super().__init__(case, list(autoencoder.parameters()), args, output_dir=output_dir)
 
   def setup_dataset(self):
     named_data = {}
 
+    # We can't always use all the data, since it can lead to memory errors
+    input_samples = min(int(self.args.max_train_samples * (1 + self.args.test_data_ratio)),
+                        len(self.dataset))
+    train_loader = self.dataset.make_loader(batch_size=input_samples, shuffle=True)
+    inputs = next(iter(train_loader))[0]
+
     if self.hook_name_for_input_activations is None:
+      _, activations_cache = self.tl_model.run_with_cache(
+        inputs,
+        names_filter=lambda name: "attn_out" in name or "mlp_out" in name or "embed" in name or "pos_embed" in name
+      )
+
       # collect the output of the attention and mlp components from all layers
       for layer in range(self.tl_model_n_layers):
-        named_data[f"layer_{layer}_attn_out"] = self.activations_cache["attn_out", layer]
-        named_data[f"layer_{layer}_mlp_out"] = self.activations_cache["mlp_out", layer]
+        named_data[f"layer_{layer}_attn_out"] = activations_cache["attn_out", layer]
+        named_data[f"layer_{layer}_mlp_out"] = activations_cache["mlp_out", layer]
 
       # collect the embeddings, but repeat the data self.tl_model_n_layers times
-      named_data["embed"] = self.activations_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
-      named_data["pos_embed"] = self.activations_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
+      named_data["embed"] = activations_cache["hook_embed"].repeat(self.tl_model_n_layers, 1, 1)
+      named_data["pos_embed"] = activations_cache["hook_pos_embed"].repeat(self.tl_model_n_layers, 1, 1)
 
     else:
       str_for_regex = self.hook_name_for_input_activations.split("[")[0]
       regex = re.compile(f"^{str_for_regex}$")
+
+      _, activations_cache = self.tl_model.run_with_cache(
+        inputs,
+        names_filter=lambda name: regex.match(name) is not None
+      )
+
+      assert len(activations_cache) > 0, f"No activations found for hook name filter: {self.hook_name_for_input_activations}"
+
       for hook_name in self.tl_model.hook_dict.keys():
         if regex.match(hook_name):
-          data = self.activations_cache[hook_name]
+          data = activations_cache[hook_name]
           if "[" in self.hook_name_for_input_activations:
             # extract the head index
             head_index = int(self.hook_name_for_input_activations.split("[")[1].split("]")[0])
