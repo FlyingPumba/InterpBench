@@ -20,4 +20,6 @@ acdc
 submodules/
 tracr
 subnetwork_probing
-*ll_model*
+*/ll_models*/*
+*/ll_model/*
+notebooks/ll_models/
