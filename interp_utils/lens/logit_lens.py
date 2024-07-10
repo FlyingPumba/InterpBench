@@ -27,7 +27,7 @@ def do_logit_lens(model_pair: BaseModelPair, loader: torch.utils.data.DataLoader
     logit_lens_results = {}
     labels = None
     for batch in loader:
-        original_logits, cache = model.run_with_cache(batch)
+        original_logits, cache = model.run_with_cache(batch[0])
         pos_slice = slice(1, None, None)
         pos_idx = index.Ix[:, 1:]
         # get residual stack for each layer and head
@@ -108,7 +108,7 @@ def do_logit_lens_per_vocab_idx(model_pair: BaseModelPair, loader: torch.utils.d
         labels[i] = None
 
     for batch in loader:
-        original_logits, cache = model.run_with_cache(batch)
+        original_logits, cache = model.run_with_cache(batch[0])
         pos_slice = slice(1, None, None)
         pos_idx = index.Ix[:, 1:]
         # get residual stack for each layer and head
