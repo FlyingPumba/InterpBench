@@ -1,6 +1,9 @@
 from argparse import Namespace
 from typing import List
 
+import pandas as pd
+from huggingface_hub import hf_hub_download
+
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.utils.find_all_subclasses import find_all_transitive_subclasses_in_package
 
@@ -25,3 +28,38 @@ def get_cases(args: Namespace | None = None, indices: List[str] | None = None) -
 
   # instantiate all classes found
   return [cls() for cls in classes]
+
+def get_names_of_working_cases() -> list[str]:
+  file = hf_hub_download(
+    "cybershiptrooper/InterpBench",
+    filename="benchmark_cases_metadata.csv",
+  )
+  df = pd.read_csv(file)
+  working_cases = df["case_id"]
+  return working_cases.tolist()
+
+def get_names_of_categorical_cases(names_of_cases: list[str]) -> list[str]:
+  cases_objs = get_cases(indices=names_of_cases)
+  categorical_cases = []
+  for case in cases_objs:
+      if case.get_hl_model().is_categorical():
+          categorical_cases.append(case.get_name())
+  return categorical_cases
+
+def get_names_of_regression_cases(cases: list[str]) -> list[str]:
+  categorical_cases = get_categorical_cases(cases)
+  regression_cases = [case for case in cases if case not in categorical_cases]
+  return regression_cases
+
+def get_categorical_cases(cases: list[str]) -> list[BenchmarkCase]:
+  cases_objs = get_cases(indices=cases)
+  categorical_cases = []
+  for case in cases_objs:
+      if case.get_hl_model().is_categorical():
+          categorical_cases.append(case)
+  return categorical_cases
+
+def get_regression_cases(cases: list[str]) -> list[BenchmarkCase]:
+  categorical_cases = get_categorical_cases(cases)
+  regression_cases = [case for case in cases if case not in categorical_cases]
+  return regression_cases
