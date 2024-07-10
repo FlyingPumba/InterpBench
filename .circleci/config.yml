@@ -47,7 +47,7 @@ workflows:
       - test:
           filters:
             branches:
-              ignore: /.*experiment$/
+              ignore: /.*experiments$/
       - deploy:
           filters:
             branches:
