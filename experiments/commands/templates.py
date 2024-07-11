@@ -1,8 +1,6 @@
 from enum import Enum
-from string import Formatter
 
 from .arguments import (
-    OptionalArgument,
     OptionalStoreTrueArgument,
     OptionalVariableArgument,
     RequiredArgument,
@@ -15,6 +13,19 @@ class CommandType(str, Enum):
     CIRCUIT_DISCOVERY = "circuit_discovery"
     EVALUATION = "evaluation"
 
+
+def get_model_suffix(model_type: str, case: str) -> str:
+    if model_type == ModelType.InterpBench.value:
+        return "interp_bench"
+    elif model_type == ModelType.SIIT_Best.value:
+        from circuits_benchmark.utils.ll_model_loader.best_weights import get_best_weight
+        return f"siit_{get_best_weight(case)}"
+    elif model_type == ModelType.Natural.value:
+        return "natural"
+    elif model_type == ModelType.Tracr.value:
+        return "tracr"
+    else:
+        raise ValueError(f"Unknown model type {model_type}")
 
 class ModelType(str, Enum):
   InterpBench = "--interp-bench"
@@ -46,13 +57,19 @@ COMMANDS = {
     },
     "eap": {
         "command":
-        """python main.py run eap -i {case} {model_type} -t {threshold}""",
+        """python main.py run eap -i {case} {model_type} --threshold {threshold} {regression_loss} {classification_loss}""",
+        "variable_args": [
+          VariableArgument("regression_loss", "--regression-loss", "mae"),
+          VariableArgument("classification_loss", "--classification-loss", "kl_div")
+        ]
     },
     "integrated_gradients": {
         "command":
-        """python main.py run eap -i {case} {model_type} -t {threshold} {steps}""",
+        """python main.py run eap -i {case} {model_type} --threshold {threshold} {steps}""",
         "variable_args": [
-          VariableArgument("steps", "--integrated-gradients", 10)
+          VariableArgument("steps", "--integrated-gradients", 10),
+          VariableArgument("regression_loss", "--regression-loss", "mae"),
+          VariableArgument("classification_loss", "--classification-loss", "kl_div")
         ]
     },
     "node_sp": {
@@ -114,44 +131,3 @@ COMMANDS = {
     ]
   }
 }
-
-
-def make_command(command_type: str, subcommand: str, **kwargs):
-  command = COMMANDS[command_type][subcommand]["command"]
-  variable_args = COMMANDS[command_type][subcommand].get("variable_args", [])
-  common_args = COMMANDS[command_type].get("common_args", [])
-  optional_args = COMMANDS[command_type][subcommand].get("optional_args", [])
-  all_args = common_args + variable_args + optional_args
-
-  # populate final args and optional args with:
-  # 1. default values for non-optional arguments, values from kwargs for required arguments
-  # 2. kwargs values for optional arguments if they exist, else do not include them
-  final_args = {}
-  optional_args = {}
-  for arg in all_args:
-    if isinstance(arg, OptionalArgument):
-      if arg.name in kwargs and isinstance(arg, OptionalVariableArgument):
-        value = kwargs.get(arg.name, None)
-        optional_args[arg.name] = arg.make(value)
-      elif isinstance(arg, OptionalStoreTrueArgument) and arg.name in kwargs and kwargs[arg.name]:
-        optional_args[arg.name] = arg.make()
-    else:
-      if isinstance(arg, RequiredArgument):
-        if arg.name not in kwargs:
-          raise ValueError(f"Required argument {arg.name} not found in kwargs")
-        final_args[arg.name] = arg.make(kwargs[arg.name])
-      elif isinstance(arg, StoreTrueArgument):
-        optional_args[arg.arg] = arg.make()
-      else:
-        correct_instance = isinstance(arg, VariableArgument) and not isinstance(arg, OptionalVariableArgument)
-        assert correct_instance, RuntimeError(f"Unknown argument type {arg}")
-        value = kwargs.get(arg.name, None)
-        final_args[arg.name] = arg.make(value)
-
-  # populate the command with the final args
-  formatter = Formatter()
-  command = formatter.format(command, **final_args)
-  for _, value in optional_args.items():
-      command += f" {value}"
-
-  return command

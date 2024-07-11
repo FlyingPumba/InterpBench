@@ -1,4 +1,5 @@
-from .templates import make_command, ModelType, CommandType, SubCommand
+from .make_command import make_command
+from .templates import ModelType, CommandType, SubCommand
 import os
 
 def test_make_command():
