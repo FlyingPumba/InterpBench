@@ -1,85 +1,27 @@
 import pickle
-from collections import namedtuple
+from typing import Dict, Set, Tuple, Optional, Literal
 
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
-from circuits_benchmark.utils.iit._corr_utils import TracrHLCorr
-from circuits_benchmark.utils.iit.tracr_ll_corrs import get_tracr_ll_corr
-from iit.model_pairs.nodes import HLNode, LLNode
+from iit.model_pairs.nodes import LLNode, HLNode
 from iit.utils import index
 from iit.utils.correspondence import Correspondence
+from iit.utils.index import TorchIndex
 from tracr.compiler.compiling import TracrOutput
+from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
+from tracr.craft.transformers import SeriesWithResiduals, MLP, MultiAttentionHead
 
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.utils.iit.tracr_hl_node import TracrHLNode
 
-class TracrHLNode(HLNode):
-    def __init__(self, name, label, num_classes, idx=None):
-        # type checks
-        assert isinstance(name, str), ValueError(
-            f"name is not a string, but {type(name)}"
-        )
-        assert isinstance(label, str), ValueError(
-            f"label is not a string, but {type(label)}"
-        )
-        assert isinstance(num_classes, int), ValueError(
-            f"num_classes is not an int, but {type(num_classes)}"
-        )
-        assert idx is None or isinstance(idx, index.TorchIndex), ValueError(
-            f"index is not a TorchIndex, but {type(index)}"
-        )
-        super().__init__(name, num_classes, idx)
-        self.label = label
+TracrHLNodeMappingInfo = Tuple[int, Literal["attn", "mlp"], Optional[int | TorchIndex]]  # (layer, attn_or_mlp, head_index)
 
-    def get_label(self) -> str:
-        return self.label
-
-    def get_name(self) -> str:
-        return self.name
-
-    def __hash__(self) -> int:
-        return super().__hash__() + hash(self.label)
-
-    def __str__(self) -> str:
-        return super().__str__()
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, TracrHLNode):
-            return (
-                self.name == other.name
-                and self.label == other.label
-                and self.num_classes == other.num_classes
-                and self.index == other.index
-            )
-        if isinstance(other, CircuitNode):
-            if "attn" in other.name:
-                other_idx = index.Ix[:, :, other.index, :]
-                return self.name == other.name and self.index == other_idx
-            else:
-                return self.name == other.name and (
-                    self.index == index.Ix[[None]] or self.index == None
-                )
-        return super().__eq__(other)
-
-    def __repr__(self) -> str:
-        return f"TracrHLNode(name: {self.name},\n label: {self.label},\n classes: {self.num_classes},\n index: {self.index}\n)"
-
-    @classmethod
-    def from_tracr_node(cls, tracr_node=CircuitNode, label="", num_classes=-1):
-        name = tracr_node.name
-        tracr_index = tracr_node.index
-
-        if "mlp" in name:
-            return TracrHLNode(
-                name=tracr_node.name,
-                label=label,
-                num_classes=num_classes,
-            )
-        else:
-            return TracrHLNode(
-                name=tracr_node.name,
-                label=label,
-                num_classes=num_classes,
-                idx=index.Ix[:, :, tracr_index, :],
-            )
+# TODO: We shouldn't define overrides using basis directions as keys, since sometimes Tracr uses multiple HL nodes for
+#  the same basis.
+tracr_corr_override_info: Dict[str, Dict[Tuple[str, Optional[str]], TracrHLNodeMappingInfo]] = {
+    "3": {
+            ("is_x_3", None): {(0, "mlp", index.Ix[[None]])},
+            ("frac_prevs_1", None): {(1, "attn", index.Ix[:, :, 2, :])},
+    }
+}
 
 
 class TracrCorrespondence(Correspondence):
@@ -101,12 +43,16 @@ class TracrCorrespondence(Correspondence):
         super().__setattr__(__name, __value)
 
     @classmethod
-    def make_hl_ll_corr(
+    def _build_corr_combining_info(
         cls,
-        tracr_hl_corr: TracrHLCorr,
-        tracr_ll_corr: dict[str, set[LLNode]] | None = None,
+        tracr_base_corr: Dict[BasisDirection, Set[TracrHLNodeMappingInfo]],
+        tracr_corr_override: Optional[Dict[Tuple[str, Optional[str]], TracrHLNodeMappingInfo]] = None,
         hook_name_style: str = "tl",
     ):
+        """This method builds a Tracr correspondence combining the basic information that Tracr provides (i.e. which
+        basis directions are output by which components) and an optional mapping overriding the default Tracr info
+         (e.g., to map specific basis directions to specific components).
+        """
         def hook_name(loc, style) -> str:
             layer, attn_or_mlp, unit = loc
             assert attn_or_mlp in ["attn", "mlp"], ValueError(
@@ -131,85 +77,119 @@ class TracrCorrespondence(Correspondence):
             assert unit is None
             return index.Ix[[None]]
 
-        if tracr_ll_corr is None:
-            return cls(
-                {
-                    TracrHLNode(
-                        hook_name(hl_loc, hook_name_style),
-                        label=basis_dir.name,
-                        num_classes=0,  # TODO: get num_classes
-                        idx=idx(hl_loc),
-                    ): {
+        corr_dict: dict[HLNode, set[LLNode]] = {}
+        for basis_dir, hl_locs in tracr_base_corr.items():
+            assert tracr_corr_override is None or len(hl_locs) == 1, \
+                "Tracr cases that have multiple HL nodes for the same basis direction are not supported when using overrides."
+
+            for hl_loc in hl_locs:
+                hl_node = TracrHLNode(
+                            hook_name(hl_loc, hook_name_style),
+                            label=basis_dir.name,
+                            num_classes=0,  # TODO: get num_classes
+                            idx=idx(hl_loc),
+                        )
+
+                ll_nodes = set()
+                if tracr_corr_override is None:
+                    # No override, just add the default mapping
+                    ll_nodes.add(
                         LLNode(
                             hook_name(hl_loc, hook_name_style),
                             idx(hl_loc),
                             None,
                         )
-                    }
-                    for basis_dir, hl_loc in tracr_hl_corr.items()
-                }
-            )
+                    )
+                else:
+                    for ll_loc in tracr_corr_override[basis_dir.name, basis_dir.value]:
+                        ll_nodes.add(LLNode(hook_name(ll_loc, "tl"), idx(ll_loc)))
 
-        return cls(
-            {
-                TracrHLNode(
-                    hook_name(hl_loc, hook_name_style),
-                    label=basis_dir.name,
-                    num_classes=0,  # TODO: get num_classes
-                    idx=idx(hl_loc),
-                ): {
-                    LLNode(hook_name(ll_loc, "tl"), idx(ll_loc))
-                    for ll_loc in tracr_ll_corr[basis_dir.name, basis_dir.value]
-                }
-                for basis_dir, hl_loc in tracr_hl_corr.items()
-            }
-        )
+                corr_dict[hl_node] = ll_nodes
+
+        return cls(corr_dict)
 
     @classmethod
     def make_identity_corr(cls, tracr_output: TracrOutput):
-        tracr_hl_corr = TracrHLCorr.from_output(tracr_output)
-        return cls.make_hl_ll_corr(tracr_hl_corr, None)
+        """Creates a Tracr correspondence that maps each basis direction to a single (default) component."""
+        return cls._build_corr_combining_info(cls.build_tracr_base_corr(tracr_output),
+                                              None)
 
     @classmethod
     def from_output(cls, case: BenchmarkCase, tracr_output: TracrOutput):
-        tracr_hl_corr = TracrHLCorr.from_output(tracr_output)
-        tracr_ll_corr = get_tracr_ll_corr(case)
-        return cls.make_hl_ll_corr(tracr_hl_corr, tracr_ll_corr)
+        """Creates a Tracr correspondence from a Tracr output, using the given case to determine any overrides to the
+        default Tracr correspondence info."""
+        return cls._build_corr_combining_info(cls.build_tracr_base_corr(tracr_output),
+                                              cls.get_tracr_corr_override_info(case))
 
     @classmethod
     def load(cls, filename: str):
         return cls(pickle.load(open(filename, "rb")))
 
+    @classmethod
+    def print_craft_model(cls, craft_model: SeriesWithResiduals):
+        def names(vsb: VectorSpaceWithBasis):
+            return [(bd.name, bd.value) for bd in vsb.basis]
 
-EdgeCorr = namedtuple(
-    "EdgeCorr", ["hookpoint_from", "index_from", "hookpoint_to", "index_to"]
-)
+        for block in craft_model.blocks:
+            if isinstance(block, MLP):
+                print("MLP:")
+                print(names(block.fst.input_space), " -> ", names(block.fst.output_space))
+                assert block.fst.output_space == block.snd.input_space
+                print("\t -> ", names(block.snd.output_space))
+
+            elif isinstance(block, MultiAttentionHead):
+                print("MultiAttentionHead:")
+                for i, sb in enumerate(block.sub_blocks):
+                    print(f"head {i}:")
+                    print(f"qk left {names(sb.w_qk.left_space)}")
+                    print(f"qk right {names(sb.w_qk.right_space)}")
+                    w_ov = sb.w_ov
+                    print(f"w_ov {names(w_ov.input_space)} -> \n\t{names(w_ov.output_space)}")
+
+            else:
+                raise ValueError(f"Unknown block type {type(block)}")
+            print()
 
 
-def make_edge_corr(tracr_edges, hl_ll_corr) -> list[EdgeCorr]:
-    ll_edges = []
-    for tracr_edge in tracr_edges:
-        tracr_n_from, tracr_n_to = tracr_edge
-        hl_node_from = None
-        hl_node_to = None
-        # find hl nodes using labels
-        for hl_node in hl_ll_corr.keys():
-            if tracr_n_from == hl_node.label:
-                hl_node_from = hl_node
-            elif tracr_n_to == hl_node.label:
-                hl_node_to = hl_node
-        if hl_node_from is None or hl_node_to is None:
-            continue
+    @classmethod
+    def build_tracr_base_corr(
+        cls,
+        tracr_output: TracrOutput
+    ) -> Dict[BasisDirection, Set[TracrHLNodeMappingInfo]]:
+        """Builds the basic Tracr correspondence information from the Tracr output."""
+        craft_model: SeriesWithResiduals = tracr_output.craft_model
+        result: Dict[BasisDirection, Set[TracrHLNodeMappingInfo]] = {}
 
-        ll_froms = hl_ll_corr[hl_node_from]
-        ll_tos = hl_ll_corr[hl_node_to]
+        i = 0
+        for block in craft_model.blocks:
+            if isinstance(block, MLP):
+                assert block.fst.output_space == block.snd.input_space
+                for direction in block.snd.output_space.basis:
+                    if direction not in result:
+                        result[direction] = set()
 
-        for ll_from in ll_froms:
-            for ll_to in ll_tos:
-                hookpoint_from = ll_from.name
-                index_from = ll_from.index
-                hookpoint_to = ll_to.name
-                index_to = ll_to.index
-                ll_edge = EdgeCorr(hookpoint_from, index_from, hookpoint_to, index_to)
-                ll_edges.append(ll_edge)
-    return ll_edges
+                    result[direction].add((i, "mlp", None))
+
+                i += 1
+            elif isinstance(block, MultiAttentionHead):
+                for j, sb in enumerate(block.sub_blocks):
+                    for direction in sb.w_ov.output_space.basis:
+                        if direction not in result:
+                            result[direction] = set()
+
+                        result[direction].add((i, "attn", j))
+
+            else:
+                raise ValueError(f"Unknown block type {type(block)}")
+
+        return result
+
+    @classmethod
+    def get_tracr_corr_override_info(
+        cls,
+        case: BenchmarkCase
+    ) -> Dict[Tuple[str, Optional[str]], TracrHLNodeMappingInfo] | None:
+        """Returns the Tracr correspondence override info for the given case, if any."""
+        if case.get_name() in tracr_corr_override_info.keys():
+            return tracr_corr_override_info[case.get_name()]
+        return None
