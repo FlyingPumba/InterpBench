@@ -237,7 +237,7 @@ class SPRunner:
           "percentage_binary": log_dict["percentage_binary"],
         }
       )
-
+      wandb.finish()
       wandb.init(
           project=f"circuit_discovery{'_same_size' if self.config.same_size else ''}",
           group=f"{'edge' if self.config.edgewise else 'node'}_sp_{self.case.get_name()}_{ll_model_loader.get_output_suffix()}",
