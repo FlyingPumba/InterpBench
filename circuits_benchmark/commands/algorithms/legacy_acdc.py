@@ -76,7 +76,7 @@ class ACDCConfig:
             wandb_group_name=args.wandb_group_name,
             wandb_project_name=args.wandb_project_name,
             wandb_run_name=args.wandb_run_name,
-            wandb_dir=args.wand,
+            wandb_dir=args.wandb_dir,
             wandb_mode=args.wandb_mode,
             output_dir=args.output_dir,
             same_size=args.same_size,
@@ -92,11 +92,11 @@ class ACDCConfig:
         else:
           raise ValueError(f"first_cache_cpu must be either True or False, got {args.first_cache_cpu}")
 
-        if args.config.second_cache_cpu is None:
+        if args.second_cache_cpu is None:
           config.corrupted_cache_cpu = True
-        elif args.config.second_cache_cpu.lower() == "false":
+        elif args.second_cache_cpu.lower() == "false":
           config.corrupted_cache_cpu = False
-        elif args.config.second_cache_cpu.lower() == "true":
+        elif args.second_cache_cpu.lower() == "true":
           config.corrupted_cache_cpu = True
         else:
           raise ValueError(f"second_cache_cpu must be either True or False, got {args.config.second_cache_cpu}")

@@ -32,7 +32,6 @@ from circuits_benchmark.utils.project_paths import get_default_output_dir
 
 @dataclass
 class SPConfig:
-  threshold: Optional[float] = 0.025
   seed: Optional[int] = 42
   data_size: Optional[int] = 1000
   device: Optional[str] = "cpu"
@@ -66,7 +65,6 @@ class SPConfig:
   @staticmethod
   def from_args(args: Namespace) -> "SPConfig":
     return SPConfig(
-      threshold=args.threshold,
       seed=int(args.seed),
       data_size=args.data_size,
       device=args.device,
@@ -133,6 +131,7 @@ class SPRunner:
         self.ll_model,
         self.hl_ll_corr,
         self.case,
+        print_summary=False,
     )
 
   def run_using_model_loader(self, ll_model_loader: LLModelLoader) -> Tuple[Circuit, CircuitEvalResult]:
@@ -346,7 +345,7 @@ class SPRunner:
     add_common_args(parser)
     add_evaluation_common_ags(parser)
 
-    parser.add_argument("--using-wandb", action="store_true")
+    parser.add_argument("--using_wandb", action="store_true")
     parser.add_argument("--wandb-project", type=str, default="subnetwork-probing")
     parser.add_argument("--wandb-entity", type=str, required=False)
     parser.add_argument("--wandb-group", type=str, required=False)
