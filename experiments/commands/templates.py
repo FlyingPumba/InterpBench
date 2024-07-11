@@ -67,21 +67,21 @@ COMMANDS = {
         "command":
         """python main.py run eap -i {case} {model_type} --threshold {threshold} {steps}""",
         "variable_args": [
-          VariableArgument("steps", "--integrated-gradients", 10),
+          VariableArgument("steps", "--integrated-grad-steps", 10),
           VariableArgument("regression_loss", "--regression-loss", "mae"),
           VariableArgument("classification_loss", "--classification-loss", "kl_div")
         ]
     },
     "node_sp": {
         "command":
-        """python main.py run sp -i {case} {model_type} -t {threshold} {epochs}""",
+        """python main.py run sp -i {case} {model_type} --lambda-reg {threshold} {epochs}""",
         "variable_args": [
           VariableArgument("epochs", "--epochs", 3000)
         ]
     },
     "edge_sp": {
         "command":
-        """python main.py run sp -i {case} {model_type} -t {threshold} --edgewise --epochs {epochs}""",
+        """python main.py run sp -i {case} {model_type} --lambda-reg {threshold} --edgewise {epochs}""",
         "variable_args": [
           VariableArgument("epochs", "--epochs", 5000)
         ]
