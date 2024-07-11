@@ -46,7 +46,8 @@ class SPConfig:
   verbose: Optional[int] = True
   lambda_reg: Optional[float] = 1
   zero_ablation: Optional[int] = 0
-  metric: Optional[str] = "l2"
+  regression_metric: Optional[str] = "l2"
+  classification_metric: Optional[str] = "kl"
   edgewise: Optional[bool] = False
   num_examples: Optional[int] = 50
   seq_len: Optional[int] = 300
@@ -79,7 +80,8 @@ class SPConfig:
       verbose=args.verbose,
       lambda_reg=args.lambda_reg,
       zero_ablation=args.zero_ablation,
-      metric=args.metric,
+      regression_metric=args.regression_metric,
+      classification_metric=args.classification_metric,
       edgewise=args.edgewise,
       num_examples=args.num_examples,
       seq_len=args.seq_len,
@@ -156,7 +158,7 @@ class SPRunner:
     images_output_dir = os.path.join(clean_dirname, "images")
     os.makedirs(images_output_dir, exist_ok=True)
 
-    metric_name = self.config.metric
+    metric_name = self.config.classification_metric if self.case.is_categorical() else self.config.regression_metric
 
     data_size = self.config.data_size
     clean_data = self.case.get_clean_data(max_samples=int(1.2 * data_size))
@@ -364,7 +366,8 @@ class SPRunner:
     parser.add_argument("--lambda-reg", type=float, default=1)
     parser.add_argument("--zero-ablation", type=int, default=0)
     parser.add_argument("--data-size", type=int, default=1000)
-    parser.add_argument("--metric", type=str, choices=["l2", "kl"], default="l2")
+    parser.add_argument("--regression-metric", type=str, choices=["l2"], default="l2")
+    parser.add_argument("--classification-metric", type=str, choices=["l2", "kl"], default="kl")
     parser.add_argument("--edgewise", action="store_true")
     parser.add_argument("--num-examples", type=int, default=50)
     parser.add_argument("--seq-len", type=int, default=300)
