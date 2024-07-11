@@ -194,7 +194,7 @@ class LegacyACDCRunner:
       if self.config.using_wandb:
         wandb.init(
           project=f"circuit_discovery{'_same_size' if self.config.same_size else ''}",
-          group=f"acdc_{self.case.get_name()}_{str(ll_model_loader.get_output_suffix())}",
+          group=f"legacy_acdc_{self.case.get_name()}_{str(ll_model_loader.get_output_suffix())}",
           name=f"{self.config.threshold}",
         )
         wandb.save(f"{clean_dirname}/*", base_path=self.config.output_dir)
