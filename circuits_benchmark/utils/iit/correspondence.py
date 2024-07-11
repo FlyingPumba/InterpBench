@@ -14,6 +14,8 @@ from circuits_benchmark.utils.iit.tracr_hl_node import TracrHLNode
 
 TracrHLNodeMappingInfo = Tuple[int, Literal["attn", "mlp"], Optional[int | TorchIndex]]  # (layer, attn_or_mlp, head_index)
 
+# TODO: We shouldn't define overrides using basis directions as keys, since sometimes Tracr uses multiple HL nodes for
+#  the same basis.
 tracr_corr_override_info: Dict[str, Dict[Tuple[str, Optional[str]], TracrHLNodeMappingInfo]] = {
     "3": {
             ("is_x_3", None): {(0, "mlp", index.Ix[[None]])},
@@ -77,6 +79,9 @@ class TracrCorrespondence(Correspondence):
 
         corr_dict: dict[HLNode, set[LLNode]] = {}
         for basis_dir, hl_locs in tracr_base_corr.items():
+            assert tracr_corr_override is None or len(hl_locs) == 1, \
+                "Tracr cases that have multiple HL nodes for the same basis direction are not supported when using overrides."
+
             for hl_loc in hl_locs:
                 hl_node = TracrHLNode(
                             hook_name(hl_loc, hook_name_style),
