@@ -25,13 +25,13 @@ def run(args):
 
     try:
       if args.algorithm == "legacy_acdc":
-        legacy_acdc.LegacyACDCRunner(case, args).run_using_model_loader(ll_model_loader)
+        legacy_acdc.LegacyACDCRunner(case, args=args).run_using_model_loader(ll_model_loader)
       if args.algorithm == "acdc":
-        acdc.ACDCRunner(case, args).run_using_model_loader(ll_model_loader)
+        acdc.ACDCRunner(case, args=args).run_using_model_loader(ll_model_loader)
       if args.algorithm == "sp":
-        sp.SPRunner(case, args).run_using_model_loader(ll_model_loader)
+        sp.SPRunner(case, args=args).run_using_model_loader(ll_model_loader)
       if args.algorithm == "eap":
-        eap.EAPRunner(case, args).run_using_model_loader(ll_model_loader)
+        eap.EAPRunner(case, args=args).run_using_model_loader(ll_model_loader)
     except Exception as e:
       print(f" >>> Failed to run {args.algorithm} on {case}:")
       traceback.print_exc()

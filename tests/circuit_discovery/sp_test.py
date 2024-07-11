@@ -45,7 +45,7 @@ class SPTest(unittest.TestCase):
   def test_sp_works_on_siit_model_for_case_3(self):
     case = Case3()
     config = SPConfig(
-      threshold=0.001,
+      lambda_reg=0.001,
       data_size=10,
       epochs=1
     )
@@ -64,7 +64,7 @@ class SPTest(unittest.TestCase):
   def test_sp_works_on_natural_model_for_case_3(self):
     case = Case3()
     config = SPConfig(
-      threshold=0.001,
+      lambda_reg=0.001,
       data_size=10,
       epochs=1
     )
@@ -83,7 +83,7 @@ class SPTest(unittest.TestCase):
   def test_sp_works_on_tracr_model_for_case_3(self):
     case = Case3()
     config = SPConfig(
-      threshold=0.001,
+      lambda_reg=0.001,
       data_size=10,
       epochs=1
     )
@@ -102,7 +102,7 @@ class SPTest(unittest.TestCase):
   def test_sp_works_on_interp_bench_model_for_case_3(self):
     case = Case3()
     config = SPConfig(
-      threshold=0.001,
+      lambda_reg=0.001,
       data_size=10,
       epochs=1
     )
@@ -121,7 +121,7 @@ class SPTest(unittest.TestCase):
   def test_sp_works_on_interp_bench_model_for_case_ioi(self):
     case = CaseIOI()
     config = SPConfig(
-      threshold=0.001,
+      lambda_reg=0.001,
       data_size=10,
       epochs=1,
       include_mlp=True

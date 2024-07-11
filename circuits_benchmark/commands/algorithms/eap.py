@@ -55,7 +55,6 @@ class EAPConfig:
       device=args.device,
       same_size=args.same_size,
       include_mlp=args.include_mlp,
-      weights=args.weights,
     )
 
 class EAPRunner:
@@ -142,11 +141,11 @@ class EAPRunner:
     print(f"Saved result to {clean_dirname}/result.txt and {clean_dirname}/result.pkl")
     if self.config.using_wandb:
       import wandb
-
+      algo_str = "eap" if self.integrated_grad_steps is None else f"integrated_grad_{self.integrated_grad_steps}" 
       wandb.init(
         project="circuit_discovery",
-        group=f"eap_{self.case.get_name()}_{self.config.weights}",
-        name=f"{self.config.threshold}",
+        group=f"{algo_str}_{self.case.get_name()}_{ll_model_loader.get_output_suffix()}",
+        name=f"{self.config.threshold}" if self.config.threshold is not None else f"ec_{self.config.edge_count}",
       )
       wandb.save(f"{clean_dirname}/*", base_path=self.config.output_dir)
 
@@ -234,8 +233,10 @@ class EAPRunner:
       print(f"Using regression loss function: {self.regression_loss_fn}")
 
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
+        print("logits:", logits.shape)
+        print("answers:", batch.answers[out_slice].shape)
         if self.regression_loss_fn == "mse":
-          return t.nn.functional.mse_loss(logits, batch.answers[out_slice]) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
+          return t.nn.functional.mse_loss(logits, batch.answers[out_slice]) - t.nn.functional.mse_loss(logits, batch.wrong_answers[out_slice])
         elif self.regression_loss_fn == "mae":
           return t.nn.functional.l1_loss(logits, batch.answers[out_slice])
         else:
