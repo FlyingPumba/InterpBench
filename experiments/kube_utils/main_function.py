@@ -11,6 +11,8 @@ def main(
     for arg in sys.argv:
         if arg in ["-d", "--dry-run"]:
             print_commands(build_commands)
+            sys.exit(0)
+        if arg in ["-dc", "--dry-clean"]:
             clean_wandb(dry_run=True)
             sys.exit(0)
         if arg in ["-l", "--local"]:
@@ -20,6 +22,9 @@ def main(
             sys.exit(0)
         if arg in ["-c", "--clean"]:
             clean_wandb(dry_run=False)
+            sys.exit(0)
+        if arg in ["-r", "--run"]:
+            launch_kubernetes_jobs(build_commands, memory="8Gi", priority=priority)
             sys.exit(0)
     clean_wandb(dry_run=False)
     launch_kubernetes_jobs(build_commands, memory="8Gi", priority=priority)

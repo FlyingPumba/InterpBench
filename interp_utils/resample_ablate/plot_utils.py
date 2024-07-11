@@ -5,7 +5,8 @@ import os
 def plot_causal_effect(combined_scales_df,
                        scales, 
                        image_name, 
-                       out_dir):
+                       out_dir,
+                       show=False):
     os.makedirs(out_dir, exist_ok=True)
     fig = go.Figure()
     scale_columns = [f"scale {scale}" for scale in scales]
@@ -36,6 +37,7 @@ def plot_causal_effect(combined_scales_df,
     fig.update_layout(font=dict(size=16))
     # add title
     fig.update_layout(title=image_name)
-    fig.show()
+    if show:
+        fig.show()
     # save to file as pdf with same width and height
     fig.write_image(f"{out_dir}/{image_name}.png")

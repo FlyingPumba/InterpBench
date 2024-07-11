@@ -122,6 +122,10 @@ def plot_pearson(
             x = x.argmax(axis=-1)
 
         pearson_corr = stats.pearsonr(x, y)
+        # normalize x and y by variance and plot
+        x = (x - np.mean(x)) / np.std(x)
+        y = (y - np.mean(y)) / np.std(y)
+        assert stats.pearsonr(x, y)[0] - pearson_corr[0] < 1e-6, RuntimeError("Pearson correlation is not preserved after normalization!")
         fig.add_trace(
             go.Scatter(
                 x=x, y=y, mode="markers", name=f"pos {i}, corr: {pearson_corr[0]:.2f}"
@@ -213,6 +217,9 @@ def plot_pearson_at_vocab_idx(
         y = per_vocab_labels[vocab_idx][:, i].squeeze().detach().cpu().numpy()
         x = lens_results_per_vocab[key][vocab_idx][:, i].detach().cpu().numpy()
         pearson_corr = stats.pearsonr(x, y)
+        x = (x - np.mean(x)) / np.std(x)
+        y = (y - np.mean(y)) / np.std(y)
+        assert stats.pearsonr(x, y)[0] - pearson_corr[0] < 1e-6, RuntimeError("Pearson correlation is not preserved after normalization!")
         fig.add_trace(
             go.Scatter(
                 x=x, y=y, mode="markers", name=f"pos {i}, corr: {pearson_corr[0]:.2f}"
