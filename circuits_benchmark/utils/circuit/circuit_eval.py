@@ -172,6 +172,7 @@ def evaluate_hypothesis_circuit(
     case: BenchmarkCase,
     gt_circuit: Optional[Circuit] = None,
     use_embeddings: bool = True,
+    print_summary: bool = True,
 ) -> CircuitEvalResult:
   full_corr = TLACDCCorrespondence.setup_from_model(
     ll_model, use_pos_embed=use_embeddings
@@ -185,7 +186,7 @@ def evaluate_hypothesis_circuit(
       gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads, case)
 
   return calculate_fpr_and_tpr(
-    hypothesis_circuit, gt_circuit, full_circuit
+    hypothesis_circuit, gt_circuit, full_circuit, print_summary=print_summary
   )
 
 

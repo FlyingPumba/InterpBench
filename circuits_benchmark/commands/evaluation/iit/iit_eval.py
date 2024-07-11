@@ -54,10 +54,6 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--use-wandb", action="store_true", help="Use wandb for logging"
     )
-    parser.add_argument(
-        "--save-to-wandb", action="store_true", help="Save results to wandb"
-    )
-
 
 def get_node_effects(
     case: BenchmarkCase,
@@ -146,7 +142,7 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         f.write(str(metric_collection))
         print(metric_collection)
 
-    if args.save_to_wandb:
+    if args.use_wandb:
         import wandb
         wandb.init(
             project=f"node_effect{'_same_size' if args.same_size else ''}",
