@@ -109,7 +109,8 @@ def plot_pearson(
     show=False,
 ) -> str:
     in_circuit_str = "in circuit" if in_circuit else "not in circuit"
-    out_dir = f"{out_dir}/{case_name}"
+    lens_str = "tuned_lens" if tuned_lens else "logit_lens"
+    out_dir = f"{out_dir}/{case_name}/{lens_str}/{key}"
     os.makedirs(out_dir, exist_ok=True)
     fig = go.Figure()
 
@@ -134,8 +135,7 @@ def plot_pearson(
     )
     if show:
         fig.show()
-    lens_str = "tuned_lens" if tuned_lens else "logit_lens"
-    file = f"{out_dir}/{lens_str}_pearson_{key}.png"
+    file = f"{out_dir}/pearson.png"
     fig.write_image(file)
     return file
 
@@ -150,7 +150,8 @@ def plot_combined_pearson(
     out_dir: str = "./interp_results/",
     abs_corr: bool = True,
 ) -> str:
-    out_dir = f"{out_dir}/{case_name}"
+    lens_str = "tuned_lens" if tuned_lens else "logit_lens"
+    out_dir = f"{out_dir}/{case_name}/{lens_str}"
     os.makedirs(out_dir, exist_ok=True)
     pearson_corrs = {}
     for k in lens_results.keys():
@@ -186,9 +187,8 @@ def plot_combined_pearson(
     fig.update_xaxes(tickfont=dict(size=15))
 
     fig.show()
-    lens_str = "tuned_lens" if tuned_lens else "logit_lens"
-    file = f"{out_dir}/{lens_str}_combined_pearson.png"
-    fig.write_image()
+    file = f"{out_dir}/combined_pearson.png"
+    fig.write_image(file)
     return file
 
 
@@ -203,8 +203,9 @@ def plot_pearson_at_vocab_idx(
     out_dir: str = "./interp_results/",
     show=False,
 ) -> str:
+    lens_str = "tuned_lens" if tuned_lens else "logit_lens"
     in_circuit_str = "in circuit" if in_circuit else "not in circuit"
-    out_dir = f"{out_dir}/{case_name}"
+    out_dir = f"{out_dir}/{case_name}/{lens_str}/{key}"
     os.makedirs(out_dir, exist_ok=True)
     fig = go.Figure()
 
@@ -225,7 +226,6 @@ def plot_pearson_at_vocab_idx(
     )
     if show:
         fig.show()
-    lens_str = "tuned_lens" if tuned_lens else "logit_lens"
-    file = f"{out_dir}/{lens_str}_pearson_{key}_vocab_{vocab_idx}.png"
+    file = f"{out_dir}/pearson_at_{vocab_idx}.png"
     fig.write_image(file)
     return file

@@ -1,7 +1,7 @@
 from commands.get_wandb_info import get_wandb_info
 from commands.make_command import make_command
 from kube_utils import main, get_runs_with_substr
-from commands import CommandType, SubCommand, ModelType
+from commands import CommandType, ModelType
 from commands.circuit_discovery_config import thresholds, subcommands
 
 def clean_wandb(dry_run: bool):
