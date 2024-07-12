@@ -23,3 +23,4 @@ subnetwork_probing
 */ll_models*/*
 */ll_model/*
 notebooks/ll_models/
+*.gv
