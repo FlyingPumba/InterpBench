@@ -8,7 +8,7 @@ from circuits_benchmark.utils.get_cases import get_names_of_working_cases
 
 working_cases = sorted(get_names_of_working_cases())
 working_cases = ["3"]
-thresholds = [0.1]
+thresholds = [0.0]
 print(working_cases)
 
 ioi = [case for case in working_cases if "ioi" in case]
