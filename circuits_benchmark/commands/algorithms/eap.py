@@ -38,6 +38,7 @@ class EAPConfig:
   same_size: Optional[bool] = False
   include_mlp: Optional[bool] = False
   weights: Optional[str] = None
+  abs_value_threshold: Optional[bool] = False
 
   @staticmethod
   def from_args(args: Namespace) -> "EAPConfig":
@@ -55,6 +56,7 @@ class EAPConfig:
       device=args.device,
       same_size=args.same_size,
       include_mlp=args.include_mlp,
+      abs_value_threshold=args.abs_val_threshold
     )
 
 class EAPRunner:
@@ -210,7 +212,7 @@ class EAPRunner:
     else:
       threshold = self.threshold
 
-    eap_circuit = build_circuit(auto_circuit_model, attribution_scores, threshold)
+    eap_circuit = build_circuit(auto_circuit_model, attribution_scores, threshold, self.config.abs_value_threshold)
     eap_circuit.save(f"{self.config.output_dir}/final_circuit.pkl")
 
     return eap_circuit
@@ -220,7 +222,10 @@ class EAPRunner:
                                    out_slice: slice):
     if self.case.is_categorical():
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
-        answers= t.nn.functional.one_hot(batch.answers[out_slice].squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
+        if batch.answers[out_slice].squeeze(dim=-1).shape == logits.shape:
+          answers = batch.answers[out_slice].squeeze(dim=-1)
+        else:
+          answers= t.nn.functional.one_hot(batch.answers[out_slice].squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
         log_probs = t.nn.functional.log_softmax(logits, dim=-1)
         kl = t.nn.functional.kl_div(log_probs, answers, reduction="batchmean", log_target=False)
         return kl
@@ -272,6 +277,8 @@ class EAPRunner:
     parser.add_argument("--classification-loss-fn", type=str, default="kl_div", choices=["kl_div", "avg_diff"])
     parser.add_argument("--normalize-scores", action="store_true",
                         help="Normalize the scores so that they all lie between 0 and 1.")
+    parser.add_argument("--abs-val-threshold", action="store_true",
+                        help="Use the absolute value of scores for thresholding.")
 
   def prepare_output_dir(self, ll_model_loader):
     if self.edge_count is not None:
