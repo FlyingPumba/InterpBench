@@ -291,7 +291,7 @@ def process_circuit_for_scoring(circuit: Circuit, promote_to_heads: bool = True)
             # direct computation and placeholder edges
             # and resid edges that are not from the first and last layer
             continue
-        # print(f"edge: {from_node.name} -> {to_node.name} \n DC/P: {is_direct_computation_or_placeholder_edge(from_node, to_node)} \n IR: {is_ignorable_resid_edge(from_node, to_node, circuit)}")
+
         if from_node.name in embeds:
             new_from_node = CircuitNode("blocks.0.hook_resid_pre")
         else:
@@ -355,7 +355,6 @@ def is_ignorable_resid_edge(from_node: CircuitNode, to_node: CircuitNode, circui
     if from_node_in_resid:
         if from_node in parent_nodes and not to_node_in_resid:
             return False
-        print(f"from_node: {from_node.name} to_node: {to_node.name}")
         return True
     
     # ignore embed to resid edges as they are just input -> output
