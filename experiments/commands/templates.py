@@ -57,7 +57,7 @@ COMMANDS = {
     },
     "eap": {
         "command":
-        """python main.py run eap -i {case} {model_type} --threshold {threshold} {regression_loss} {classification_loss}""",
+        """python main.py run eap -i {case} {model_type} --threshold {threshold} --abs-val-threshold {regression_loss} {classification_loss}""",
         "variable_args": [
           VariableArgument("regression_loss", "--regression-loss", "mae"),
           VariableArgument("classification_loss", "--classification-loss", "kl_div")
@@ -65,9 +65,11 @@ COMMANDS = {
     },
     "integrated_gradients": {
         "command":
-        """python main.py run eap -i {case} {model_type} --threshold {threshold} {steps}""",
+        """python main.py run eap -i {case} {model_type} --threshold {threshold} --abs-val-threshold {regression_loss} {classification_loss} {steps}""",
         "variable_args": [
           VariableArgument("steps", "--integrated-grad-steps", 10),
+          VariableArgument("regression_loss", "--regression-loss", "mae"),
+          VariableArgument("classification_loss", "--classification-loss", "kl_div"),
           VariableArgument("regression_loss", "--regression-loss", "mae"),
           VariableArgument("classification_loss", "--classification-loss", "kl_div")
         ]
