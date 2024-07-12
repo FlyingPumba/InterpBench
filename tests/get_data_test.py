@@ -12,7 +12,10 @@ class TestGetCleanData:
   def test_get_all_clean_data(self):
     case = Case3()
     data = case.get_clean_data(max_samples=None, variable_length_seqs=True)
-    assert len(data.get_inputs()) == 320
+
+    expected_total_data_len = 320
+    assert len(data.get_inputs()) == expected_total_data_len
+    assert case.get_total_data_len() == expected_total_data_len
 
   def test_get_partial_clean_data(self):
     case = Case3()
