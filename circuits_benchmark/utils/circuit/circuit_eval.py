@@ -46,20 +46,16 @@ def calculate_fpr_and_tpr(
     promote_to_heads: bool = True,
     print_summary: bool = True,
 ) -> CircuitEvalResult:
-  if promote_to_heads:
-    all_nodes = replace_inputs_and_qkv_nodes_with_outputs(full_circuit)
-    true_nodes = replace_inputs_and_qkv_nodes_with_outputs(true_circuit)
-    hypothesis_nodes = replace_inputs_and_qkv_nodes_with_outputs(hypothesis_circuit)
-  else:
-    all_nodes = full_circuit.nodes
-    true_nodes = true_circuit.nodes
-    hypothesis_nodes = hypothesis_circuit.nodes
+  processed_true_circuit = process_circuit_for_scoring(true_circuit, promote_to_heads)
+  processed_hypothesis_circuit = process_circuit_for_scoring(hypothesis_circuit, promote_to_heads)
+  processed_full_circuit = process_circuit_for_scoring(full_circuit, promote_to_heads)
 
-  all_nodes = set(all_nodes)
+  all_nodes = set(processed_full_circuit.nodes)
+  true_nodes = set(processed_true_circuit.nodes)
+  hypothesis_nodes = set(processed_hypothesis_circuit.nodes)
+
 
   # calculate nodes false positives and false negatives
-  hypothesis_nodes = set(hypothesis_nodes)
-  true_nodes = set(true_nodes)
 
   assert hypothesis_nodes.issubset(
     all_nodes), f"hypothesis nodes contain the following nodes that are not in the full circuit: {hypothesis_nodes - all_nodes}"
@@ -79,18 +75,10 @@ def calculate_fpr_and_tpr(
     print(f" - True Negatives: {sorted(true_negative_nodes)}")
 
   # calculate edges false positives and false negatives
-  if promote_to_heads:
-    hypothesis_edges = replace_inputs_and_qkv_edges_with_outputs(hypothesis_circuit)
-    true_edges = replace_inputs_and_qkv_edges_with_outputs(true_circuit)
-    all_edges = replace_inputs_and_qkv_edges_with_outputs(full_circuit)
-  else:
-    hypothesis_edges = hypothesis_circuit.edges
-    true_edges = true_circuit.edges
-    all_edges = full_circuit.edges
+  hypothesis_edges = set(processed_hypothesis_circuit.edges)
+  true_edges = set(processed_true_circuit.edges)
+  all_edges = set(processed_full_circuit.edges)
 
-  hypothesis_edges = set(hypothesis_edges)
-  true_edges = set(true_edges)
-  all_edges = set(all_edges)
 
   assert hypothesis_edges.issubset(
     all_edges), f"hypothesis edges contain the following edges that are not in the full circuit: {hypothesis_edges - all_edges}, hypothesis edges: {hypothesis_edges}, all edges: {all_edges}"
@@ -283,76 +271,102 @@ def get_full_circuit(n_layers: int, n_heads: int) -> Circuit:
     return circuit
 
 
-def replace_inputs_and_qkv_nodes_with_outputs(circuit: Circuit) -> Circuit:
+def process_circuit_for_scoring(circuit: Circuit, promote_to_heads: bool = True) -> Circuit:
+    if not promote_to_heads:
+       raise NotImplementedError("This function is not yet tested for promote_to_heads=False")
+    
     new_circuit = Circuit()
-    prefix = lambda node_name: ".".join(node_name.split(".")[:-1])
-    suffix = lambda node_name: node_name.split(".")[-1]
-
-    for node in circuit.nodes:
-        node_name_prefix = prefix(node.name)
-        node_name_suffix = suffix(node.name)
-        if node_name_suffix in ["hook_q_input", "hook_k_input", "hook_v_input"]:
-            new_node = CircuitNode(f"{node_name_prefix}.attn.hook_result", node.index)
-        elif node_name_suffix in ["hook_embed", "hook_pos_embed", "hook_resid_pre"]:
-            continue
-        elif node_name_suffix == "hook_mlp_in":
-            # TODO:
-            # We are doing this because SP removes this type of direct computation edge
-            # this needs to be fixed in the SP code
-            new_node = CircuitNode(f"{node_name_prefix}.hook_mlp_out")
-        elif node_name_suffix in ["hook_q", "hook_k", "hook_v"]:
-            new_node = CircuitNode(f"{node_name_prefix}.hook_result", node.index)
-        else:
-            new_node = node
-        new_circuit.add_node(new_node)
-
-    return new_circuit.nodes
-
-
-def replace_inputs_and_qkv_edges_with_outputs(circuit: Circuit) -> Circuit:
-    new_circuit = Circuit()
-    prefix = lambda node_name: ".".join(node_name.split(".")[:-1])
-    suffix = lambda node_name: node_name.split(".")[-1]
 
     for from_node, to_node in circuit.edges:
-        from_node_name_prefix = prefix(from_node.name)
-        from_node_name_suffix = suffix(from_node.name)
         to_node_name_prefix = prefix(to_node.name)
         to_node_name_suffix = suffix(to_node.name)
         qkv_ins = ["hook_q_input", "hook_k_input", "hook_v_input"]
-        qkv_outs = ["hook_q", "hook_k", "hook_v"]
-        resids = ["hook_resid_post", "hook_resid_pre"] # TODO: maybe not the last one
+        embeds = ["hook_embed", "hook_pos_embed"]
 
         if (
-           (from_node_name_suffix in qkv_ins)  # Placeholder: {qkv}_input -> hook_{qkv}
-        or (from_node_name_suffix in qkv_outs)  # Direct computation: hook_q -> hook_result
-        or (from_node_name_suffix == "hook_mlp_in") # Direct computation: hook_mlp_in -> hook_mlp_out
+           (is_direct_computation_or_placeholder_edge(from_node, promote_to_heads))
+           or is_ignorable_resid_edge(from_node, to_node, circuit)
         ):
-            # Ignore direct computation and placeholder edges
-            if not (
-                (to_node_name_suffix in qkv_outs)
-                or (to_node_name_suffix == "hook_result")
-                or (to_node_name_suffix == "hook_mlp_out")
-            ):
-                print(
-                    f"!!! WARNING: Received an invalid edge:",
-                    f"{from_node.name} -> {to_node.name}"
-                )
+            # Ignore:
+            # direct computation and placeholder edges
+            # and resid edges that are not from the first and last layer
             continue
-        elif from_node_name_suffix in resids or to_node_name_suffix in resids:
-            # ignore resid edges: TODO: Not sure if I should consider these edges...
-            continue
-        elif to_node_name_suffix in qkv_ins:
-            # directly route incoming edges to head's hook_result
+        # print(f"edge: {from_node.name} -> {to_node.name} \n DC/P: {is_direct_computation_or_placeholder_edge(from_node, to_node)} \n IR: {is_ignorable_resid_edge(from_node, to_node, circuit)}")
+        if from_node.name in embeds:
+            new_from_node = CircuitNode("blocks.0.hook_resid_pre")
+        else:
             new_from_node = from_node
-            new_to_node = CircuitNode(f"{to_node_name_prefix}.attn.hook_result", to_node.index)
+
+        if to_node_name_suffix in qkv_ins:
+            # directly route incoming edges to head's hook_result
+            new_to_node = reroute_qkv_in_to_dest(to_node, promote_to_heads)
         elif to_node_name_suffix == "hook_mlp_in":
             # directly route incoming edges to mlp_out
-            new_from_node = from_node
             new_to_node = CircuitNode(f"{to_node_name_prefix}.hook_mlp_out")
         else:
             # all other edges are okay...
-            new_from_node = from_node
             new_to_node = to_node
         new_circuit.add_edge(new_from_node, new_to_node)
-    return new_circuit.edges
+    return new_circuit
+
+
+def reroute_qkv_in_to_dest(node: CircuitNode, promote_to_heads: bool) -> CircuitNode:
+    to_node_name_prefix = prefix(node.name)
+    if promote_to_heads:
+        # reroute incoming edges to head's hook_result
+        return CircuitNode(f"{to_node_name_prefix}.attn.hook_result", node.index)
+    else:
+        # reroute incoming edges to head's hook_{qkv} instead of hook_result
+        name_suffix = suffix(node.name)
+        is_q_or_k_or_v = "q" if "hook_q" in name_suffix else "k" if "hook_k" in name_suffix else "v"
+        return CircuitNode(f"{to_node_name_prefix}.hook_{is_q_or_k_or_v}", node.index)
+
+
+def is_direct_computation_or_placeholder_edge(from_node: CircuitNode, promote_to_heads: bool) -> bool:
+    from_node_name_suffix = suffix(from_node.name)
+    qkv_ins = ["hook_q_input", "hook_k_input", "hook_v_input"]
+    qkv_outs = ["hook_q", "hook_k", "hook_v"]
+
+    if not promote_to_heads and (from_node_name_suffix in qkv_outs):
+        # Do not remove these edges as we need edges from qkv to attn_result
+        return False
+    
+    return (
+        (from_node_name_suffix in qkv_ins)  # Placeholder: {qkv}_input -> hook_{qkv}
+        or (from_node_name_suffix in qkv_outs)  # Direct computation: hook_q -> hook_result
+        or (from_node_name_suffix == "hook_mlp_in")  # Direct computation: hook_mlp_in -> hook_mlp_out
+    )
+
+def is_ignorable_resid_edge(from_node: CircuitNode, to_node: CircuitNode, circuit: Circuit) -> bool:
+    from_node_name_suffix = suffix(from_node.name)
+    to_node_name_suffix = suffix(to_node.name)
+    leaf_nodes = [node for node in circuit.nodes if not list(circuit.successors(node))]
+    parent_nodes = [node for node in circuit.nodes if not list(circuit.predecessors(node))]
+
+    resids = ["hook_resid_post", "hook_resid_pre"]
+    embeds = ["hook_embed", "hook_pos_embed"]
+
+    from_node_in_resid = from_node_name_suffix in resids
+    from_node_in_embed = from_node_name_suffix in embeds
+    to_node_in_resid = to_node_name_suffix in resids
+
+    # ignore every edge that comes from resid stream 
+    # other than edges from first layer (that do not go back to resid stream)
+    if from_node_in_resid:
+        if from_node in parent_nodes and not to_node_in_resid:
+            return False
+        print(f"from_node: {from_node.name} to_node: {to_node.name}")
+        return True
+    
+    # ignore embed to resid edges as they are just input -> output
+    if from_node_in_embed and to_node_in_resid:
+        return True
+    
+    # return False when edges are to the last layer
+    return (to_node not in leaf_nodes and to_node_in_resid)
+
+def suffix(node_name: str) -> str:
+    return node_name.split(".")[-1]
+
+def prefix(node_name: str) -> str:
+    return ".".join(node_name.split(".")[:-1])
