@@ -20,7 +20,7 @@ from interp_utils.lens.plot_utils import (
 parser = ArgumentParser()
 parser.add_argument("--task", type=str, default="3")
 parser.add_argument("--max_len", type=int, default=1000)
-task_idx = parser.parse_args().task_idx
+task_idx = parser.parse_args().task
 max_len = parser.parse_args().max_len
 
 task: BenchmarkCase = get_cases(indices=[task_idx])[0]

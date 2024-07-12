@@ -23,7 +23,7 @@ from interp_utils.lens.tuned_lens import do_tuned_lens
 parser = ArgumentParser()
 parser.add_argument("--task", type=str, default="3")
 parser.add_argument("--max_len", type=int, default=1000)
-task_idx = parser.parse_args().task_idx
+task_idx = parser.parse_args().task
 max_len = parser.parse_args().max_len
 out_dir = f"./interp_results/{task_idx}/tuned_lens"
 os.makedirs(out_dir, exist_ok=True)
