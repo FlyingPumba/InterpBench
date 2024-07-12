@@ -7,7 +7,8 @@ from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 
 def build_circuit(model: PatchableModel,
                   attribution_scores: PruneScores,
-                  threshold: float) -> Circuit:
+                  threshold: float,
+                  abs_val_threshold: bool = False) -> Circuit:
   """Build a circuit out of the auto_circuit output."""
   circuit = Circuit()
 
@@ -15,7 +16,8 @@ def build_circuit(model: PatchableModel,
     src_node = edge.src
     dst_node = edge.dest
     score = attribution_scores[dst_node.module_name][edge.patch_idx]
-
+    if abs_val_threshold:
+      score = abs(score)
     if score > threshold:
       from_node = CircuitNode(src_node.module_name, src_node.head_idx)
       to_node = CircuitNode(dst_node.module_name, dst_node.head_idx)
