@@ -285,8 +285,8 @@ class EAPRunner:
       output_suffix = f"{ll_model_loader.get_output_suffix()}/edge_count_{self.edge_count}"
     else:
       output_suffix = f"{ll_model_loader.get_output_suffix()}/threshold_{self.threshold}"
-
-    clean_dirname = f"{self.config.output_dir}/eap/{self.case.get_name()}/{output_suffix}"
+      algorithm = "eap" if self.integrated_grad_steps is None else "integrated_grad"
+    clean_dirname = f"{self.config.output_dir}/{algorithm}/{self.case.get_name()}/{output_suffix}"
 
     # remove everything in the directory
     if os.path.exists(clean_dirname):
