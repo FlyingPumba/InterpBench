@@ -27,5 +27,5 @@ class GroundTruthModelLoader(LLModelLoader):
     assert not same_size, "Ground truth models are never same size"
 
     hl_model = self.case.get_hl_model(device=device)
-    corr = self.case.get_correspondence()
+    corr = self.case.get_correspondence(same_size=True) # tracr models are always same size
     return corr, hl_model
