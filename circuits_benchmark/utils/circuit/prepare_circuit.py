@@ -29,7 +29,6 @@ def prepare_circuit_for_evaluation(circuit: Circuit, promote_to_heads: bool = Tr
         qkv_ins = ["hook_q_input", "hook_k_input", "hook_v_input"]
         embeds = ["hook_embed", "hook_pos_embed"]
 
-        print(f"from_node: {from_node.name}, to_node: {to_node.name} \nDCP: {is_direct_computation_or_placeholder_edge(from_node, promote_to_heads)} \nIRE: {is_ignorable_resid_edge(from_node, to_node, circuit)}")
         if (
            (is_direct_computation_or_placeholder_edge(from_node, promote_to_heads))
            or is_ignorable_resid_edge(from_node, to_node, circuit)

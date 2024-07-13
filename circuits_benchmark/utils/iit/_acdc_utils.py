@@ -126,6 +126,9 @@ def get_gt_circuit(
         tracr_ll_circuit, hl_ll_corr, n_heads, tracr_leaf_node, circuit_leaf_node
     )
     edges_to_remove = set(circuit.edges) - set(edges_to_keep)
+    assert edges_to_remove.issubset(set(circuit.edges)), RuntimeError("Some edges to remove are not in the circuit")
+    assert set(edges_to_keep).issubset(set(circuit.edges)), RuntimeError(f"Some edges to keep are not in the circuit: {set(edges_to_keep) - set(circuit.edges)}")
+    assert set(edges_to_keep) | edges_to_remove == set(circuit.edges), RuntimeError(f"Some edges are missing in the circuit: {set(edges_to_keep) | edges_to_remove - set(circuit.edges)}")
 
     for edge in edges_to_remove:
         # print(f"Removing edge {edge}")
@@ -135,7 +138,7 @@ def get_gt_circuit(
     nodes_to_remove = set()
     for node in circuit.nodes:
         if not list(circuit.successors(node)) and node != circuit_leaf_node:
-            assert list(circuit.predecessors(node)) == [], RuntimeError("Found two leaf nodes in he circuit. This should not happen.")
+            assert list(circuit.predecessors(node)) == [], RuntimeError("Found two leaf nodes in the circuit. This should not happen.")
             nodes_to_remove.add(node)
     
     for node in nodes_to_remove:
