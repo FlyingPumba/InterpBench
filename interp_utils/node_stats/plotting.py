@@ -56,8 +56,8 @@ def plot_keys_plt(all_stats, x="norm_cache", y="grad_norm", yerr="grad_std"):
     for case_name, case_stats in all_stats.items():
         siit_df = case_stats["siit"]
         natural_df = case_stats["natural"]
-        plt.errorbar(siit_df[x], siit_df[y], yerr=siit_df[yerr], fmt='o', label=f"siit", markersize=4, color='C0')
-        plt.errorbar(natural_df[x], natural_df[y], yerr=natural_df[yerr], fmt='o', label=f"natural", markersize=4, color='C1')
+        plt.errorbar(siit_df[x], siit_df[y], yerr=siit_df[yerr], fmt='o', label="siit", markersize=4, color='C0')
+        plt.errorbar(natural_df[x], natural_df[y], yerr=natural_df[yerr], fmt='o', label="natural", markersize=4, color='C1')
     plt.xscale('log')
     plt.yscale('log')
     plt.legend(["siit", "natural"])
@@ -65,11 +65,20 @@ def plot_keys_plt(all_stats, x="norm_cache", y="grad_norm", yerr="grad_std"):
     plt.ylabel(y)
 
 
-def plot_keys_plotly(all_stats, x="norm_cache", y="grad_norm", yerr="grad_std", xlog = True, ylog = True, cases=None):
-    siit_xs = []
-    siit_ys = []
-    siit_yerrs = []
-    siit_metadata = []
+def plot_keys_plotly(all_stats, x="norm_cache", y="grad_norm", yerr="grad_std", 
+                     xlog = True, ylog = True, 
+                     color_in_circuit_sepatarely = True,
+                     cases=None):
+    siit_in_circuit_xs = []
+    siit_in_circuit_ys = []
+    siit_in_circuit_yerrs = []
+    siit_in_circuit_metadata = []
+
+    siit_not_in_circuit_xs = []
+    siit_not_in_circuit_ys = []
+    siit_not_in_circuit_yerrs = []
+    siit_not_in_circuit_metadata = []
+    
     natural_xs = []
     natural_ys = []
     natural_yerrs = []
@@ -80,19 +89,29 @@ def plot_keys_plotly(all_stats, x="norm_cache", y="grad_norm", yerr="grad_std", 
             continue
         siit_df = case_stats["siit"]
         natural_df = case_stats["natural"]
-        siit_xs.extend(siit_df[x])
-        siit_ys.extend(siit_df[y])
-        siit_yerrs.extend(siit_df[yerr])
-        natural_xs.extend(natural_df[x])
-        natural_ys.extend(natural_df[y])
-        natural_yerrs.extend(natural_df[yerr])
-        siit_metadata.extend([{
+        
+        siit_in_circuit_xs.extend(siit_df[x][siit_df["status"] == "in_circuit"])
+        siit_in_circuit_ys.extend(siit_df[y][siit_df["status"] == "in_circuit"])
+        siit_in_circuit_yerrs.extend(siit_df[yerr][siit_df["status"] == "in_circuit"])
+
+        siit_not_in_circuit_xs.extend(siit_df[x][siit_df["status"] == "not_in_circuit"])
+        siit_not_in_circuit_ys.extend(siit_df[y][siit_df["status"] == "not_in_circuit"])
+        siit_not_in_circuit_yerrs.extend(siit_df[yerr][siit_df["status"] == "not_in_circuit"])
+
+        siit_metadata = [{
             "case": case_name,
             "in_circuit": row["status"],
             "node": row["node"],
             "resample_ablate_effect": row["resample_ablate_effect"],
             "zero_ablate_effect": row["zero_ablate_effect"],
-        } for i, row in siit_df.iterrows()])
+        } for i, row in siit_df.iterrows()]
+            
+        siit_in_circuit_metadata.extend([meta for meta in siit_metadata if meta["in_circuit"] == "in_circuit"])
+        siit_not_in_circuit_metadata.extend([meta for meta in siit_metadata if meta["in_circuit"] == "not_in_circuit"])
+
+        natural_xs.extend(natural_df[x])
+        natural_ys.extend(natural_df[y])
+        natural_yerrs.extend(natural_df[yerr])
         natural_metadata.extend([{
             "case": case_name,
             "node": row["node"],
@@ -104,23 +123,42 @@ def plot_keys_plotly(all_stats, x="norm_cache", y="grad_norm", yerr="grad_std", 
 
     #scatter and displat metadata on hover
     fig.add_trace(go.Scatter(
-        x=siit_xs,
-        y=siit_ys,
+        x=siit_in_circuit_xs,
+        y=siit_in_circuit_ys,
         error_y=dict(
             type='data',
-            array=siit_yerrs,
+            array=siit_in_circuit_yerrs,
             visible=True
         ),
         mode='markers',
-        name='siit',
-        marker=dict(size=6, color='dodgerblue'),
+        name='siit in circuit' if color_in_circuit_sepatarely else 'siit',
+        marker=dict(size=6, color='darkcyan' if color_in_circuit_sepatarely else 'dodgerblue'),
         hoverinfo='text',
         text= [ a + "<br>" + b for a, b in list(zip(
-        [f"{siit_y} +/- {siit_yerrs}" for siit_y, siit_yerrs in zip(siit_ys, siit_yerrs)],
+        [f"{siit_y} +/- {siit_yerrs}" for siit_y, siit_yerrs in zip(siit_in_circuit_ys, siit_in_circuit_yerrs)],
         [
-            f"<br> case: {meta['case']}<br>node: {meta['node']}<br>in_circuit: {meta['in_circuit']}<br>resample_ablate_effect: {meta['resample_ablate_effect']}<br>zero_ablate_effect: {meta['zero_ablate_effect']}" for meta in siit_metadata]))]
+            f"<br> case: {meta['case']}<br>node: {meta['node']}<br>in_circuit: {meta['in_circuit']}<br>resample_ablate_effect: {meta['resample_ablate_effect']}<br>zero_ablate_effect: {meta['zero_ablate_effect']}" 
+            for meta in siit_in_circuit_metadata]))]
     ))
 
+    fig.add_trace(go.Scatter(
+        x=siit_not_in_circuit_xs,
+        y=siit_not_in_circuit_ys,
+        error_y=dict(
+            type='data',
+            array=siit_not_in_circuit_yerrs,
+            visible=True
+        ),
+        mode='markers',
+        name='siit not in circuit' if color_in_circuit_sepatarely else 'siit',
+        marker=dict(size=6, color='orangered' if color_in_circuit_sepatarely else 'dodgerblue'),
+        hoverinfo='text',
+        text= [ a + "<br>" + b for a, b in list(zip(
+        [f"{siit_y} +/- {siit_yerrs}" for siit_y, siit_yerrs in zip(siit_not_in_circuit_ys, siit_not_in_circuit_yerrs)],
+        [
+            f"<br> case: {meta['case']}<br>node: {meta['node']}<br>in_circuit: {meta['in_circuit']}<br>resample_ablate_effect: {meta['resample_ablate_effect']}<br>zero_ablate_effect: {meta['zero_ablate_effect']}" 
+            for meta in siit_not_in_circuit_metadata]))]
+    ))
 
     fig.add_trace(go.Scatter(
         x=natural_xs,
@@ -323,45 +361,51 @@ def plot_results_in_box_plot(
         plt.ylabel("Resample Ablate Effect")
 
 
-def make_combined_df_from_all_stats(all_stats: dict[str, dict[str, pd.DataFrame]], tracr_stats: dict[str, pd.DataFrame]) -> pd.DataFrame:
+def make_df_from_stats(stats: dict[str, pd.DataFrame]) -> pd.DataFrame:
     def append_row(table, row):
-            return pd.concat([
-                        table, 
-                        pd.DataFrame([row], columns=row.index)]
-                ).reset_index(drop=True)
-    
-    def make_radf_from_stats(stats: dict[str, pd.DataFrame]) -> pd.DataFrame:
-        stats_columns = list(stats[list(stats.keys())[0]].columns)
-        radf = pd.DataFrame(columns=["run"] + stats_columns)
-        for k, v in stats.items():
-            for row in v.iterrows():
-                # print(row)
-                entry = {
-                    "run": k,
-                }
-                entry.update({k: v for k, v in row[1].items()})
-                radf = append_row(radf, pd.Series(entry))
-        return radf
-    
-    def make_dict(stats: dict[str, pd.DataFrame], model_name: str) -> dict[str, pd.DataFrame]:
+        return pd.concat([
+                    table, 
+                    pd.DataFrame([row], columns=row.index)]
+            ).reset_index(drop=True)
+    stats_columns = list(stats[list(stats.keys())[0]].columns)
+    radf = pd.DataFrame(columns=["run"] + stats_columns)
+    for k, v in stats.items():
+        for row in v.iterrows():
+            # print(row)
+            entry = {
+                "run": k,
+            }
+            entry.update({k: v for k, v in row[1].items()})
+            radf = append_row(radf, pd.Series(entry))
+    return radf
+
+
+def make_dict_from_stats(stats: dict[str, pd.DataFrame], model_name: str) -> dict[str, pd.DataFrame]:
         model_dict = {}
         for case, case_stats in stats.items():
             model_dict[case] = case_stats[model_name]
         return model_dict
-    
-    def remove_case_8_constant_node_from_radf(radf: pd.DataFrame, model_name: str):
-        for row in radf.iterrows():
-            if row[1]["node"] == "blocks.0.attn.hook_result, head  0" and row[1]["status"] == "in_circuit" and row[1]["run"] == "8":
-                print(f"Removing case 8 constant node for {model_name}")
-                radf.loc[row[0], "status"] = "not_in_circuit"
+
+def remove_case_8_constant_node_from_radf(radf: pd.DataFrame, model_name: str):
+    for row in radf.iterrows():
+        if row[1]["node"] == "blocks.0.attn.hook_result, head  0" and row[1]["status"] == "in_circuit" and row[1]["run"] == "8":
+            print(f"Removing case 8 constant node for {model_name}")
+            radf.loc[row[0], "status"] = "not_in_circuit"
+
+
+def make_combined_df_from_all_stats(
+    all_stats: dict[str, dict[str, pd.DataFrame]], 
+    tracr_stats: dict[str, pd.DataFrame],
+    column: str = "resample_ablate_effect"
+) -> pd.DataFrame:
         
 
-    siit_stats = make_dict(all_stats, "siit")
-    iit_stats = make_dict(all_stats, "iit")
+    siit_stats = make_dict_from_stats(all_stats, "siit")
+    iit_stats = make_dict_from_stats(all_stats, "iit")
     
-    tracr_radf = make_radf_from_stats(tracr_stats)
-    siit_radf = make_radf_from_stats(siit_stats)
-    iit_radf = make_radf_from_stats(iit_stats)
+    tracr_radf = make_df_from_stats(tracr_stats)
+    siit_radf = make_df_from_stats(siit_stats)
+    iit_radf = make_df_from_stats(iit_stats)
 
     # make a case 8 node not in circuit
     remove_case_8_constant_node_from_radf(siit_radf, "siit")

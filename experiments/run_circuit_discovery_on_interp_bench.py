@@ -11,7 +11,7 @@ print(working_cases)
 
 # ioi = [case for case in working_cases if "ioi" in case]
 # for ioi_case in ioi:
-#     working_cases.remove(ioi_case)
+working_cases.remove("ioi_next_token")
 
 def clean_wandb(dry_run: bool):
     try:

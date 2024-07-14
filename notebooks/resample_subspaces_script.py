@@ -23,7 +23,7 @@ from interp_utils.resample_ablate.plot_utils import plot_causal_effect
 parser = ArgumentParser()
 parser.add_argument("--task", type=str, default="3")
 parser.add_argument("--max_len", type=int, default=100)
-task_idx = parser.parse_args().task_idx
+task_idx = parser.parse_args().task
 max_len = parser.parse_args().max_len
 out_dir = f'./interp_results/{task_idx}/ablate_subspace/'
 
@@ -74,7 +74,7 @@ combined_scales_df_orthogonal = {}
 
 for self_patch in [True, False]:
     for ablate_high_variance in [True, False]:
-        hook_maker = make_hook(self_patch, ablate_high_variance)
+        hook_maker = make_hook(self_patch, ablate_high_variance, pca_dirs)
         combined_scales_df_orthogonal[(self_patch, ablate_high_variance)] = get_ablation_effects_for_scales(
             model_pair, 
             unique_test_data, 

@@ -70,22 +70,20 @@ COMMANDS = {
           VariableArgument("steps", "--integrated-grad-steps", 10),
           VariableArgument("regression_loss", "--regression-loss", "mae"),
           VariableArgument("classification_loss", "--classification-loss", "kl_div"),
-          VariableArgument("regression_loss", "--regression-loss", "mae"),
-          VariableArgument("classification_loss", "--classification-loss", "kl_div")
         ]
     },
     "node_sp": {
         "command":
         """python main.py run sp -i {case} {model_type} --lambda-reg {threshold} {epochs}""",
         "variable_args": [
-          VariableArgument("epochs", "--epochs", 3000)
+          VariableArgument("epochs", "--epochs", 5000)
         ]
     },
     "edge_sp": {
         "command":
         """python main.py run sp -i {case} {model_type} --lambda-reg {threshold} --edgewise {epochs}""",
         "variable_args": [
-          VariableArgument("epochs", "--epochs", 3000)
+          VariableArgument("epochs", "--epochs", 5000)
         ]
     },
     "common_args": [

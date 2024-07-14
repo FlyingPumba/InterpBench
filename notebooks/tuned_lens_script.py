@@ -77,17 +77,17 @@ nodes
 
 # %%
 
-k = "L1H0"
-plot_pearson(
-    key=k,
-    lens_results=tuned_lens_results,
-    labels=labels,
-    in_circuit=k in nodes,
-    is_categorical=task.is_categorical(),
-    tuned_lens=True,
-    case_name=task.get_name(),
-    show=True,
-)
+for k in tuned_lens_results.keys():
+    plot_pearson(
+        key=k,
+        lens_results=tuned_lens_results,
+        labels=labels,
+        in_circuit=k in nodes,
+        is_categorical=task.is_categorical(),
+        tuned_lens=True,
+        case_name=task.get_name(),
+        show=False,
+    )
 
 # %%
 plot_combined_pearson(
