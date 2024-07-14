@@ -7,33 +7,35 @@ from circuits_benchmark.utils.get_cases import get_names_of_working_cases
 
 
 working_cases = sorted(get_names_of_working_cases())
-working_cases = ["3"]
-thresholds = [0.0]
 print(working_cases)
 
-ioi = [case for case in working_cases if "ioi" in case]
-for ioi_case in ioi:
-    working_cases.remove(ioi_case)
+# ioi = [case for case in working_cases if "ioi" in case]
+# for ioi_case in ioi:
+#     working_cases.remove(ioi_case)
 
 def clean_wandb(dry_run: bool):
-    for case in working_cases:
-        wandb_info = get_wandb_info(
-            command_type=CommandType.CIRCUIT_DISCOVERY.value,
-            subcommand="",
-            case=case,
-            model_type=ModelType.InterpBench.value,
-            threshold="",
-        )
-        print(wandb_info)
-        runs = get_runs_with_substr(
-            project=wandb_info["project"],
-            group_substr=wandb_info["group"],
-            name_substr="",
-        )
-        for run in runs:
-            print(f"Deleting run {run.name} from group {run.group}")
-            if not dry_run:
-                run.delete()
+    try:
+        for case in working_cases:
+            wandb_info = get_wandb_info(
+                command_type=CommandType.CIRCUIT_DISCOVERY.value,
+                subcommand="",
+                case=case,
+                model_type=ModelType.InterpBench.value,
+                threshold="",
+                new=False,
+            )
+            print(wandb_info)
+            runs = get_runs_with_substr(
+                project=wandb_info["project"],
+                group_substr=wandb_info["group"],
+                name_substr="",
+            )
+            for run in runs:
+                print(f"Deleting run {run.name} from group {run.group}")
+                if not dry_run:
+                    run.delete()
+    except Exception as e:
+        print("Error cleaning wandb:", e)
 
 
 def build_commands() -> list[list[str]]:

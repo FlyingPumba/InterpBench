@@ -2,6 +2,7 @@ from .templates import SubCommand
 
 subcommands = [
     SubCommand.ACDC.value, 
+    SubCommand.ACDC_LEGACY.value,
     SubCommand.EAP.value, 
     SubCommand.NODE_SP.value, 
     SubCommand.EDGE_SP.value, 

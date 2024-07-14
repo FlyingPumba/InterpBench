@@ -14,29 +14,62 @@ def pessimistic_auc(xs, ys):
 
     dys = np.diff(ys)
     assert np.all(np.diff(xs) >= 0), "not sorted"
-    assert np.all(dys >= 0), "not monotonically increasing"
+    xs, ys, _, _ = make_monotonically_increasing(xs, ys)
 
     # The slabs of the stairs
     area = np.sum((1 - xs)[1:] * dys)
     return area
+
+def make_monotonically_increasing(xs, ys) -> tuple[list[float], list[float]]:
+    for i in range(len(ys)):
+        if ys[i] == 'N/A':
+            ys[i] = 0
+        if xs[i] == 'N/A':
+            xs[i] = 0
+    # Sort indices based on 'x' and 'y'
+    i = np.lexsort(
+        (ys, xs)
+    )  # lexsort sorts by the last column first, then the second last, etc., i.e we firstly sort by x and then y to break ties
+
+    xs = np.array(xs, dtype=np.float64)[i]
+    ys = np.array(ys, dtype=np.float64)[i]
+        
+    to_remove_indices = []
+    removed_xs = []
+    removed_ys = []
+
+    for i in range(1, len(ys)):
+        if ys[i] < ys[i-1]:
+            to_remove_indices.append(i)
+            removed_xs.append(xs[i])
+            removed_ys.append(ys[i])
+    
+    new_xs = []
+    new_ys = []
+    for i in range(len(ys)):
+        if i not in to_remove_indices:
+            new_xs.append(xs[i])
+            new_ys.append(ys[i])
+    assert np.all(np.diff(new_xs) >= 0), "not sorted"
+    assert np.all(np.diff(new_ys) >= 0), "not sorted"
+    return np.array(new_xs), np.array(new_ys), np.array(removed_xs), np.array(removed_ys)
 
 def pessimistic_roc(curves: list[tuple[list[float], list[float]]], labels: list[str], ax: plt.Axes | None = None):
     if ax is None:
         ax = plt.figure(figsize=(10, 6)).add_subplot(111)
     
     for i, (xs, ys) in enumerate(curves):
-        # Sort indices based on 'x' and 'y'
-        j = np.lexsort((ys, xs))  # Sort by x and then by y to break ties
-
-        xs = np.array(xs, dtype=np.float64)[j]
-        ys = np.array(ys, dtype=np.float64)[j]
-
+        xs, ys, removed_xs, removed_ys = make_monotonically_increasing(xs, ys)
+        xs = np.concatenate([[0], xs, [1]])
+        ys = np.concatenate([[0], ys, [1]])
         auc = pessimistic_auc(xs, ys)
 
         # Plot the ROC curve with markers at x, y
         ax.step(xs, ys, where='post', alpha=0.7, label=f'Pessimistic ROC {labels[i]} (AUC = {auc:.2f})',
                 marker='o', markersize=3, linewidth=1.5)
         ax.fill_between(xs, ys, step='post', alpha=0.1)
+        # scatter with the same color as the curve
+        ax.scatter(removed_xs, removed_ys, color=ax.get_lines()[-1].get_color(), s=80, alpha=1, marker='x')
 
     ax.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Random Classifier')
     ax.set_xlabel('False Positive Rate')

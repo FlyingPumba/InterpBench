@@ -6,6 +6,7 @@ def get_wandb_info(command_type: str, subcommand: str,
                    model_type: str,
                    threshold = None,
                    same_size: bool = False,
+                   new: bool = False,
                    ) -> dict | None:
   model_suffix = get_model_suffix(model_type, case)
   wandb_info = COMMANDS[command_type].get("wandb_info", None)
@@ -24,7 +25,7 @@ def get_wandb_info(command_type: str, subcommand: str,
     group = wandb_info["group"].format(algorithm=subcommand, case=case, model_suffix=model_suffix)
     name = wandb_info["name"].format(threshold=threshold)
     return {
-      "project": project,
+      "project": project + "_new" if new else project,
       "group": group,
       "name": name,
     }

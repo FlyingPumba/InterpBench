@@ -37,7 +37,7 @@ class SubCommand(str, Enum):
   ACDC = "acdc"
   ACDC_LEGACY = "acdc_legacy"
   EAP = "eap"
-  INTEGRATED_GRADIENTS = "integrated_gradients"
+  INTEGRATED_GRADIENTS = "integrated_grad"
   NODE_SP = "node_sp"
   EDGE_SP = "edge_sp"
   NODE_EFFECT = "node_effect"
@@ -63,7 +63,7 @@ COMMANDS = {
           VariableArgument("classification_loss", "--classification-loss", "kl_div")
         ]
     },
-    "integrated_gradients": {
+    "integrated_grad": {
         "command":
         """python main.py run eap -i {case} {model_type} --threshold {threshold} --abs-val-threshold {regression_loss} {classification_loss} {steps}""",
         "variable_args": [
@@ -85,7 +85,7 @@ COMMANDS = {
         "command":
         """python main.py run sp -i {case} {model_type} --lambda-reg {threshold} --edgewise {epochs}""",
         "variable_args": [
-          VariableArgument("epochs", "--epochs", 5000)
+          VariableArgument("epochs", "--epochs", 3000)
         ]
     },
     "common_args": [
