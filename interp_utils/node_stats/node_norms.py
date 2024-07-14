@@ -1,4 +1,3 @@
-import pandas as pd
 import torch
 
 import iit.model_pairs as mp
@@ -7,6 +6,7 @@ from iit.utils.node_picker import (
     get_all_individual_nodes_in_circuit,
     get_nodes_not_in_circuit,
 )
+from interp_utils.node_stats.stats_to_df import stats_to_df
 
 
 def get_node_norm_stats(model_pair, loader, return_cache_dict=False):
@@ -70,23 +70,7 @@ def get_mean_and_norm(cache, node: mp.LLNode):
         torch.norm(t, p=2).item() for t in list(cache_slice)
     ]
 
-
 def node_norm_stats_to_df(cache_dict):
-    node_norms = pd.DataFrame(columns=["name", "in_circuit", "norm_cache", "norm_std"])
-    for k, v in cache_dict.items():
-        entry = {
-            "name": (
-                (k.name + f", head {str(k.index).split(',')[2]}")
-                if "attn" in k.name
-                else k.name
-            ),
-            "in_circuit": v["in_circuit"],
-            "norm_cache": v["norm_cache"],
-            "norm_std": v["norm_std"],
-        }
-        node_norms = pd.concat(
-            [node_norms, pd.DataFrame(entry, index=[0])], axis=0, ignore_index=True
-        )
-
+    node_norms = stats_to_df(cache_dict, ["in_circuit", "norm_cache", "norm_std"])
     node_norms = node_norms.sort_values(by="in_circuit", ascending=True)
     return node_norms

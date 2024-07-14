@@ -31,25 +31,48 @@ def make_monotonically_increasing(xs, ys) -> tuple[list[float], list[float]]:
         (ys, xs)
     )  # lexsort sorts by the last column first, then the second last, etc., i.e we firstly sort by x and then y to break ties
 
-    xs = np.array(xs, dtype=np.float64)[i]
-    ys = np.array(ys, dtype=np.float64)[i]
-        
-    to_remove_indices = []
+    new_xs = list(np.array(xs, dtype=np.float64)[i])
+    new_ys = list(np.array(ys, dtype=np.float64)[i])
+
+    current_idx = 0
     removed_xs = []
     removed_ys = []
-
-    for i in range(1, len(ys)):
-        if ys[i] < ys[i-1]:
-            to_remove_indices.append(i)
-            removed_xs.append(xs[i])
-            removed_ys.append(ys[i])
     
-    new_xs = []
-    new_ys = []
-    for i in range(len(ys)):
-        if i not in to_remove_indices:
-            new_xs.append(xs[i])
-            new_ys.append(ys[i])
+    while True:
+        if current_idx == len(new_ys) - 1:
+            break
+        if new_ys[current_idx] > new_ys[current_idx + 1]:
+            removed_xs.append(new_xs[current_idx+1])
+            removed_ys.append(new_ys[current_idx+1])
+            # remove the index which is smaller than the current index
+            new_xs = list(new_xs[:current_idx+1]) + list(new_xs[current_idx + 2:])
+            new_ys = list(new_ys[:current_idx+1]) + list(new_ys[current_idx + 2:])
+        else:
+            current_idx += 1
+
+        
+    # to_remove_indices = []
+    # removed_xs = []
+    # removed_ys = []
+
+    # while True:
+    #     monotonic = True
+    #     for i in range(1, len(ys)):
+    #         if ys[i] < ys[i-1]:
+    #             to_remove_indices.append(i)
+    #             removed_xs.append(xs[i])
+    #             removed_ys.append(ys[i])
+    #             monotonic = False
+    #     if monotonic:
+    #         break
+            
+    
+    # new_xs = []
+    # new_ys = []
+    # for i in range(len(ys)):
+    #     if i not in to_remove_indices:
+    #         new_xs.append(xs[i])
+    #         new_ys.append(ys[i])
     assert np.all(np.diff(new_xs) >= 0), "not sorted"
     assert np.all(np.diff(new_ys) >= 0), "not sorted"
     return np.array(new_xs), np.array(new_ys), np.array(removed_xs), np.array(removed_ys)
