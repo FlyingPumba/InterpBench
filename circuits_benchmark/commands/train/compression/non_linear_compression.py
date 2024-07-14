@@ -107,8 +107,6 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                          lr_start=args.ae_lr_start,
                                          max_train_samples=args.ae_max_train_samples)
 
-  print(f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
-        f"compressed head size {compressed_d_head_size}.")
   trainer = NonLinearCompressedTracrTransformerTrainer(case,
                                                        LLModel(model=hl_model),
                                                        ll_model,
@@ -118,6 +116,9 @@ def train_non_linear_compression(case: BenchmarkCase, args: Namespace):
                                                        ae_training_args=ae_training_args,
                                                        ae_desired_test_mse=args.ae_desired_test_mse,
                                                        ae_train_loss_weight=args.ae_train_loss_weight)
+  print(
+    f" >>> Starting transformer training for {case} non-linear compressed resid of size {compressed_d_model_size} and "
+    f"compressed head size {compressed_d_head_size}.")
   final_metrics = trainer.train(finish_wandb_run=False)
   print(f"\n >>> Final metrics for {case.get_name()}'s non-linear compressed transformer with resid size {compressed_d_model_size} and "
         f"compressed head size {compressed_d_head_size}:")

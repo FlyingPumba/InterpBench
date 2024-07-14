@@ -5,11 +5,16 @@ from circuits_benchmark.utils.circuit.circuit import Circuit, CircuitNode
 from iit.model_pairs.nodes import LLNode
 from iit.utils import index
 from iit.utils.correspondence import Correspondence
+from circuits_benchmark.utils.circuit.prepare_circuit import prepare_circuit_for_evaluation
 
 
-def get_circuit_nodes_from_ll_node(
+def convert_LLNode_to_CircuitNodes(
     ll_node: LLNode, n_heads: int
 ) -> list[CircuitNode]:
+    """
+    Splits the LLNode index to create multiple CircuitNode objects for each of them.
+    No sanity checks are applied on the node name.
+    """
     circuit_nodes = []
 
     def get_circuit_idxs_from_ll_idx(ll_idx: index.Index) -> list[int]:
@@ -27,77 +32,40 @@ def get_circuit_nodes_from_ll_node(
         )
         return [id]
 
-    node_name = ll_node.name
-    ll_node_index = ll_node.index
-    node_name_type = node_name.split(".")[2]
-    node_layer = node_name.split(".")[1]
-    if node_name_type == "attn":
-        assert node_name.split(".")[-1] == "hook_result"
-        # add nodes for q/k/v input, hook_{q/k/v/result}
-        prefix = f"blocks.{node_layer}"
-        suffixes = [f"hook_{qkv}_input" for qkv in ["q", "k", "v"]]
-        suffixes.extend([f"attn.hook_{qkv}" for qkv in ["q", "k", "v"]])
-        suffixes.append("attn.hook_result")
-
-        # add all nodes for indices in ll_node_index
-        circuit_indices = get_circuit_idxs_from_ll_idx(ll_node_index)
-        for circuit_index in circuit_indices:
-            for suffix in suffixes:
-                circuit_nodes.append(
-                    CircuitNode(f"{prefix}.{suffix}", circuit_index)
-                )
-    else:
-        assert ll_node.index == index.Ix[[None]], ValueError(
-            f"Node of type {node_name_type} has non-None index {ll_node.index}"
-        )
-        if node_name_type == "mlp":
-            prefix = f"blocks.{node_layer}"
-            suffixes = ["hook_mlp_out", "hook_mlp_in"]
-            circuit_nodes = [
-                CircuitNode(f"{prefix}.{suffix}", None) for suffix in suffixes
-            ]
-        else:
-            circuit_nodes = [CircuitNode(node_name, None)]
+    for i in get_circuit_idxs_from_ll_idx(ll_node.index):
+        circuit_nodes.append(CircuitNode(ll_node.name, i))
     return circuit_nodes
 
-
-#############################################################
-# This only works when we promote things!
-
-
-def promote_node(node: CircuitNode):
-    node_prefix = ".".join(node.name.split(".")[:-1])
-    node_suffix = node.name.split(".")[-1]
-    if node_suffix in ["hook_k_input", "hook_q_input", "hook_v_input"]:
-        node = CircuitNode(f"{node_prefix}.attn.hook_result", node.index)
-    elif node_suffix in ["hook_k", "hook_q", "hook_v"]:
-        node = CircuitNode(f"{node_prefix}.hook_result", node.index)
-    elif node_suffix == "mlp_in":
-        node = CircuitNode(f"{node_prefix}.mlp.hook_post", node.index)
-
-    return node
-
-
-def promote_and_check_with_hl(
-    node: CircuitNode, hl_ll_corr: Correspondence
-) -> list[CircuitNode]:
-    promoted_node = promote_node(node)
+def find_corresponding_ll_node(
+    hl_node: CircuitNode, hl_ll_corr: Correspondence
+) -> set[LLNode] | None:
     for k, v in hl_ll_corr.items():
-        if k == promoted_node:
+        if k == hl_node:
             return v
     return None
 
 
-def find_edge_in_circuit(
+def map_tracr_edges_to_ll_edges(
     tracr_circuit: Circuit,
-    edge: Tuple[str, str],
     hl_ll_corr: Correspondence,
     n_heads: int,
-) -> bool:
+    tracr_leaf_node: CircuitNode,
+    ll_leaf_node: CircuitNode,
+) -> list[Tuple[CircuitNode, CircuitNode]]:
     """
-    A whacky method to find the corresponding edge in the 'low-level' circuit,
-    given tracr edges and a correspondence between them.
+    A whacky method to find the corresponding edges in the 'low-level' circuit,
+    given tracr edges and a correspondence between them. 
+    It also accounts for mismatch in the number of layers between them by mapping all edges
+    that point to tracr's leaf node to the low-level leaf node. 
+    Args:
+        tracr_circuit: The tracr circuit
+        edge: The edge to find
+        hl_ll_corr: The correspondence between high-level and low-level nodes
+        n_heads: Number of heads
+        tracr_leaf_node: The leaf node of the tracr circuit
+        ll_leaf_node: The leaf node of the low-level circuit
     """
+    all_edges = []
     for e in tracr_circuit.edges:
         # By default, the edge is the same as in tracr.
         # This is useful when the hl_ll_corr maps only a subset of the tracr circuit.
@@ -106,33 +74,30 @@ def find_edge_in_circuit(
         new_ll_to_nodes = [e[1]]
 
         # make corresponding ll edges using hl_ll_corr
-        v = promote_and_check_with_hl(e[0], hl_ll_corr)
-        # I need to promote and check because IIT is only defined for nodewise maps
-        # So the corr only has hook_result/hook_mlp_out
-
+        v = find_corresponding_ll_node(e[0], hl_ll_corr)
         if v is not None:
             new_ll_from_nodes = []
             for node in v:
                 new_ll_from_nodes.extend(
-                    get_circuit_nodes_from_ll_node(node, n_heads)
+                    convert_LLNode_to_CircuitNodes(node, n_heads)
                 )
 
-        v = promote_and_check_with_hl(e[1], hl_ll_corr)
+        v = find_corresponding_ll_node(e[1], hl_ll_corr)
         if v is not None:
             new_ll_to_nodes = []
             for node in v:
                 new_ll_to_nodes.extend(
-                    get_circuit_nodes_from_ll_node(node, n_heads)
+                    convert_LLNode_to_CircuitNodes(node, n_heads)
                 )
-
+        
+        # if the tracr's edge points to the leaf node, map it to the ll_leaf_node
+        if v is None and e[1] == tracr_leaf_node:
+            new_ll_to_nodes = [ll_leaf_node]
+        
+        # make all possible edges
         new_edges = [(f, t) for f in new_ll_from_nodes for t in new_ll_to_nodes]
-        edge = (
-            promote_node(edge[0]),
-            promote_node(edge[1]),
-        )  # promote edge to match the nodes in the new_edges
-        if edge in new_edges:
-            return True
-    return False
+        all_edges.extend(new_edges)
+    return all_edges
 
 
 def get_gt_circuit(
@@ -140,48 +105,47 @@ def get_gt_circuit(
     full_circuit: Circuit,
     n_heads: int,
     case: BenchmarkCase,
+    promote_to_heads: bool = True,
 ) -> Circuit:
-    # print(
-    #     "WARNING: This method only works when we promote nodes!",
-    #     "This has not been tested for qkv granularity. Use with care.",
-    # )
+    """
+    Makes a circuit for the ll_model using tracr's ground truth circuit and the correspondence.
+    """
+    if not promote_to_heads:
+        raise NotImplementedError("Only promote_to_heads=True is supported")
+    
     circuit = full_circuit.copy()
-    corr_vals = hl_ll_corr.values()
-    all_nodes = set(full_circuit.nodes)
-
-    # get circuit nodes from ll nodes
-    all_circuit_nodes = set()
-    for nodes in corr_vals:
-        for ll_node in nodes:
-            circuit_nodes = get_circuit_nodes_from_ll_node(ll_node, n_heads)
-            all_circuit_nodes.update(circuit_nodes)
-
-    # get additional nodes needed
-    additional_nodes_needed = set()
-    nodes_to_check = ["resid", "embed", "unembed"]
-    for node in all_nodes:
-        # check if node.name contains the substrings in nodes_to_check
-        if any([substr in node.name for substr in nodes_to_check]):
-            additional_nodes_needed.add(node)
-    nodes_needed = all_circuit_nodes.union(additional_nodes_needed)
-
-    # remove nodes not needed
-    nodes_to_remove = all_nodes - nodes_needed
-    for node in nodes_to_remove:
-        circuit.remove_node(node)
+    circuit = prepare_circuit_for_evaluation(circuit, promote_to_heads)
+    circuit_leaf_node = circuit.get_result_node()
 
     # remove edges that are not a part of the tracr ground truth
     tracr_ll_circuit = case.get_ll_gt_circuit(granularity="acdc_hooks")
-    edges_to_remove = set()
+    tracr_ll_circuit = prepare_circuit_for_evaluation(tracr_ll_circuit, promote_to_heads)
+    tracr_leaf_node = tracr_ll_circuit.get_result_node()
 
-    for edge in circuit.edges:
-        if not find_edge_in_circuit(
-            tracr_ll_circuit, edge, hl_ll_corr, n_heads
-        ):
-            edges_to_remove.add(edge)
+    edges_to_keep = map_tracr_edges_to_ll_edges(
+        tracr_ll_circuit, hl_ll_corr, n_heads, tracr_leaf_node, circuit_leaf_node
+    )
+    edges_to_remove = set(circuit.edges) - set(edges_to_keep)
+    assert edges_to_remove.issubset(set(circuit.edges)), RuntimeError("Some edges to remove are not in the circuit")
+    assert set(edges_to_keep).issubset(set(circuit.edges)), RuntimeError(f"Some edges to keep are not in the circuit: {set(edges_to_keep) - set(circuit.edges)}")
+    assert set(edges_to_keep) | edges_to_remove == set(circuit.edges), RuntimeError(f"Some edges are missing in the circuit: {set(edges_to_keep) | edges_to_remove - set(circuit.edges)}")
 
     for edge in edges_to_remove:
         # print(f"Removing edge {edge}")
         circuit.remove_edge(edge[0], edge[1])
 
+    # remove detached nodes
+    nodes_to_remove = set()
+    for node in circuit.nodes:
+        if not list(circuit.successors(node)) and node != circuit_leaf_node:
+            assert list(circuit.predecessors(node)) == [], RuntimeError("Found two leaf nodes in the circuit. This should not happen.")
+            nodes_to_remove.add(node)
+    
+    for node in nodes_to_remove:
+        circuit.remove_node(node)
+    
+    assert prepare_circuit_for_evaluation(circuit, promote_to_heads).nodes == circuit.nodes, RuntimeError("Some nodes were not removed from the circuit")
+    assert prepare_circuit_for_evaluation(circuit, promote_to_heads).edges == circuit.edges, RuntimeError("Some edges were not removed from the circuit")
+    assert len(circuit.edges) > 0, RuntimeError("No edges left in the circuit")
+    assert len(circuit.nodes) > 0, RuntimeError("No nodes left in the circuit")
     return circuit

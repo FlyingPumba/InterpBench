@@ -32,7 +32,6 @@ from circuits_benchmark.utils.project_paths import get_default_output_dir
 
 @dataclass
 class SPConfig:
-  threshold: Optional[float] = 0.025
   seed: Optional[int] = 42
   data_size: Optional[int] = 1000
   device: Optional[str] = "cpu"
@@ -66,7 +65,6 @@ class SPConfig:
   @staticmethod
   def from_args(args: Namespace) -> "SPConfig":
     return SPConfig(
-      threshold=args.threshold,
       seed=int(args.seed),
       data_size=args.data_size,
       device=args.device,
@@ -133,6 +131,7 @@ class SPRunner:
         self.ll_model,
         self.hl_ll_corr,
         self.case,
+        print_summary=False,
     )
 
   def run_using_model_loader(self, ll_model_loader: LLModelLoader) -> Tuple[Circuit, CircuitEvalResult]:
@@ -167,9 +166,13 @@ class SPRunner:
     baseline_output = clean_outputs[:data_size]
     test_baseline_output = clean_outputs[data_size:]
 
-    if isinstance(baseline_output, list):
+    if isinstance(clean_outputs, list):
+      clean_outputs = torch.stack(clean_outputs, dim=0)
       baseline_output = torch.stack(baseline_output, dim=0)
       test_baseline_output = torch.stack(test_baseline_output, dim=0)
+
+    baseline_output = baseline_output.to(self.config.device)
+    test_baseline_output = test_baseline_output.to(self.config.device)
 
     if metric_name == "l2":
         validation_metric = partial(
@@ -238,7 +241,7 @@ class SPRunner:
           "percentage_binary": log_dict["percentage_binary"],
         }
       )
-
+      wandb.finish()
       wandb.init(
           project=f"circuit_discovery{'_same_size' if self.config.same_size else ''}",
           group=f"{'edge' if self.config.edgewise else 'node'}_sp_{self.case.get_name()}_{ll_model_loader.get_output_suffix()}",
@@ -262,6 +265,10 @@ class SPRunner:
     use_pos_embed = True
     edgewise = self.config.edgewise
     data_size = self.config.data_size
+
+    clean_inputs = clean_inputs.to(self.config.device)
+    corrupted_inputs = corrupted_inputs.to(self.config.device)
+    clean_outputs = clean_outputs.to(self.config.device)
 
     all_task_things = AllDataThings(
       tl_model=tl_model,
@@ -346,7 +353,7 @@ class SPRunner:
     add_common_args(parser)
     add_evaluation_common_ags(parser)
 
-    parser.add_argument("--using-wandb", action="store_true")
+    parser.add_argument("--using_wandb", action="store_true")
     parser.add_argument("--wandb-project", type=str, default="subnetwork-probing")
     parser.add_argument("--wandb-entity", type=str, required=False)
     parser.add_argument("--wandb-group", type=str, required=False)

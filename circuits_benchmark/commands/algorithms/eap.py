@@ -4,7 +4,7 @@ import shutil
 from argparse import Namespace
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
@@ -37,7 +37,9 @@ class EAPConfig:
   device: Optional[str] = "cpu"
   same_size: Optional[bool] = False
   include_mlp: Optional[bool] = False
+  use_pos_embed: Optional[bool] = False
   weights: Optional[str] = None
+  abs_value_threshold: Optional[bool] = False
 
   @staticmethod
   def from_args(args: Namespace) -> "EAPConfig":
@@ -55,7 +57,8 @@ class EAPConfig:
       device=args.device,
       same_size=args.same_size,
       include_mlp=args.include_mlp,
-      weights=args.weights,
+      use_pos_embed=args.use_pos_embed,
+      abs_value_threshold=args.abs_val_threshold
     )
 
 class EAPRunner:
@@ -96,7 +99,7 @@ class EAPRunner:
       # IOI specific args:
       eval=True,
       include_mlp=self.config.include_mlp,
-      use_pos_embed=False
+      use_pos_embed=self.config.use_pos_embed
     )
 
     clean_dataset = self.case.get_clean_data(max_samples=self.config.data_size)
@@ -142,11 +145,11 @@ class EAPRunner:
     print(f"Saved result to {clean_dirname}/result.txt and {clean_dirname}/result.pkl")
     if self.config.using_wandb:
       import wandb
-
+      algo_str = "eap" if self.integrated_grad_steps is None else f"integrated_grad_{self.integrated_grad_steps}" 
       wandb.init(
         project="circuit_discovery",
-        group=f"eap_{self.case.get_name()}_{self.config.weights}",
-        name=f"{self.config.threshold}",
+        group=f"{algo_str}_{self.case.get_name()}_{ll_model_loader.get_output_suffix()}",
+        name=f"{self.config.threshold}" if self.config.threshold is not None else f"ec_{self.config.edge_count}",
       )
       wandb.save(f"{clean_dirname}/*", base_path=self.config.output_dir)
 
@@ -156,15 +159,20 @@ class EAPRunner:
       self,
       tl_model: t.nn.Module,
       clean_inputs: t.Tensor,
-      clean_outputs: t.Tensor,
+      clean_outputs: List[t.Tensor],
       corrupted_inputs: t.Tensor,
-      corrupted_outputs: t.Tensor
+      corrupted_outputs: List[t.Tensor]
   ):
     slice_output: OutputSlice = "not_first_seq"  # This drops the first token from the output (e.g., BOS)
     if "ioi" in self.case.get_name():
       slice_output = "last_seq"  # Consider the last token as the output
 
     tl_model.to(self.config.device)
+    clean_inputs = clean_inputs.to(self.config.device)
+    clean_outputs = [co.to(self.config.device) for co in clean_outputs]
+    corrupted_inputs = corrupted_inputs.to(self.config.device)
+    corrupted_outputs = [co.to(self.config.device) for co in corrupted_outputs]
+
     auto_circuit_model = patchable_model(
       tl_model,
       factorized=True,
@@ -211,7 +219,7 @@ class EAPRunner:
     else:
       threshold = self.threshold
 
-    eap_circuit = build_circuit(auto_circuit_model, attribution_scores, threshold)
+    eap_circuit = build_circuit(auto_circuit_model, attribution_scores, threshold, self.config.abs_value_threshold)
     eap_circuit.save(f"{self.config.output_dir}/final_circuit.pkl")
 
     return eap_circuit
@@ -221,7 +229,10 @@ class EAPRunner:
                                    out_slice: slice):
     if self.case.is_categorical():
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
-        answers= t.nn.functional.one_hot(batch.answers[out_slice].squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
+        if batch.answers[out_slice].squeeze(dim=-1).shape == logits.shape:
+          answers = batch.answers[out_slice].squeeze(dim=-1)
+        else:
+          answers= t.nn.functional.one_hot(batch.answers[out_slice].squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
         log_probs = t.nn.functional.log_softmax(logits, dim=-1)
         kl = t.nn.functional.kl_div(log_probs, answers, reduction="batchmean", log_target=False)
         return kl
@@ -234,8 +245,10 @@ class EAPRunner:
       print(f"Using regression loss function: {self.regression_loss_fn}")
 
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
+        print("logits:", logits.shape)
+        print("answers:", batch.answers[out_slice].shape)
         if self.regression_loss_fn == "mse":
-          return t.nn.functional.mse_loss(logits, batch.answers[out_slice]) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
+          return t.nn.functional.mse_loss(logits, batch.answers[out_slice]) - t.nn.functional.mse_loss(logits, batch.wrong_answers[out_slice])
         elif self.regression_loss_fn == "mae":
           return t.nn.functional.l1_loss(logits, batch.answers[out_slice])
         else:
@@ -257,6 +270,9 @@ class EAPRunner:
       "--include-mlp", type=int, help="Evaluate group 'with_mlp'", default=1
     )
     parser.add_argument(
+        "--use-pos-embed", action="store_true", help="Use positional embeddings"
+    )
+    parser.add_argument(
         "-wandb", "--using_wandb", action="store_true", help="Use wandb"
     )
     parser.add_argument("--edge-count", type=int, default=None,
@@ -271,14 +287,16 @@ class EAPRunner:
     parser.add_argument("--classification-loss-fn", type=str, default="kl_div", choices=["kl_div", "avg_diff"])
     parser.add_argument("--normalize-scores", action="store_true",
                         help="Normalize the scores so that they all lie between 0 and 1.")
+    parser.add_argument("--abs-val-threshold", action="store_true",
+                        help="Use the absolute value of scores for thresholding.")
 
   def prepare_output_dir(self, ll_model_loader):
     if self.edge_count is not None:
       output_suffix = f"{ll_model_loader.get_output_suffix()}/edge_count_{self.edge_count}"
     else:
       output_suffix = f"{ll_model_loader.get_output_suffix()}/threshold_{self.threshold}"
-
-    clean_dirname = f"{self.config.output_dir}/eap/{self.case.get_name()}/{output_suffix}"
+      algorithm = "eap" if self.integrated_grad_steps is None else "integrated_grad"
+    clean_dirname = f"{self.config.output_dir}/{algorithm}/{self.case.get_name()}/{output_suffix}"
 
     # remove everything in the directory
     if os.path.exists(clean_dirname):

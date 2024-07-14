@@ -105,10 +105,10 @@ def train_edge_sp(
                         "test_metric_accuracy": test_metrc_acc,
                         "total_loss": loss.item(),
                         "test_total_loss": test_loss,
-                        "nodes_fpr": result["nodes"]["fpr"],
-                        "nodes_tpr": result["nodes"]["tpr"],
-                        "edges_fpr": result["edges"]["fpr"],
-                        "edges_tpr": result["edges"]["tpr"],
+                        "nodes_fpr": result.nodes.fpr,
+                        "nodes_tpr": result.nodes.tpr,
+                        "edges_fpr": result.edges.fpr,
+                        "edges_tpr": result.edges.tpr,
                         }
                     )
 
