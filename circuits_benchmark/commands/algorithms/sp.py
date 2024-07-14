@@ -168,9 +168,13 @@ class SPRunner:
     baseline_output = clean_outputs[:data_size]
     test_baseline_output = clean_outputs[data_size:]
 
-    if isinstance(baseline_output, list):
+    if isinstance(clean_outputs, list):
+      clean_outputs = torch.stack(clean_outputs, dim=0)
       baseline_output = torch.stack(baseline_output, dim=0)
       test_baseline_output = torch.stack(test_baseline_output, dim=0)
+
+    baseline_output = baseline_output.to(self.config.device)
+    test_baseline_output = test_baseline_output.to(self.config.device)
 
     if metric_name == "l2":
         validation_metric = partial(
@@ -263,6 +267,10 @@ class SPRunner:
     use_pos_embed = True
     edgewise = self.config.edgewise
     data_size = self.config.data_size
+
+    clean_inputs = clean_inputs.to(self.config.device)
+    corrupted_inputs = corrupted_inputs.to(self.config.device)
+    clean_outputs = clean_outputs.to(self.config.device)
 
     all_task_things = AllDataThings(
       tl_model=tl_model,

@@ -4,7 +4,7 @@ import shutil
 from argparse import Namespace
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 import torch as t
 from auto_circuit.data import PromptDataLoader, PromptDataset, PromptPairBatch
@@ -159,15 +159,20 @@ class EAPRunner:
       self,
       tl_model: t.nn.Module,
       clean_inputs: t.Tensor,
-      clean_outputs: t.Tensor,
+      clean_outputs: List[t.Tensor],
       corrupted_inputs: t.Tensor,
-      corrupted_outputs: t.Tensor
+      corrupted_outputs: List[t.Tensor]
   ):
     slice_output: OutputSlice = "not_first_seq"  # This drops the first token from the output (e.g., BOS)
     if "ioi" in self.case.get_name():
       slice_output = "last_seq"  # Consider the last token as the output
 
     tl_model.to(self.config.device)
+    clean_inputs = clean_inputs.to(self.config.device)
+    clean_outputs = [co.to(self.config.device) for co in clean_outputs]
+    corrupted_inputs = corrupted_inputs.to(self.config.device)
+    corrupted_outputs = [co.to(self.config.device) for co in corrupted_outputs]
+
     auto_circuit_model = patchable_model(
       tl_model,
       factorized=True,
