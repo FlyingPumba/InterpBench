@@ -154,11 +154,14 @@ def plot_combined_pearson(
     case_name: str,
     out_dir: str = "./interp_results/",
     abs_corr: bool = True,
+    return_data: bool = False,
+    show=False,
 ) -> str:
     lens_str = "tuned_lens" if tuned_lens else "logit_lens"
     out_dir = f"{out_dir}/{case_name}/{lens_str}"
     os.makedirs(out_dir, exist_ok=True)
     pearson_corrs = {}
+    p_values = {}
     for k in lens_results.keys():
         x = lens_results[k].detach().cpu().numpy().squeeze()
         y = labels.detach().cpu().numpy().squeeze()
@@ -170,14 +173,19 @@ def plot_combined_pearson(
             k_ = k + "(IC)" if k in nodes_in_circuit else k
             if k_ not in pearson_corrs:
                 pearson_corrs[k_] = {}
+                p_values[k_] = {}
             if np.isnan(pearson_corr.correlation):
                 pearson_corrs[k_][str(i)] = 0
+                p_values[k_][str(i)] = 1
             elif abs_corr:
                 pearson_corrs[k_][str(i)] = abs(pearson_corr.correlation)
+                p_values[k_][str(i)] = pearson_corr.pvalue
             else:
                 pearson_corrs[k_][str(i)] = pearson_corr.correlation
+                p_values[k_][str(i)] = pearson_corr.pvalue
 
     pearson_corrs = pd.DataFrame(pearson_corrs)
+    p_values = pd.DataFrame(p_values)
     fig = px.imshow(
         pearson_corrs,
         # set color map
@@ -191,9 +199,17 @@ def plot_combined_pearson(
     # make xticks bigger
     fig.update_xaxes(tickfont=dict(size=15))
 
-    fig.show()
+    if show:
+        fig.show()
     file = f"{out_dir}/combined_pearson.png"
     fig.write_image(file)
+    pearson_file = f"{out_dir}/combined_pearson.csv"
+    p_values_file = f"{out_dir}/combined_p_values.csv"
+    pearson_corrs.to_csv(pearson_file)
+    p_values.to_csv(p_values_file)
+    
+    if return_data:
+        return file, pearson_file, p_values_file
     return file
 
 

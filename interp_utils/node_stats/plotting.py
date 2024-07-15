@@ -2,6 +2,9 @@ import plotly.express as px
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import seaborn as sns
+from interp_utils.common import append_row
+from typing import Iterable
 
 
 def plot_cache(
@@ -362,11 +365,6 @@ def plot_results_in_box_plot(
 
 
 def make_df_from_stats(stats: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    def append_row(table, row):
-        return pd.concat([
-                    table, 
-                    pd.DataFrame([row], columns=row.index)]
-            ).reset_index(drop=True)
     stats_columns = list(stats[list(stats.keys())[0]].columns)
     radf = pd.DataFrame(columns=["run"] + stats_columns)
     for k, v in stats.items():
@@ -420,3 +418,128 @@ def make_combined_df_from_all_stats(
             
 
     return siit_radf, tracr_radf, iit_radf
+
+def plot_all_df(df, x_col, y_col, 
+                hue_col, title, 
+                y_err=None,
+                y_log=False, 
+                x_log=False):
+    plt.figure(figsize=(10, 5))
+    
+    if y_err:
+        for i, row in df.iterrows():
+            plt.errorbar(
+                row[x_col], 
+                row[y_col], 
+                yerr=row[y_err], 
+                fmt='o', 
+                color="darkcyan" if row[hue_col] == "in_circuit" else "orangered",
+                alpha=0.5, 
+                markersize=15
+            )
+    else:
+        sns.scatterplot(
+        data=df, 
+        x=x_col, 
+        y=y_col, 
+        hue=hue_col, 
+        alpha=0.5,
+        # marker size
+        s=200,
+        palette={"in_circuit": "darkcyan", "not_in_circuit": "orangered"}
+    )
+    plt.title(title)
+    plt.legend(title="", loc="best")
+    plt.xlabel(x_col.replace("_", " "))
+    plt.ylabel(y_col.replace("_", " "))
+    if x_log:
+        plt.xscale("log")
+    if y_log:
+        plt.yscale("log")
+    plt.show()
+
+
+def make_scatter_plot(
+    df: pd.DataFrame,
+    x: str | Iterable,
+    y: str | Iterable,
+    y_err: str = None,
+    make_alpha_fn: callable = None,
+    make_color_fn: callable = None,
+    make_size_fn: callable = None,
+    ylog: bool = False,
+    xlog: bool = False,
+):  
+    def make_hover_text(row: pd.Series):
+        # find where row is in df
+        info = [f"<br>- {key.replace('_', ' ')} : {row[key]}" for key in row.keys().values]
+        return "".join(info)
+
+
+    in_circuit_df = df[df["status"] == "in_circuit"]
+    not_in_circuit_df = df[df["status"] == "not_in_circuit"]
+
+    def make_alpha(row):
+        if make_alpha_fn is None:
+            return 0.7
+        return make_alpha_fn(row)
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=in_circuit_df[x] if isinstance(x, str) else x,
+            y=in_circuit_df[y] if isinstance(y, str) else y,
+            mode="markers",
+            name="in circuit",
+            marker=dict(
+                color="darkcyan" if make_color_fn is None else in_circuit_df.apply(make_color_fn, axis=1).values,
+                size=15 if make_size_fn is None else in_circuit_df.apply(make_size_fn, axis=1).values,
+                # make opacity based on alpha_col
+                opacity=in_circuit_df.apply(make_alpha, axis=1).values,
+            ),
+            error_y=dict(
+                type="data",
+                array=in_circuit_df[y_err],
+                visible=True,
+            ) if y_err is not None else None,
+            hovertext=in_circuit_df.apply(make_hover_text, axis=1),
+
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=not_in_circuit_df[x] if isinstance(x, str) else x,
+            y=not_in_circuit_df[y] if isinstance(y, str) else y,
+            mode="markers",
+            name="not in circuit",
+            marker=dict(
+                color="darkorange" if make_color_fn is None else not_in_circuit_df.apply(make_color_fn, axis=1).values,
+                size=15 if make_size_fn is None else not_in_circuit_df.apply(make_size_fn, axis=1).values,
+                # make opacity based on alpha_col
+                opacity=not_in_circuit_df.apply(make_alpha, axis=1).values,
+            ),
+            error_y=dict(
+                type="data",
+                array=not_in_circuit_df[y_err],
+                visible=True,
+            ) if y_err is not None else None,
+            hovertext=not_in_circuit_df.apply(make_hover_text, axis=1)
+        )
+    )
+
+    if isinstance(x, str):
+        fig.update_xaxes(title_text=x.replace("_", " "))
+    if isinstance(y, str):
+        fig.update_yaxes(title_text=y.replace("_", " "))
+    fig.update_layout(
+        showlegend=True,
+    )
+
+    if ylog:
+        fig.update_layout(yaxis_type="log")
+    if xlog:
+        fig.update_layout(xaxis_type="log")
+
+    return fig
