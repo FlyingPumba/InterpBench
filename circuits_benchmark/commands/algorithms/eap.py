@@ -168,10 +168,6 @@ class EAPRunner:
       slice_output = "last_seq"  # Consider the last token as the output
 
     tl_model.to(self.config.device)
-    clean_inputs = clean_inputs.to(self.config.device)
-    clean_outputs = [co.to(self.config.device) for co in clean_outputs]
-    corrupted_inputs = corrupted_inputs.to(self.config.device)
-    corrupted_outputs = [co.to(self.config.device) for co in corrupted_outputs]
 
     auto_circuit_model = patchable_model(
       tl_model,
@@ -180,6 +176,14 @@ class EAPRunner:
       separate_qkv=True,
       device=t.device(self.config.device),
     )
+
+    # Move the data to the requested device and apply slice to the outputs
+    clean_inputs = clean_inputs.to(self.config.device)
+    clean_outputs = [co.unsqueeze(dim=0)[auto_circuit_model.out_slice].squeeze(dim=0).to(self.config.device)
+                     for co in clean_outputs]
+    corrupted_inputs = corrupted_inputs.to(self.config.device)
+    corrupted_outputs = [co.unsqueeze(dim=0)[auto_circuit_model.out_slice].squeeze(dim=0).to(self.config.device)
+                         for co in corrupted_outputs]
 
     dataset = PromptDataset(
       clean_inputs,
@@ -203,10 +207,7 @@ class EAPRunner:
     else:
       eap_args["mask_val"] = 0.0
 
-    eap_args["answer_function"] = self.get_answer_function_for_case(
-      tl_model,
-      auto_circuit_model.out_slice  # type: ignore
-    )
+    eap_args["answer_function"] = self.get_answer_function_for_case(tl_model)
 
     attribution_scores: PruneScores = mask_gradient_prune_scores(**eap_args)
     if self.normalize_scores:
@@ -224,15 +225,13 @@ class EAPRunner:
 
     return eap_circuit
 
-  def get_answer_function_for_case(self,
-                                   tl_model: t.nn.Module,
-                                   out_slice: slice):
+  def get_answer_function_for_case(self, tl_model: t.nn.Module):
     if self.case.is_categorical():
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
-        if batch.answers[out_slice].squeeze(dim=-1).shape == logits.shape:
-          answers = batch.answers[out_slice].squeeze(dim=-1)
+        if batch.answers.squeeze(dim=-1).shape == logits.shape:
+          answers = batch.answers.squeeze(dim=-1)
         else:
-          answers= t.nn.functional.one_hot(batch.answers[out_slice].squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
+          answers= t.nn.functional.one_hot(batch.answers.squeeze(dim=-1), num_classes=tl_model.cfg.d_vocab_out).float()
         log_probs = t.nn.functional.log_softmax(logits, dim=-1)
         kl = t.nn.functional.kl_div(log_probs, answers, reduction="batchmean", log_target=False)
         return kl
@@ -245,12 +244,10 @@ class EAPRunner:
       print(f"Using regression loss function: {self.regression_loss_fn}")
 
       def loss_fn(logits: t.Tensor, batch: PromptPairBatch) -> t.Tensor:
-        print("logits:", logits.shape)
-        print("answers:", batch.answers[out_slice].shape)
         if self.regression_loss_fn == "mse":
-          return t.nn.functional.mse_loss(logits, batch.answers[out_slice]) - t.nn.functional.mse_loss(logits, batch.wrong_answers[out_slice])
+          return t.nn.functional.mse_loss(logits, batch.answers) - t.nn.functional.mse_loss(logits, batch.wrong_answers)
         elif self.regression_loss_fn == "mae":
-          return t.nn.functional.l1_loss(logits, batch.answers[out_slice])
+          return t.nn.functional.l1_loss(logits, batch.answers)
         else:
           raise ValueError(f"Unknown regression loss function: {self.regression_loss_fn}")
 
