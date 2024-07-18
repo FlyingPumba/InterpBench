@@ -1,6 +1,6 @@
 # %%
 from interp_utils.node_stats.all_stats import make_all_stats
-from circuits_benchmark.utils.get_cases import get_names_of_working_cases
+from circuits_benchmark.utils.get_cases import get_names_of_working_cases, get_cases
 import pandas as pd
 from typing import Literal
 import re
@@ -9,18 +9,44 @@ from interp_utils.node_stats.plotting import make_scatter_plot
 from functools import partial
 import matplotlib.pyplot as plt
 import wandb
+import argparse
+
 
 # %%
+parser = argparse.ArgumentParser(description="Lens vs node stats")
+parser.add_argument(
+    "--lens", 
+    type=str, 
+    choices=["logit_lens", "tuned_lens"],
+    default="logit_lens", 
+    help="The lens to use for the analysis"
+
+)
+parser.add_argument(
+    "-wandb",
+    "--wandb",
+    action="store_true",
+    help="Log the results to wandb"
+)
+args = parser.parse_args()
+use_wandb = args.wandb
+lens: Literal['logit_lens', 'tuned_lens'] = args.lens
 
 make = False
 csv_file = "interp_results/siit_node_stats_all_cases.csv"
 if make:
+    from interp_utils.node_stats.plotting import make_dict_from_stats, make_df_from_stats
     cases = [ case for case in get_names_of_working_cases() if 'ioi' not in case ]
-
-    siit_stats = make_all_stats(
+    cases = get_cases(indices=cases)
+    all_stats = make_all_stats(
         cases=cases,
         only_siit=True,
     )
+    siit_stats = make_df_from_stats(make_dict_from_stats(all_stats, "siit"))
+    for row in siit_stats.iterrows():
+        if row[1]["node"] == "blocks.0.attn.hook_result, head  0" and row[1]["status"] == "in_circuit" and row[1]["run"] == "8":
+            print("Removing case 8 constant node for siit_stats")
+            siit_stats.loc[row[0], "status"] = "not_in_circuit"
 
     siit_stats.to_csv(csv_file, index=False)
 else:
@@ -32,7 +58,6 @@ print(cases)
 
 # %%
 
-lens: Literal['logit_lens', 'tuned_lens'] = 'logit_lens'
 lens_stats = {}
 
 for case in cases:
@@ -98,8 +123,8 @@ def make_lens_stats_df_for_case(
         if siit_node_name is None:
             continue
 
-        pearson_val = pearson[node].values[0]
-        p_value_val = p_value[node].values[0]
+        pearson_val = pearson[node].values.mean()
+        p_value_val = p_value[node].values.mean()
 
         lens_stats_df_entry = {
             "node": siit_node_name,
@@ -203,15 +228,14 @@ fig = make_scatter_plot(
 )
 
 fig.write_html(f"interp_results/pearson_plots/siit_{lens}_pearson_vs_zero_ablate_effect.html")
-# fig
 
 # %%
-
-
 def make_size_col(row, row_id, row_normalizer):
-    return 18 + (row[row_id] / row_normalizer) * 5
+    return 18 + (row[row_id] / row_normalizer) * 8
 
 def make_alpha_col(row):
+    if row["zero_ablate_effect"] == 0.0:
+        return 0.0
     if row["p_value"] > 0.05:
         return 0.0
     return 0.2 + (row["zero_ablate_effect"]**0.5) * 0.8
@@ -236,11 +260,16 @@ fig.update_layout(
         xanchor="left",
         x=0.01,
         # font size
-        font=dict(size=15),
+        font=dict(size=16),
     ),
+    xaxis_title="Pearson Correlation Coefficient",
+    yaxis_title="Normalised Node Norms",
+    # font size
+    font=dict(size=16),
 )
 
 fig.write_html(f"interp_results/pearson_plots/siit_{lens}_pearson_vs_norm_cache.html")
+fig.write_image(f"interp_results/pearson_plots/siit_{lens}_pearson_vs_norm_cache.pdf")
 
 # %%
 pearson_df = pd.DataFrame({
@@ -249,37 +278,46 @@ pearson_df = pd.DataFrame({
     "ones": [1 if status == "in_circuit" else 0 for status in normalised_siit_stats["status"].values],
     "status": normalised_siit_stats["status"].values
 })
-fig = pearson_df.boxplot(column="pearson", by="status")
-
+fig = pearson_df.boxplot(
+    column="pearson", 
+    by="status",
+    patch_artist=True,
+    showfliers=True,
+    # whis=[5, 95],
+)
 
 plt.suptitle("")
 plt.title("")
 
-plt.xticks(fontsize=14)
-plt.yticks(fontsize=14)
-plt.xlabel("Node status", fontsize=16)
+plt.xticks(
+    ticks=[1, 2],
+    labels=["not in circuit", "in circuit"],
+    fontsize=16)
+plt.yticks(fontsize=16)
+plt.xlabel("")
 plt.ylabel("Pearson correlation", fontsize=16)
 fig.get_figure().set_size_inches(6, 5)
 
 plt.show()
 
 # save the figure
+fig.get_figure().savefig(f"interp_results/pearson_plots/siit_{lens}_pearson_boxplot.pdf")
 fig.get_figure().savefig(f"interp_results/pearson_plots/siit_{lens}_pearson_boxplot.png")
 
 # %%
 
+if use_wandb:
+    wandb.init(project="siit_node_stats", group=lens)
 
-wandb.init(project="siit_node_stats")
-
-wandb.log({
-    f"siit_{lens}_pearson_vs_zero_ablate_effect".replace("_", " "): 
-    wandb.Html(f"interp_results/pearson_plots/siit_{lens}_pearson_vs_zero_ablate_effect.html"),
-    f"siit_{lens}_pearson_vs_norm_cache".replace("_", " "):
-    wandb.Html(f"interp_results/pearson_plots/siit_{lens}_pearson_vs_norm_cache.html"),
-    f"siit_{lens}_pearson_boxplot".replace("_", " "):
-    wandb.Image(f"interp_results/pearson_plots/siit_{lens}_pearson_boxplot.png"),
-})
-wandb.finish()
+    wandb.log({
+        f"siit_{lens}_pearson_vs_zero_ablate_effect".replace("_", " "): 
+        wandb.Html(f"interp_results/pearson_plots/siit_{lens}_pearson_vs_zero_ablate_effect.html"),
+        f"siit_{lens}_pearson_vs_norm_cache".replace("_", " "):
+        wandb.Html(f"interp_results/pearson_plots/siit_{lens}_pearson_vs_norm_cache.html"),
+        f"siit_{lens}_pearson_boxplot".replace("_", " "):
+        wandb.Image(f"interp_results/pearson_plots/siit_{lens}_pearson_boxplot.png"),
+    })
+    wandb.finish()
 
 # %%
 

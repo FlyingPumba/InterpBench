@@ -493,10 +493,16 @@ def make_scatter_plot(
             mode="markers",
             name="in circuit",
             marker=dict(
-                color="darkcyan" if make_color_fn is None else in_circuit_df.apply(make_color_fn, axis=1).values,
+                # transparent
+                color='rgba(0, 0, 0, 0)',
                 size=15 if make_size_fn is None else in_circuit_df.apply(make_size_fn, axis=1).values,
                 # make opacity based on alpha_col
                 opacity=in_circuit_df.apply(make_alpha, axis=1).values,
+                # don't fill the markers
+                line=dict(
+                    width=1, 
+                    color="darkcyan" if make_color_fn is None else in_circuit_df.apply(make_color_fn, axis=1).values,
+                ),
             ),
             error_y=dict(
                 type="data",
@@ -528,6 +534,30 @@ def make_scatter_plot(
             hovertext=not_in_circuit_df.apply(make_hover_text, axis=1)
         )
     )
+
+    fig.update_layout(
+        plot_bgcolor='white'
+    )
+    fig.update_xaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey',
+        # make tick gap 0.5
+        dtick=0.5
+
+    )
+    fig.update_yaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey',
+        # make tick gap 0.5
+        dtick=0.5
+    )
+
 
     if isinstance(x, str):
         fig.update_xaxes(title_text=x.replace("_", " "))

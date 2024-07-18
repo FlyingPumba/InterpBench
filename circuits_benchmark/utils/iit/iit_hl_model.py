@@ -9,7 +9,6 @@ class IITHLModel:
 
   def __init__(self, hl_model: HookedTransformer, eval_mode: bool = False):
     self.hl_model = hl_model
-    self.hl_model.to(hl_model.device)
     self.eval_mode = eval_mode
 
     for p in hl_model.parameters():

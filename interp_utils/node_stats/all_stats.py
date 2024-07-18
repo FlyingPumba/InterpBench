@@ -8,7 +8,7 @@ from interp_utils.node_stats import get_node_norm_stats
 import circuits_benchmark.commands.evaluation.iit.iit_eval as eval_node_effect
 from interp_utils.node_stats.node_grads import get_grad_norms_by_node
 
-def get_all_stats_for_model_pair(model_pair, loader, task, max_len=100, kl=False):
+def get_all_stats_for_model_pair(model_pair, loader, task, max_len=2, kl=False):
     node_norms = get_node_norm_stats(model_pair, loader, return_cache_dict=False)
     node_effects, _ = eval_node_effect.get_node_effects(
         case=task, model_pair=model_pair, use_mean_cache=False, max_len=max_len, categorical_metric="kl_div" if kl else "accuracy"
@@ -74,7 +74,7 @@ def make_all_stats(
             print(f"Failed to load {case.get_name()}")
             print(e)
             continue
-        dataset = case.get_clean_data(max_samples=2000)
+        dataset = case.get_clean_data(max_samples=2)
         loader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
         
         siit_combined_df = get_all_stats_for_model_pair(siit_model_pair, loader, case, kl=kl)
