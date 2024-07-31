@@ -14,7 +14,7 @@ from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.iit.wandb_loader import load_circuit_from_wandb
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import LLModelLoader, get_ll_model_loader_from_args
 from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
-from iit.model_pairs.nodes import LLNode
+from iit.utils.nodes import LLNode
 from iit.utils import IITDataset, index
 from iit.utils.eval_ablations import get_circuit_score, get_mean_cache
 
