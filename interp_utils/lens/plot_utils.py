@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 import torch
 from scipy import stats
 import os
+import sklearn.metrics as metrics
+import json
 
 import iit.model_pairs as mp
 from iit.utils.node_picker import get_all_individual_nodes_in_circuit
@@ -123,8 +125,8 @@ def plot_pearson(
 
         pearson_corr = stats.pearsonr(x, y)
         # normalize x and y by variance and plot
-        x = (x - np.mean(x)) / (np.std(x) + 1e-6)
-        y = (y - np.mean(y)) / (np.std(y) + 1e-6)
+        # x = (x - np.mean(x)) / (np.std(x) + 1e-6)
+        # y = (y - np.mean(y)) / (np.std(y) + 1e-6)
         # assert stats.pearsonr(x, y)[0] - pearson_corr[0] < 1e-6, RuntimeError("Pearson correlation is not preserved after normalization!")
         fig.add_trace(
             go.Scatter(
@@ -213,6 +215,68 @@ def plot_combined_pearson(
     return file
 
 
+def plot_combined_variance_explained(
+    lens_results: dict[str, torch.Tensor],
+    labels: torch.Tensor,
+    is_categorical: bool,
+    nodes_in_circuit: list[str],
+    tuned_lens: bool,
+    case_name: str,
+    out_dir: str = "./interp_results/",
+    abs_corr: bool = True,
+    return_data: bool = False,
+    show=False,
+) -> str:
+    lens_str = "tuned_lens" if tuned_lens else "logit_lens"
+    out_dir = f"{out_dir}/{case_name}/{lens_str}"
+    os.makedirs(out_dir, exist_ok=True)
+    explained_variance_scores = {}
+
+    for k in lens_results.keys():
+        x = lens_results[k].detach().cpu().numpy().squeeze()
+        y = labels.detach().cpu().numpy().squeeze()
+        if is_categorical and tuned_lens:
+            y = y.argmax(axis=-1)
+            x = x.argmax(axis=-1)
+        for i in range(x.shape[1]):
+            y_var = np.var(y[:, i])
+            x_var = np.var(x[:, i])
+            explained_variance = metrics.explained_variance_score(y[:, i], x[:, i])
+            k_ = k + "(IC)" if k in nodes_in_circuit else k
+
+            if abs_corr:
+                explained_variance = abs(explained_variance)
+            if k_ not in explained_variance_scores:
+                explained_variance_scores[k_] = {}
+            explained_variance_scores[k_][str(i)] = explained_variance
+
+    explained_variance_scores = pd.DataFrame(explained_variance_scores)
+    fig = px.imshow(
+        explained_variance_scores,
+        # set color map
+        color_continuous_scale="Viridis",
+        # set axis labels
+        labels=dict(y="Position", x="Layer/Head", color="Explained Variance"),
+    )
+    # remove margins around plot
+    fig.update_layout(margin=dict(l=0, r=0, t=1, b=0))
+
+    # make xticks bigger
+    fig.update_xaxes(tickfont=dict(size=15))
+
+    if show:
+        fig.show()
+
+    file = f"{out_dir}/combined_variance_explained.png"
+    fig.write_image(file)
+    explained_variance_file = f"{out_dir}/combined_variance_explained.csv"
+    explained_variance_scores.to_csv(explained_variance_file)
+
+    if return_data:
+        return file, explained_variance_file
+    return file
+
+
 def plot_pearson_at_vocab_idx(
     key: str,
     vocab_idx: int,
@@ -234,8 +298,8 @@ def plot_pearson_at_vocab_idx(
         y = per_vocab_labels[vocab_idx][:, i].squeeze().detach().cpu().numpy()
         x = lens_results_per_vocab[key][vocab_idx][:, i].detach().cpu().numpy()
         pearson_corr = stats.pearsonr(x, y)
-        x = (x - np.mean(x)) / (np.std(x) + 1e-6)
-        y = (y - np.mean(y)) / (np.std(y) + 1e-6)
+        # x = (x - np.mean(x)) / (np.std(x) + 1e-6)
+        # y = (y - np.mean(y)) / (np.std(y) + 1e-6)
         # assert stats.pearsonr(x, y)[0] - pearson_corr[0] < 1e-6, RuntimeError("Pearson correlation is not preserved after normalization!")
         fig.add_trace(
             go.Scatter(
@@ -253,3 +317,26 @@ def plot_pearson_at_vocab_idx(
     file = f"{out_dir}/pearson_at_{vocab_idx}.png"
     fig.write_image(file)
     return file
+
+def save_lens_results(
+    lens_results: dict[str, torch.Tensor],
+    labels: torch.Tensor,
+    nodes_in_circuit: list[str],
+    case: BenchmarkCase,
+    tuned_lens: bool,
+    out_dir: str = "./interp_results/",
+):
+    lens_str = "tuned_lens" if tuned_lens else "logit_lens"
+    out_dir = f"{out_dir}/{case.get_name()}/{lens_str}"
+    os.makedirs(out_dir, exist_ok=True)
+    # save labels and lens results
+    results = {}
+    results['labels'] = labels.tolist()
+    for k, v in lens_results.items():
+        k_ = k + "(IC)" if k in nodes_in_circuit else k
+        results[k_] = v.tolist()
+
+    with open(f"{out_dir}/{lens_str}_results.json", 'w') as f:
+        json.dump(results, f)
+    
+    print(f"Saved lens results to {out_dir}/{lens_str}_results.json")

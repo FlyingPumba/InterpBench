@@ -7,13 +7,13 @@ remove_cases += ['ioi', 'ioi_next_token']
 cases = get_names_of_working_cases()
 cases = [case for case in cases if case not in remove_cases]
 print(cases, remove_cases, sep='\n')
-# # run all cases parallel with max 4 processes
-# processes = []
-# for case in cases:
-#     processes.append(subprocess.Popen(['python', 'siit_vs_tracr.py', '--task', case]))
-#     if len(processes) >= 4:
-#         for p in processes:
-#             p.wait()
-#             processes.remove(p)
-#             break # only wait for the first process to finish
+# run all cases parallel with max 4 processes
+processes = []
+for case in cases:
+    processes.append(subprocess.Popen(['python', 'siit_vs_tracr.py', '--task', case]))
+    if len(processes) >= 4:
+        for p in processes:
+            p.wait()
+            processes.remove(p)
+            break # only wait for the first process to finish
     

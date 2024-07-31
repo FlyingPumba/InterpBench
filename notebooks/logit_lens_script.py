@@ -15,6 +15,8 @@ from interp_utils.lens.plot_utils import (
     plot_combined_pearson,
     plot_pearson,
     plot_pearson_at_vocab_idx,
+    save_lens_results,
+    plot_combined_variance_explained
 )
 
 parser = ArgumentParser()
@@ -57,6 +59,13 @@ except:  # noqa: E722
 # %%
 
 logit_lens_results, labels = logit_lens.do_logit_lens(model_pair, loader)
+save_lens_results(
+    logit_lens_results, 
+    labels, 
+    nodes_in_circuit=get_formatted_node_names_in_circuit(model_pair),
+    case=task,
+    tuned_lens=False,
+)
 
 # %%
 nodes = get_formatted_node_names_in_circuit(model_pair)
@@ -104,3 +113,12 @@ if model_pair.hl_model.is_categorical():
             )
 
 # %%
+
+plot_combined_variance_explained(
+    lens_results=logit_lens_results,
+    labels=labels,
+    nodes_in_circuit=nodes,
+    is_categorical=model_pair.hl_model.is_categorical(),
+    tuned_lens=False,
+    case_name=task.get_name(),
+)

@@ -17,6 +17,8 @@ from interp_utils.lens.plot_utils import (
     get_formatted_node_names_in_circuit,
     plot_combined_pearson,
     plot_pearson,
+    save_lens_results,
+    plot_combined_variance_explained
 )
 from interp_utils.lens.tuned_lens import do_tuned_lens
 
@@ -60,6 +62,13 @@ tuned_lens_results, labels, train_metrics = do_tuned_lens(
     ),
     return_train_metrics=True,
 )
+save_lens_results(
+    tuned_lens_results,
+    labels, 
+    nodes_in_circuit=get_formatted_node_names_in_circuit(model_pair),
+    case=task,
+    tuned_lens=True,
+)
 
 # %%
 
@@ -91,6 +100,17 @@ for k in tuned_lens_results.keys():
 
 # %%
 plot_combined_pearson(
+    lens_results=tuned_lens_results,
+    labels=labels,
+    nodes_in_circuit=nodes,
+    is_categorical=task.is_categorical(),
+    tuned_lens=True,
+    case_name=task.get_name(),
+)
+
+# %%
+
+plot_combined_variance_explained(
     lens_results=tuned_lens_results,
     labels=labels,
     nodes_in_circuit=nodes,
