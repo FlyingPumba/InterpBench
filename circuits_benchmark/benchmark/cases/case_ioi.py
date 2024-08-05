@@ -1,7 +1,7 @@
 from typing import Optional, Callable
 
 import torch as t
-from iit.model_pairs.nodes import LLNode
+from iit.utils.nodes import LLNode
 from jaxtyping import Float
 from torch import Tensor
 from transformer_lens import HookedTransformer, HookedTransformerConfig
