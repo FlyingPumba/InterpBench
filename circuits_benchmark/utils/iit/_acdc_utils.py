@@ -2,7 +2,7 @@ from typing import Tuple
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.utils.circuit.circuit import Circuit, CircuitNode
-from iit.model_pairs.nodes import LLNode
+from iit.utils.nodes import LLNode
 from iit.utils import index
 from iit.utils.correspondence import Correspondence
 from circuits_benchmark.utils.circuit.prepare_circuit import prepare_circuit_for_evaluation
