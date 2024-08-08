@@ -224,11 +224,11 @@ def plot_metric(
     case_name: str,
     metric: callable, # callable function that takes in two arrays and returns a scalar
     metric_label: str, 
-    metric_file: str = None,
-    out_dir: str = "./interp_results/",
+    out_dir: str = "./interp_results",
     abs_corr: bool = True,
     return_data: bool = False,
     show=False,
+    metric_file: str = None,
 ) -> str:
     metric_file = metric_label.replace(" ", "_").lower() if metric_file is None else metric_file
     lens_str = "tuned_lens" if tuned_lens else "logit_lens"
@@ -268,7 +268,6 @@ def plot_metric(
 
     if show:
         fig.show()
-
     file = f"{out_dir}/combined_{metric_file}.png"
     fig.write_image(file)
     metric_file = f"{out_dir}/combined_{metric_file}.csv"
@@ -286,7 +285,7 @@ def plot_explained_variance_combined(
     nodes_in_circuit: list[str],
     tuned_lens: bool,
     case_name: str,
-    out_dir: str = "./interp_results/",
+    out_dir: str = "./interp_results",
     abs_corr: bool = True,
     return_data: bool = False,
     show=False,
@@ -302,7 +301,7 @@ def plot_explained_variance_combined(
         tuned_lens,
         case_name,
         explained_variance,
-        "Explained Variance",
+        "Variance Explained",
         out_dir,
         abs_corr,
         return_data,
