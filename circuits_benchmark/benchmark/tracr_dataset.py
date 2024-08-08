@@ -54,5 +54,13 @@ class TracrDataset(CaseDataset):
     encoded_inputs = self.hl_model.map_tracr_input_to_tl_input(self.inputs)
     with t.no_grad():
       encoded_outputs = self.hl_model(encoded_inputs)
+      if self.hl_model.is_categorical():
+        # take argmax
+        argmax_encoded_outputs = t.argmax(encoded_outputs, dim=-1)
+        argmax_encoded_outputs[:, 0] = 0 # to make sure that the bos token return redundant information
+        # make one-hot
+        encoded_outputs = t.nn.functional.one_hot(
+            argmax_encoded_outputs, num_classes=encoded_outputs.shape[-1]
+        ).float()
 
     return TracrEncodedDataset(encoded_inputs, encoded_outputs)
