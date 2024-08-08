@@ -340,8 +340,8 @@ def plot_results_in_box_plot(
 
     x_tick_labels = []
     for i, run in enumerate(common_runs):
-        x_tick_labels.append(run + "\nSIIT")
-        x_tick_labels.append(run + "\nTracr")
+        x_tick_labels.append(str(run) + "\nSIIT")
+        x_tick_labels.append(str(run) + "\nTracr")
         if df_iit is not None:
             x_tick_labels.append(run + "\nIIT")
     if df_iit is not None:
@@ -362,6 +362,65 @@ def plot_results_in_box_plot(
         plt.ylabel(label)
     else:
         plt.ylabel("Resample Ablate Effect")
+
+
+
+def plot_stats_box_plot(
+    df_combined,
+    key="resample_ablate_effect",
+    normalize_by_runs=True,
+    figsize=(20, 5),
+    plot_y_log=False,
+    label="Resample Ablate Effect",
+):
+
+    def plot_box(status_list, num_columnns, c, tracr=False, iit=False):
+        def get_key(df):
+            try:
+                return df[key]
+            except KeyError:
+                return pd.Series()
+
+        plt.boxplot(
+            [get_key(df) for df in status_list],
+            patch_artist=True,
+            showfliers=True,
+            whis=[5, 95],
+            boxprops=dict(facecolor=c, color=c),
+            capprops=dict(color=c),
+            whiskerprops=dict(color=c),
+            flierprops=dict(color=c, markeredgecolor=c),
+            medianprops=dict(color=c),
+        )
+        # plot y in log scale
+        if plot_y_log:
+            plt.yscale("log")
+
+    (
+        in_circuit_list,
+        not_in_circuit_list,
+        _,
+        _,
+        common_runs,
+        num_columnns,
+    ) = get_circuit_lists(df_combined, df_combined, key, normalize_by_runs)
+
+    plt.figure(figsize=figsize)
+    plot_box(in_circuit_list, num_columnns, "darkcyan")
+    plot_box(not_in_circuit_list, num_columnns, "orangered")
+
+    x_tick_labels = []
+    for i, run in enumerate(common_runs):
+        x_tick_labels.append(str(run))
+
+    plt.xticks(
+        range(1, num_columnns+1),
+        x_tick_labels,
+    )
+    
+    plt.xlabel("Model type for each case", labelpad=10)
+    plt.ylabel(label)
+
 
 
 def make_df_from_stats(stats: dict[str, pd.DataFrame]) -> pd.DataFrame:

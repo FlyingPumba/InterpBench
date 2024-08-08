@@ -215,22 +215,26 @@ def plot_combined_pearson(
     return file
 
 
-def plot_combined_variance_explained(
+def plot_metric(
     lens_results: dict[str, torch.Tensor],
     labels: torch.Tensor,
     is_categorical: bool,
     nodes_in_circuit: list[str],
     tuned_lens: bool,
     case_name: str,
+    metric: callable, # callable function that takes in two arrays and returns a scalar
+    metric_label: str, 
+    metric_file: str = None,
     out_dir: str = "./interp_results/",
     abs_corr: bool = True,
     return_data: bool = False,
     show=False,
 ) -> str:
+    metric_file = metric_label.replace(" ", "_").lower() if metric_file is None else metric_file
     lens_str = "tuned_lens" if tuned_lens else "logit_lens"
     out_dir = f"{out_dir}/{case_name}/{lens_str}"
     os.makedirs(out_dir, exist_ok=True)
-    explained_variance_scores = {}
+    metric_scores = {}
 
     for k in lens_results.keys():
         x = lens_results[k].detach().cpu().numpy().squeeze()
@@ -239,24 +243,22 @@ def plot_combined_variance_explained(
             y = y.argmax(axis=-1)
             x = x.argmax(axis=-1)
         for i in range(x.shape[1]):
-            y_var = np.var(y[:, i])
-            x_var = np.var(x[:, i])
-            explained_variance = metrics.explained_variance_score(y[:, i], x[:, i])
+            metric_score = metric(y[:, i], x[:, i])
             k_ = k + "(IC)" if k in nodes_in_circuit else k
 
             if abs_corr:
-                explained_variance = abs(explained_variance)
-            if k_ not in explained_variance_scores:
-                explained_variance_scores[k_] = {}
-            explained_variance_scores[k_][str(i)] = explained_variance
+                metric_score = abs(metric_score)
+            if k_ not in metric_scores:
+                metric_scores[k_] = {}
+            metric_scores[k_][str(i)] = metric_score
 
-    explained_variance_scores = pd.DataFrame(explained_variance_scores)
+    metric_scores = pd.DataFrame(metric_scores)
     fig = px.imshow(
-        explained_variance_scores,
+        metric_scores,
         # set color map
         color_continuous_scale="Viridis",
         # set axis labels
-        labels=dict(y="Position", x="Layer/Head", color="Explained Variance"),
+        labels=dict(y="Position", x="Layer/Head", color=metric_label),
     )
     # remove margins around plot
     fig.update_layout(margin=dict(l=0, r=0, t=1, b=0))
@@ -267,15 +269,45 @@ def plot_combined_variance_explained(
     if show:
         fig.show()
 
-    file = f"{out_dir}/combined_variance_explained.png"
+    file = f"{out_dir}/combined_{metric_file}.png"
     fig.write_image(file)
-    explained_variance_file = f"{out_dir}/combined_variance_explained.csv"
-    explained_variance_scores.to_csv(explained_variance_file)
+    metric_file = f"{out_dir}/combined_{metric_file}.csv"
+    metric_scores.to_csv(metric_file)
 
     if return_data:
-        return file, explained_variance_file
+        return file, metric_file
     return file
 
+
+def plot_explained_variance_combined(
+    lens_results: dict[str, torch.Tensor],
+    labels: torch.Tensor,
+    is_categorical: bool,
+    nodes_in_circuit: list[str],
+    tuned_lens: bool,
+    case_name: str,
+    out_dir: str = "./interp_results/",
+    abs_corr: bool = True,
+    return_data: bool = False,
+    show=False,
+):
+    def explained_variance(y_true, y_pred):
+        return metrics.explained_variance_score(y_true, y_pred)
+    
+    return plot_metric(
+        lens_results,
+        labels,
+        is_categorical,
+        nodes_in_circuit,
+        tuned_lens,
+        case_name,
+        explained_variance,
+        "Explained Variance",
+        out_dir,
+        abs_corr,
+        return_data,
+        show
+    )
 
 def plot_pearson_at_vocab_idx(
     key: str,

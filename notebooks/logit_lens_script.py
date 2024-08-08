@@ -16,7 +16,7 @@ from interp_utils.lens.plot_utils import (
     plot_pearson,
     plot_pearson_at_vocab_idx,
     save_lens_results,
-    plot_combined_variance_explained
+    plot_explained_variance_combined
 )
 
 parser = ArgumentParser()
@@ -24,7 +24,8 @@ parser.add_argument("--task", type=str, default="3")
 parser.add_argument("--max_len", type=int, default=1000)
 task_idx = parser.parse_args().task
 max_len = parser.parse_args().max_len
-
+# print(len(get_cases(indices=[int(task_idx)])), task_idx, type(task_idx))
+# raise
 task: BenchmarkCase = get_cases(indices=[task_idx])[0]
 
 ll_model_loader = get_ll_model_loader(task, interp_bench=True)
@@ -114,7 +115,7 @@ if model_pair.hl_model.is_categorical():
 
 # %%
 
-plot_combined_variance_explained(
+plot_explained_variance_combined(
     lens_results=logit_lens_results,
     labels=labels,
     nodes_in_circuit=nodes,
