@@ -1,7 +1,7 @@
 import pickle
 from typing import Dict, Set, Tuple, Optional, Literal
 
-from iit.utils.nodes import LLNode, HLNode
+from iit.model_pairs.nodes import LLNode, HLNode
 from iit.utils import index
 from iit.utils.correspondence import Correspondence
 from iit.utils.index import TorchIndex

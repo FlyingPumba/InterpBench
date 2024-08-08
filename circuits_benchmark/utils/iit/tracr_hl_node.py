@@ -1,4 +1,4 @@
-from iit.utils.nodes import HLNode
+from iit.model_pairs import HLNode
 from iit.utils import index
 
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
