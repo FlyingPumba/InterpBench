@@ -17,7 +17,7 @@ pipx install poetry
 
 Run the following Bash commands to download the project and its dependencies (assuming Ubuntu, adjust accordingly if you are in a different OS):
 ```bash
-apt update && apt install -y --no-install-recommends git build-essential python3-dev graphviz-dev libgl1
+apt update && apt install -y --no-install-recommends git build-essential python3-dev graphviz graphviz-dev libgl1
 git clone git@github.com:FlyingPumba/circuits-benchmark.git
 cd circuits-benchmark
 poetry env use 3
