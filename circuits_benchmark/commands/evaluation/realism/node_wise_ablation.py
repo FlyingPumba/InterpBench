@@ -50,13 +50,10 @@ def setup_args_parser(subparsers):
         action="store_true",
         help="Use wandb for logging",
     )
-    parser.add_argument(
-        "--use-iit-model", action="store_true", help="Use IIT model instead of SIIT model"
-    )
 
 
 def make_result_path(case: BenchmarkCase, args: Namespace, ll_model_loader: LLModelLoader):
-    root_dir = f"./results/{args.algorithm}/{case.get_name()}/{ll_model_loader.get_output_suffix()}"
+    root_dir = f"./{args.output_dir}/{args.algorithm}/{case.get_name()}/{ll_model_loader.get_output_suffix()}"
     if args.algorithm == "acdc":
         return f"{root_dir}/threshold_{args.threshold}/result.pkl"
     elif args.algorithm in ["edge_sp", "node_sp"]:
@@ -163,6 +160,14 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
     )
 
     print(f"Score: {score}")
+    model_str = "natural" if args.natural else "tracr" if args.tracr else "iit" if args.siit_weights == "110" else "siit"
+    file = f"{output_dir}/realism/{case.get_name()}_{model_str}_score.txt"
+    import os
+    os.makedirs(os.path.dirname(file), exist_ok=True)
+    with open(file, "a") as f:
+        f.write(f"{args.threshold}, {score}\n")
+    
+    print(open(file, "r").read())
 
     if use_wandb:
         group = f"{args.algorithm}_{case.get_name()}_{ll_model_loader.get_output_suffix()}"

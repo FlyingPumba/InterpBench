@@ -24,7 +24,8 @@ class GroundTruthModelLoader(LLModelLoader):
       same_size: bool = False,
       *args, **kwargs
   ) -> Tuple[Correspondence, HookedTransformer]:
-    assert not same_size, "Ground truth models are never same size"
+    if same_size: 
+      print("WARNING: same_size doesn't mean anything for tracr models and will be ignored")
 
     hl_model = self.case.get_hl_model(device=device)
     corr = self.case.get_correspondence(same_size=True) # tracr models are always same size
