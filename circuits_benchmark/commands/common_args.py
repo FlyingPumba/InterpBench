@@ -17,6 +17,7 @@ def add_common_args(parser):
 
 def add_evaluation_common_ags(parser):
   parser.add_argument(
+    "-w",
     "--siit-weights",
     type=str,
     default=None,
