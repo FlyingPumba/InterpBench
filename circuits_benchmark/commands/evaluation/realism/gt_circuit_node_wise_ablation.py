@@ -58,7 +58,7 @@ def make_everything_for_task(case: BenchmarkCase, args: Namespace) -> tuple[Hook
         hl_model = IITHLModel(hl_model, eval_mode=True)
 
     ll_model_loader = get_ll_model_loader_from_args(case, args)
-    hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir, same_size=False)
+    hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir, same_size=True)
     full_corr = TLACDCCorrespondence.setup_from_model(
             ll_model, use_pos_embed=True
         )

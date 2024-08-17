@@ -50,6 +50,9 @@ def setup_args_parser(subparsers):
         action="store_true",
         help="Use wandb for logging",
     )
+    parser.add_argument(
+        "--use-iit-model", action="store_true", help="Use IIT model instead of SIIT model"
+    )
 
 
 def make_result_path(case: BenchmarkCase, args: Namespace, ll_model_loader: LLModelLoader):
