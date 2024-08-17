@@ -71,7 +71,7 @@ class SIITModelLoader(LLModelLoader):
       ll_cfg = self.case.get_ll_model_cfg(same_size=same_size, *args, **kwargs)
     ll_cfg["device"] = device
     ll_model = HookedTransformer(ll_cfg)
-    hl_ll_corr = self.case.get_correspondence(*args, **kwargs)
+    hl_ll_corr = self.case.get_correspondence(same_size=same_size, *args, **kwargs)
 
     ll_model.load_state_dict(torch.load(
       f"{output_dir}/ll_models/{self.case.get_name()}/ll_model_{self.weights}.pth",
