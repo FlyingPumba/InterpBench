@@ -7,6 +7,7 @@ def main(
     build_commands: Callable[[], List[str]], 
     clean_wandb: Callable[[], None],
     priority: str = "normal-batch", # or "high-batch"
+    memory: str = "12Gi",
 ):
     for arg in sys.argv:
         if arg in ["-d", "--dry-run"]:
@@ -24,7 +25,7 @@ def main(
             clean_wandb(dry_run=False)
             sys.exit(0)
         if arg in ["-r", "--run"]:
-            launch_kubernetes_jobs(build_commands, memory="8Gi", priority=priority)
+            launch_kubernetes_jobs(build_commands, memory=memory, priority=priority)
             sys.exit(0)
     clean_wandb(dry_run=False)
-    launch_kubernetes_jobs(build_commands, memory="8Gi", priority=priority)
+    launch_kubernetes_jobs(build_commands, memory=memory, priority=priority)

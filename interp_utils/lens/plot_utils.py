@@ -286,13 +286,10 @@ def plot_explained_variance_combined(
     tuned_lens: bool,
     case_name: str,
     out_dir: str = "./interp_results",
-    abs_corr: bool = True,
+    abs_corr: bool = False,
     return_data: bool = False,
     show=False,
 ):
-    def explained_variance(y_true, y_pred):
-        return metrics.explained_variance_score(y_true, y_pred)
-    
     return plot_metric(
         lens_results,
         labels,
@@ -300,7 +297,7 @@ def plot_explained_variance_combined(
         nodes_in_circuit,
         tuned_lens,
         case_name,
-        explained_variance,
+        metrics.explained_variance_score,
         "Variance Explained",
         out_dir,
         abs_corr,

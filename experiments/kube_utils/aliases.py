@@ -1,6 +1,6 @@
 import numpy as np
 
-def create_random_str(length: int = 7):
+def create_random_str(length: int = 10):
   alphabet = list('abcdefghijklmnopqrstuvwxyz0123456789')
   np_alphabet = np.array(alphabet)
   np_codes = np.random.choice(np_alphabet, (length))
@@ -26,4 +26,5 @@ important_args_aliases = AliasDict({
       "--wandb-suffix": "",
       "random_suffix": create_random_str,
       "categorical-metric": "metric",
+      "-s": "strict_weight",
   })
