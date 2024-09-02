@@ -7,10 +7,18 @@ This Python project provides a framework for creating and evaluating the models 
 ## Setup
 
 This project can be setup by either downloading it and installing the dependencies, or by using the [Docker image](docker.io/iarcuschin/circuits-benchmark:latest). 
-We use [Poetry](https://python-poetry.org/) to manage the dependencies, which you can install by following the instructions [here](https://python-poetry.org/docs/#installation).
-
-Run the following Bash commands to download the project and its dependencies:
+We use [Poetry](https://python-poetry.org/) to manage the dependencies, which you can install by following the instructions [here](https://python-poetry.org/docs/#installation). If you are in Ubuntu, you can install Poetry by running the following commands:
 ```bash
+apt update && apt install -y --no-install-recommends pipx
+pipx ensurepath
+source ~/.*rc
+pipx install poetry
+```
+
+Run the following Bash commands to download the project and its dependencies (assuming Ubuntu, adjust accordingly if you are in a different OS):
+```bash
+apt update && apt install -y --no-install-recommends git build-essential python3-dev graphviz graphviz-dev libgl1
+git clone git@github.com:FlyingPumba/circuits-benchmark.git
 cd circuits-benchmark
 poetry env use 3
 poetry install
