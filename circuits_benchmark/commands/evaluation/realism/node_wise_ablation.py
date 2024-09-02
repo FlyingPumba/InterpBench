@@ -31,7 +31,7 @@ def setup_args_parser(subparsers):
         help="Use mean cache. Defaults to zero ablation if not provided",
     )
     parser.add_argument(
-        "--batch_size", type=int, default=512, help="Batch size for evaluation"
+        "--batch_size", type=int, default=128, help="Batch size for evaluation"
     )
     parser.add_argument(
         "-t", "--threshold", type=float, default=0.025, help="Threshold"
@@ -120,8 +120,8 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
         training_args={},
     )
 
-    unique_dataset = case.get_clean_data(max_samples=100_000, unique_data=True)
-    test_set = IITDataset(unique_dataset, unique_dataset, every_combination=True)
+    unique_dataset = case.get_clean_data(max_samples=10_000, unique_data=True)
+    test_set = IITDataset(unique_dataset, unique_dataset, every_combination=False)
     mean_cache = None
     if use_mean_cache:
         mean_cache = get_mean_cache(model_pair, unique_dataset, batch_size=args.batch_size)
