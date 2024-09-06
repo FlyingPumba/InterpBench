@@ -47,10 +47,10 @@ def setup_args_parser(subparsers):
         "--batch-size", type=int, default=256, help="Batch size"
     )
     parser.add_argument(
-        "--lr", type=float, default=1e-3, help="Learning rate"
+        "--lr", type=float, default=1e-2, help="Learning rate"
     )
     parser.add_argument(
-        "--clip-grad-norm", type=float, default=1.0, help="Clip grad norm"
+        "--clip-grad-norm", type=float, default=0.1, help="Clip grad norm"
     )
     parser.add_argument(
         "--num-samples", type=int, default=12000, help="Number of samples"
@@ -156,7 +156,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
     else:
         config = {
             "atol": 0.05,
-            "lr": 1e-2,
+            "lr": args.lr,
             "use_single_loss": args.use_single_loss,
             "iit_weight": args.iit_weight,
             "behavior_weight": args.behavior_weight,
@@ -164,8 +164,8 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "epochs": args.epochs,
             "act_fn": "gelu",
             "wandb_suffix": args.wandb_suffix,
-            "device": "cpu" if args.device == "cpu" else "cuda",
-            "clip_grad_norm": 0.1,
+            "device": "cpu" if args.device == "cpu" else "cuda" if t.cuda.is_available() else "cpu",
+            "clip_grad_norm": args.clip_grad_norm,
             "lr_scheduler": "",
             "model_pair": args.model_pair,
             "same_size": args.same_size,
@@ -253,7 +253,7 @@ def train_model(
         hl_model = IITHLModel(hl_model, eval_mode=False)
         hl_model.to(args.device)
 
-    hl_ll_corr = case.get_correspondence(include_mlp=args.include_mlp)
+    hl_ll_corr = case.get_correspondence(include_mlp=args.include_mlp, same_size=args.same_size)
 
     model_pair = case.build_model_pair(
         training_args=training_args,
