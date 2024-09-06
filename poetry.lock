@@ -290,7 +290,7 @@ kaleido = "0.2.1"
 ordered-set = "^4.1.0"
 plotly = "^5.18.0"
 torch = "^2.1.1"
-tracr-pypi = "1.0.0"
+tracr = {git = "https://github.com/FlyingPumba/tracr.git"}
 transformer-lens = "^1.13.0"
 vscode-tqdm = "4.66.2"
 word2word = "^1.0.0"
@@ -299,7 +299,7 @@ word2word = "^1.0.0"
 type = "git"
 url = "https://github.com/FlyingPumba/auto-circuit.git"
 reference = "HEAD"
-resolved_reference = "9d2d2fa9ce8a48845991d89bc7af00f5462398dc"
+resolved_reference = "0b74956bbe472cf961deb8ae0ef574f725daca96"
 
 [[package]]
 name = "beartype"
@@ -4781,26 +4781,6 @@ type = "git"
 url = "https://github.com/FlyingPumba/tracr.git"
 reference = "HEAD"
 resolved_reference = "98f4910e3966805c83d80eb087c7a4e3328171c6"
-
-[[package]]
-name = "tracr-pypi"
-version = "1.0.0"
-description = "Compiler from RASP to transformer weights"
-optional = false
-python-versions = "*"
-files = [
-    {file = "tracr_pypi-1.0.0-py3-none-any.whl", hash = "sha256:3dc6468af68b7dbcf707d33f68567707e19af0abafc5269f24c974b578821770"},
-    {file = "tracr_pypi-1.0.0.tar.gz", hash = "sha256:de822cd42ea6c3ab1eccba69cb40408e85f7f747153a10a79f0a837a364fe325"},
-]
-
-[package.dependencies]
-chex = "*"
-dm-haiku = "*"
-einops = "*"
-jax = "*"
-networkx = "*"
-numpy = "*"
-typing-extensions = "*"
 
 [[package]]
 name = "traitlets"
