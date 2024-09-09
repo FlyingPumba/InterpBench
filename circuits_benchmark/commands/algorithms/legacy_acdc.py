@@ -28,7 +28,6 @@ from circuits_benchmark.utils.project_paths import get_default_output_dir
 class ACDCConfig:
     threshold: Optional[float] = 0.025
     data_size: Optional[int] = 1000
-    include_mlp: Optional[bool] = False
     next_token: Optional[bool] = False
     use_pos_embed: Optional[bool] = False
     indices_mode: Literal["normal", "reverse", "shuffle"] = "reverse",
@@ -59,7 +58,6 @@ class ACDCConfig:
             threshold=args.threshold,
             seed=int(args.seed),
             data_size=args.data_size,
-            include_mlp=args.include_mlp,
             next_token=args.next_token,
             use_pos_embed=args.use_pos_embed,
             indices_mode=args.indices_mode,
@@ -139,8 +137,6 @@ class LegacyACDCRunner:
         output_dir=self.config.output_dir,
         same_size=self.config.same_size,
         # IOI specific args:
-        eval=True,
-        include_mlp=self.config.include_mlp,
         use_pos_embed=self.config.use_pos_embed
       )
       hl_model = self.case.get_hl_model()
@@ -318,9 +314,6 @@ class LegacyACDCRunner:
         required=False,
         default=1000,
         help="How many samples to use"
-      )
-      parser.add_argument(
-          "--include-mlp", type=int, help="Evaluate group 'with_mlp'", default=1
       )
       parser.add_argument(
           "--next-token", action="store_true", help="Use next token model"

@@ -123,8 +123,7 @@ class SPTest(unittest.TestCase):
     config = SPConfig(
       lambda_reg=0.001,
       data_size=10,
-      epochs=1,
-      include_mlp=True
+      epochs=1
     )
     ll_model_loader = get_ll_model_loader(
       case,

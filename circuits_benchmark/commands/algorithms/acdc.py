@@ -58,8 +58,6 @@ class ACDCRunner:
         output_dir=self.config.output_dir,
         same_size=self.config.same_size,
         # IOI specific args:
-        eval=True,
-        include_mlp=self.config.include_mlp,
         use_pos_embed=self.config.use_pos_embed
       )
       hl_model = self.case.get_hl_model()
@@ -196,9 +194,6 @@ class ACDCRunner:
         required=False,
         default=1000,
         help="How many samples to use"
-      )
-      parser.add_argument(
-          "--include-mlp", type=int, help="Evaluate group 'with_mlp'", default=1
       )
       parser.add_argument(
           "--next-token", action="store_true", help="Use next token model"

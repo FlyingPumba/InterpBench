@@ -36,7 +36,6 @@ class EAPConfig:
   output_dir: Optional[str] = get_default_output_dir()
   device: Optional[str] = "cpu"
   same_size: Optional[bool] = False
-  include_mlp: Optional[bool] = False
   use_pos_embed: Optional[bool] = False
   weights: Optional[str] = None
   abs_value_threshold: Optional[bool] = False
@@ -56,7 +55,6 @@ class EAPConfig:
       output_dir=args.output_dir,
       device=args.device,
       same_size=args.same_size,
-      include_mlp=args.include_mlp,
       use_pos_embed=args.use_pos_embed,
       abs_value_threshold=args.abs_val_threshold
     )
@@ -97,8 +95,6 @@ class EAPRunner:
       output_dir=self.config.output_dir,
       same_size=self.config.same_size,
       # IOI specific args:
-      eval=True,
-      include_mlp=self.config.include_mlp,
       use_pos_embed=self.config.use_pos_embed
     )
 
@@ -263,9 +259,6 @@ class EAPRunner:
     add_common_args(parser)
     add_evaluation_common_ags(parser)
 
-    parser.add_argument(
-      "--include-mlp", type=int, help="Evaluate group 'with_mlp'", default=1
-    )
     parser.add_argument(
         "--use-pos-embed", action="store_true", help="Use positional embeddings"
     )

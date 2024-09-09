@@ -143,8 +143,7 @@ class TestEAP:
     case = CaseIOI()
     config = EAPConfig(
       threshold=0.001,
-      data_size=10,
-      include_mlp=True
+      data_size=10
     )
     ll_model_loader = get_ll_model_loader(
       case,

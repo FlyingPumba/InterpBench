@@ -56,7 +56,6 @@ class SPConfig:
   print_stats: Optional[int] = 1
   print_every: Optional[int] = 1
   atol: Optional[float] = 1e-1
-  include_mlp: Optional[bool] = False
   use_pos_embed: Optional[bool] = False
   using_wandb: Optional[bool] = False
   output_dir: Optional[str] = get_default_output_dir()
@@ -89,7 +88,6 @@ class SPConfig:
       print_stats=args.print_stats,
       print_every=args.print_every,
       atol=args.atol,
-      include_mlp=args.include_mlp,
       use_pos_embed=args.use_pos_embed,
       using_wandb=args.using_wandb,
       output_dir=args.output_dir,
@@ -142,8 +140,6 @@ class SPRunner:
         output_dir=self.config.output_dir,
         same_size=self.config.same_size,
         # IOI specific args:
-        eval=True,
-        include_mlp=self.config.include_mlp,
         use_pos_embed=self.config.use_pos_embed
     )
     self.ll_model = ll_model
@@ -388,9 +384,6 @@ class SPRunner:
     parser.add_argument("--print-stats", type=int, default=1, required=False)
     parser.add_argument("--print-every", type=int, default=1, required=False)
     parser.add_argument("--atol", type=float, default=5e-2, required=False)
-    parser.add_argument(
-      "--include-mlp", type=int, help="Evaluate group 'with_mlp'", default=1
-    )
     parser.add_argument(
         "--use-pos-embed", action="store_true", help="Use positional embeddings"
     )

@@ -61,8 +61,8 @@ class InterpBenchModelLoader(LLModelLoader):
         cfg = cfg_dict
 
       cfg.device = device
-      if "ioi" in case_name and "eval" in kwargs and kwargs["eval"]:
-        # Small hack to enable evaluation mode in the IOI model, that has a different config during training
+      if "ioi" in case_name:
+        # Small hack to enable evaluation mode in the IOI model, which has a different config during training
         cfg.use_hook_mlp_in = True
         cfg.use_attn_result = True
         cfg.use_split_qkv_input = True
@@ -73,6 +73,10 @@ class InterpBenchModelLoader(LLModelLoader):
       raise FileNotFoundError(
         f"Could not find InterpBench model for case {self.case.get_name()}"
       )
+
+    if "ioi" in case_name:
+      kwargs["eval"] = True
+      kwargs["include_mlp"] = True
 
     hl_ll_corr = self.case.get_correspondence(*args, **kwargs)
     return hl_ll_corr, ll_model
