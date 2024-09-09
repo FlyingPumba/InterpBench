@@ -198,11 +198,11 @@ def make_sort(vals: rasp.SOp, keys: rasp.SOp, max_seq_len: int,
   return make_sort_unique(vals, keys)
 
 @causal_and_regular
-def shift_by(offset: int, sop: rasp.SOp) -> rasp.SOp:
+def shift_by(offset: int, sop: rasp.SOp, default=None) -> rasp.SOp:
   """Returns the sop, shifted by `offset`, None-padded."""
   select_off_by_offset = rasp.Select(rasp.indices, rasp.indices,
                                      lambda k, q: q == k + offset)
-  out = rasp.Aggregate(select_off_by_offset, sop, default=None)
+  out = rasp.Aggregate(select_off_by_offset, sop, default=default)
   return out.named(f"shift_by({offset})")
 
 @causal_and_regular
