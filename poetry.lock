@@ -1416,7 +1416,7 @@ transformer-lens = "^1.19.0"
 type = "git"
 url = "https://github.com/cybershiptrooper/iit.git"
 reference = "HEAD"
-resolved_reference = "bc8ca9ba93f8eb2b82ce2cd2e4efd0c394185e9c"
+resolved_reference = "aea84c776dc6cc16a7616e15a6b4d9e92c56ef23"
 
 [[package]]
 name = "importlib-resources"
