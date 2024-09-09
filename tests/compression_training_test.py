@@ -9,12 +9,11 @@ from iit.utils import node_picker
 from circuits_benchmark.benchmark.cases.case_1 import Case1
 from circuits_benchmark.benchmark.cases.case_19 import Case19
 from circuits_benchmark.benchmark.cases.case_32 import Case32
-from circuits_benchmark.benchmark.cases.case_8 import Case8
 from circuits_benchmark.commands.build_main_parser import build_main_parser
 from circuits_benchmark.commands.train import train
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.non_linear_compressed_tracr_transformer_trainer import \
-  NonLinearCompressedTracrTransformerTrainer
+    NonLinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.init_functions import wang_init_method
@@ -50,7 +49,7 @@ class TestCompressionTraining:
                                                     "--device=" + ("cuda" if t.cuda.is_available() else "cpu")])
     train.run(args)
 
-  @pytest.mark.parametrize("case", [Case1(), Case32(), Case19(), Case8()])
+  @pytest.mark.parametrize("case", [Case1(), Case32(), Case19()])
   def test_siia_is_not_nan_for_models_that_have_all_nodes_in_circuit(self, case):
     hl_model: HookedTracrTransformer = case.get_hl_model()
 

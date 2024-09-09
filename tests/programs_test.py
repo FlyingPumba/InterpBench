@@ -5,8 +5,10 @@ import numpy as np
 from tracr.rasp import rasp
 from tracr.transformer.encoder import CategoricalEncoder
 
+from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.cases.case_28 import make_token_mirroring
 from circuits_benchmark.benchmark.cases.case_32 import make_token_boundary_detector
+from circuits_benchmark.benchmark.cases.case_8 import make_token_replacer
 from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor, detect_pattern
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
@@ -161,3 +163,9 @@ class ProgramsTest(unittest.TestCase):
         assert program("abca") == [None, None, True, False]
         assert program("cabca") == [None, None, False, True, False]
         assert program("aaaaa") == [None, None, False, False, False]
+
+    def test_make_token_replacer(self):
+        program = make_token_replacer(rasp.tokens, "findme", "-")
+        vocab = list(vocabs.get_words_vocab())
+
+        assert program([vocab[0], "findme", vocab[1]]) == [vocab[0], "-", vocab[1]]
