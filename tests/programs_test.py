@@ -9,6 +9,7 @@ from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.cases.case_13 import make_token_trend_analysis
 from circuits_benchmark.benchmark.cases.case_28 import make_token_mirroring
 from circuits_benchmark.benchmark.cases.case_32 import make_token_boundary_detector
+from circuits_benchmark.benchmark.cases.case_38 import make_token_alternation_checker
 from circuits_benchmark.benchmark.cases.case_8 import make_token_replacer
 from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor, detect_pattern
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
@@ -164,6 +165,15 @@ class ProgramsTest(unittest.TestCase):
         assert program("abca") == [None, None, True, False]
         assert program("cabca") == [None, None, False, True, False]
         assert program("aaaaa") == [None, None, False, False, False]
+
+    def test_make_token_alternation_checker(self):
+        program = make_token_alternation_checker(rasp.tokens)
+        assert program(["cat", "dog", "cat", "dog"]) == [None, True, True, None]
+        assert program(["cat", "dog", "cat", "cat"]) == [None, True, False, None]
+        assert program(["dog", "dog", "cat", "dog"]) == [None, False, True, None]
+        assert program(["cat", "dog", "dog", "dog"]) == [None, False, False, None]
+        assert program(["cat", "cat", "dog", "dog"]) == [None, False, False, None]
+        assert program(["cat", "cat", "cat", "cat"]) == [None, False, False, None]
 
     def test_make_token_replacer(self):
         program = make_token_replacer(rasp.tokens, "findme", "-")
