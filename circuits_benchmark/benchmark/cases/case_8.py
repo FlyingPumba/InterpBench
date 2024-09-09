@@ -19,6 +19,10 @@ class Case8(TracrBenchmarkCase):
     vocab.add("-")
     return vocab
 
+  def is_trivial(self) -> bool:
+      return True
+
+
 def make_token_replacer(sop: rasp.SOp, target: str, replacement: str) -> rasp.SOp:
     """
     Returns a program that replaces a target token with a replacement token

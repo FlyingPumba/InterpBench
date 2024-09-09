@@ -15,6 +15,9 @@ class Case26(TracrBenchmarkCase):
   def get_vocab(self) -> Set:
     return vocabs.get_ascii_letters_vocab(count=3)
 
+  def is_trivial(self) -> bool:
+      return True
+
 
 def make_token_cascade(sop: rasp.SOp) -> rasp.SOp:
     """

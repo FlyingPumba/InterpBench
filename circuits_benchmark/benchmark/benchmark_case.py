@@ -37,6 +37,14 @@ class BenchmarkCase(object):
     """Returns the maximum sequence length for the benchmark case (including BOS)."""
     raise NotImplementedError()
 
+  def is_trivial(self) -> bool:
+    """Returns a boolean indicating whether the benchmark case is trivial or not.
+    This flag indicates that the case is too simple to be used for any type of evaluation.
+    For example, cases that only involve copying the input to the output are considered trivial, as well as cases that
+    memorize the output for a given input.
+    """
+    return False
+
   def get_clean_data(self,
                      min_samples: Optional[int] = 10,
                      max_samples: Optional[int] = 10,

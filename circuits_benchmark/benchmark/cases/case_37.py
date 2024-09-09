@@ -15,6 +15,9 @@ class Case37(TracrBenchmarkCase):
   def get_vocab(self) -> Set:
     return vocabs.get_words_vocab()
 
+  def is_trivial(self) -> bool:
+      return True
+
 
 def make_token_reversal_with_exclusion(sop: rasp.SOp, exclude: str) -> rasp.SOp:
     """

@@ -14,6 +14,9 @@ class Case36(TracrBenchmarkCase):
   def get_vocab(self) -> Set:
     return {"😊", "😢", "📘"}
 
+  def is_trivial(self) -> bool:
+      return True
+
 
 def make_emoji_sentiment_classifier(sop: rasp.SOp) -> rasp.SOp:
     """
