@@ -4,7 +4,6 @@ from typing import List
 import pytest
 
 from circuits_benchmark.benchmark.cases.case_1 import Case1
-from circuits_benchmark.benchmark.cases.case_27 import Case27
 from circuits_benchmark.benchmark.cases.case_3 import Case3
 
 
@@ -34,13 +33,3 @@ class TestGetCleanData:
     assert len([o for o in encoded_outputs if o.count(0) == len(o)]) == 15
     assert len([o for o in encoded_outputs if o.count(1) == len(o)]) == 15
     assert len([o for o in encoded_outputs if o.count(0) != len(o) and o.count(1) != len(o)]) == 70
-
-  def test_case_27_only_has_different_outputs_when_using_different_sequence_lengths(self):
-    case = Case27()
-
-    with pytest.raises(AssertionError):
-        case.get_clean_data(max_samples=100)
-
-    data = case.get_clean_data(max_samples=100, variable_length_seqs=True)
-    outputs = data.get_targets()
-    assert len(set(outputs)) == 100

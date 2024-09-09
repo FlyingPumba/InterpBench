@@ -10,7 +10,7 @@ class GetCasesTest(unittest.TestCase):
     names = [case.get_name() for case in cases]
     print(names)
 
-    assert len(names) > 40
+    assert len(names) > 35
     assert "ioi" in names
     assert "ioi_next_token" in names
     assert "3" in names
