@@ -21,6 +21,14 @@ def get_str_numbers_vocab(min=0, max=20) -> Set:
     return set([str(d) for d in range(min, max)])
 
 
+def get_int_numbers_vocab(min=0, max=11) -> Set:
+    return set([d for d in range(min, max)])
+
+
+def get_float_numbers_vocab(min=0, max=5, count=20) -> Set:
+    return set([min + x * (max - min) / count for x in range(count)])
+
+
 def get_words_vocab(seed=42, min_chars=1, max_chars=8, min_words=5, max_words=20) -> Set:
     """Generate a set of random words."""
     random.seed(seed)

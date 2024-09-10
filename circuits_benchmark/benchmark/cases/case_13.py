@@ -20,6 +20,9 @@ class Case13(TracrBenchmarkCase):
   def get_vocab(self) -> Set:
     return vocabs.get_int_digits_vocab(count=3)
 
+  def supports_causal_masking(self) -> bool:
+    return False
+
 
 def make_token_trend_analysis(sop: rasp.SOp) -> rasp.SOp:
     """
