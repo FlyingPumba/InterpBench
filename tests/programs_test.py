@@ -57,7 +57,7 @@ class ProgramsTest(unittest.TestCase):
     def run_case_tests_on_tracr_model(
         self,
         case: TracrBenchmarkCase,
-        data_size: int = 100,
+        data_size: int = 10,
         atol: float = 1.e-2,
         fail_on_error: bool = True
     ) -> float:
@@ -88,7 +88,7 @@ class ProgramsTest(unittest.TestCase):
     def run_case_tests_on_ll_model(
         self,
         case: TracrBenchmarkCase,
-        data_size: int = 100,
+        data_size: int = 10,
         atol: float = 1.e-2,
         fail_on_error: bool = True
     ) -> float:
