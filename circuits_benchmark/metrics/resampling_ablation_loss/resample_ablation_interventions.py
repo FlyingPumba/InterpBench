@@ -7,7 +7,7 @@ from circuits_benchmark.metrics.resampling_ablation_loss.intervention import Int
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import \
-  MultiHookActivationMapper
+    MultiHookActivationMapper
 
 
 def get_interventions(

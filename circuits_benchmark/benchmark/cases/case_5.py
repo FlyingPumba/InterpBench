@@ -1,11 +1,12 @@
 import random
 from typing import Set, List
 
+from tracr.rasp import rasp
+
 from circuits_benchmark.benchmark.common_programs import make_shuffle_dyck
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-from tracr.rasp import rasp
 
 
 class Case5(TracrBenchmarkCase):

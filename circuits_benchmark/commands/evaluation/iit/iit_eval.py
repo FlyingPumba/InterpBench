@@ -3,13 +3,6 @@ from typing import Literal
 
 import numpy as np
 import torch as t
-
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
-from circuits_benchmark.transformers.hooked_tracr_transformer import (
-    HookedTracrTransformer,
-)
-from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.utils import IITDataset
 from iit.utils.eval_ablations import (
@@ -19,6 +12,13 @@ from iit.utils.eval_ablations import (
     save_result,
     Categorical_Metric,
 )
+
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
+from circuits_benchmark.transformers.hooked_tracr_transformer import (
+    HookedTracrTransformer,
+)
+from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader_from_args
 
 

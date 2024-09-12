@@ -1,9 +1,9 @@
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 
+from circuits_benchmark.benchmark.cases.case_ioi import CaseIOI
 from circuits_benchmark.utils.circuit.circuit_eval import build_from_acdc_correspondence
 from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
-from circuits_benchmark.benchmark.cases.case_ioi import CaseIOI
 
 
 class TestGroundTruthCircuit:

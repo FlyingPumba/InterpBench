@@ -5,18 +5,16 @@ from typing import Set, Optional, Literal, Dict
 import torch as t
 from iit.model_pairs.ll_model import LLModel
 from iit.utils import IITDataset
-from jaxtyping import Float, Bool, Int
+from jaxtyping import Float, Int
 from torch import Tensor
 from tqdm import tqdm
 from transformer_lens import ActivationCache
 from transformer_lens.hook_points import HookPoint
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.benchmark.tracr_dataset import TracrDataset
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention import regular_intervention_hook_fn
 from circuits_benchmark.utils.circuit.circuit_eval import get_full_circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit.iit_dataset_batch import IITDatasetBatch
 
 AblationType = Literal["zero", "mean", "resample"]

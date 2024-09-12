@@ -1,7 +1,4 @@
-import unittest
 from typing import List
-
-import pytest
 
 from circuits_benchmark.benchmark.cases.case_1 import Case1
 from circuits_benchmark.benchmark.cases.case_3 import Case3

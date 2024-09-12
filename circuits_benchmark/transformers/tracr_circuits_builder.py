@@ -2,16 +2,17 @@ from dataclasses import dataclass
 from typing import Set
 
 from networkx import DiGraph
+from tracr.compiler import nodes
+from tracr.craft.bases import VectorSpaceWithBasis
+from tracr.craft.transformers import SeriesWithResiduals, MultiAttentionHead, AttentionHead, MLP
+from tracr.rasp.rasp import Aggregate, Selector
 
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS
 from circuits_benchmark.utils.circuit.alignment import Alignment
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
-from tracr.compiler import nodes
-from tracr.craft.bases import VectorSpaceWithBasis
-from tracr.craft.transformers import SeriesWithResiduals, MultiAttentionHead, AttentionHead, MLP
-from tracr.rasp.rasp import Aggregate, Selector
+
 
 @dataclass
 class TracrCircuits:

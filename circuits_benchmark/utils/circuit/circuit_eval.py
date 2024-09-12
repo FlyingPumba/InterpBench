@@ -3,13 +3,13 @@ from typing import Optional, Set
 
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.TLACDCEdge import EdgeType
-from circuits_benchmark.utils.circuit.prepare_circuit import prepare_circuit_for_evaluation
 from iit.utils.correspondence import Correspondence
 from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
+from circuits_benchmark.utils.circuit.prepare_circuit import prepare_circuit_for_evaluation
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
 
 

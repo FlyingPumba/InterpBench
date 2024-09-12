@@ -8,12 +8,12 @@ from argparse import Namespace
 import numpy as np
 import torch as t
 import wandb
+from iit.utils.iit_dataset import train_test_split, IITDataset
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
-from iit.utils.iit_dataset import train_test_split, IITDataset
 
 
 def setup_args_parser(subparsers):

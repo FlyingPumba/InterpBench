@@ -6,7 +6,6 @@ from iit.model_pairs.ll_model import LLModel
 from jaxtyping import Float
 from torch import Tensor
 from torch.utils.data import DataLoader
-from transformer_lens import ActivationCache
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.benchmark.case_dataset import CaseDataset

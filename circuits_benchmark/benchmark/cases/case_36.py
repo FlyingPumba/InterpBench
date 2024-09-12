@@ -1,7 +1,8 @@
 from typing import Set
 
-from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
+
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case36(TracrBenchmarkCase):

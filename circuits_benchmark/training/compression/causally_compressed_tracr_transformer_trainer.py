@@ -8,9 +8,9 @@ from torch.nn import Parameter
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
-  get_resample_ablation_loss
+    get_resample_ablation_loss
 from circuits_benchmark.training.compression.compressed_tracr_transformer_trainer import \
-  CompressedTracrTransformerTrainer
+    CompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.utils.iit.iit_dataset_batch import IITDatasetBatch
 

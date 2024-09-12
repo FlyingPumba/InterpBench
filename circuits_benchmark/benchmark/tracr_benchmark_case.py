@@ -3,7 +3,6 @@ import random
 from functools import partial
 from typing import Optional, Sequence, Set, Callable
 
-import iit
 import numpy as np
 import torch as t
 from iit.model_pairs.base_model_pair import BaseModelPair

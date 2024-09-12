@@ -4,7 +4,7 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.compression.activation_mapper.linear_mapper import LinearMapper
 from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
-  CausallyCompressedTracrTransformerTrainer
+    CausallyCompressedTracrTransformerTrainer
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import LinearCompressedTracrTransformer
 from circuits_benchmark.training.training_args import TrainingArgs
 

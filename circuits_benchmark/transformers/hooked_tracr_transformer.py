@@ -8,12 +8,11 @@ import numpy as np
 import torch as t
 from jaxtyping import Float
 from torch import Tensor
-from transformer_lens import HookedTransformerConfig, HookedTransformer
-
 from tracr.compiler.assemble import AssembledTransformerModel
 from tracr.craft import vectorspace_fns
 from tracr.craft.bases import BasisDirection, VectorSpaceWithBasis
 from tracr.transformer.encoder import CategoricalEncoder, Encoder
+from transformer_lens import HookedTransformerConfig, HookedTransformer
 
 from circuits_benchmark.benchmark.tracr_dataset import TracrBatchInput
 

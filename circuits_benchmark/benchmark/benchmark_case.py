@@ -3,6 +3,8 @@ import os.path
 from typing import Optional, Callable
 
 import torch as t
+from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.utils.correspondence import Correspondence
 from jaxtyping import Float
 from torch import Tensor
 from transformer_lens import HookedTransformer, HookedTransformerConfig
@@ -12,8 +14,6 @@ from circuits_benchmark.benchmark.case_dataset import CaseDataset
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_granularity import CircuitGranularity
 from circuits_benchmark.utils.project_paths import detect_project_root
-from iit.model_pairs.base_model_pair import BaseModelPair
-from iit.utils.correspondence import Correspondence
 
 
 class BenchmarkCase(object):

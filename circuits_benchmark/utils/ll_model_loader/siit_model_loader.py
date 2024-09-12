@@ -3,13 +3,13 @@ import tempfile
 from typing import Optional, Tuple
 
 import torch
+from iit.utils.correspondence import Correspondence
 from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.utils.iit.wandb_loader import load_model_from_wandb
 from circuits_benchmark.utils.ll_model_loader.best_weights import get_best_weight
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
-from iit.utils.correspondence import Correspondence
 
 
 class SIITModelLoader(LLModelLoader):

@@ -1,10 +1,10 @@
+from iit.model_pairs.base_model_pair import BaseModelPair
+from iit.model_pairs.ioi_model_pair import IOI_ModelPair
+from iit.utils.correspondence import Correspondence
 from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookedRootModule
 
 from circuits_benchmark.benchmark.cases.case_ioi import CaseIOI
-from iit.model_pairs.base_model_pair import BaseModelPair
-from iit.model_pairs.ioi_model_pair import IOI_ModelPair
-from iit.utils.correspondence import Correspondence
 
 
 class CaseIOI_Next_Token(CaseIOI):

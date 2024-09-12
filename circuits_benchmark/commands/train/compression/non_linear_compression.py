@@ -13,7 +13,7 @@ from circuits_benchmark.commands.train.compression.compression_training_utils im
 from circuits_benchmark.metrics.iia import evaluate_iia_on_all_ablation_types
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.non_linear_compressed_tracr_transformer_trainer import \
-  NonLinearCompressedTracrTransformerTrainer
+    NonLinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.init_functions import wang_init_method

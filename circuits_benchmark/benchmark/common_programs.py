@@ -1,7 +1,8 @@
 from typing import List, Sequence
 
-from circuits_benchmark.benchmark.program_evaluation_type import only_non_causal, causal_and_regular
 from tracr.rasp import rasp
+
+from circuits_benchmark.benchmark.program_evaluation_type import only_non_causal, causal_and_regular
 
 
 @only_non_causal

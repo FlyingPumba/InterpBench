@@ -1,9 +1,9 @@
-from typing import Set, Sequence
+from typing import Set
+
+from tracr.rasp import rasp
 
 from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.common_programs import make_length
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from tracr.rasp import rasp
 
 
 class Case128(TracrBenchmarkCase):

@@ -1,9 +1,10 @@
-from typing import Set, Sequence
+from typing import Set
+
+from tracr.rasp import rasp
 
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.cases.case_98 import make_max_element
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from tracr.rasp import rasp
 
 
 class Case97(TracrBenchmarkCase):

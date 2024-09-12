@@ -7,10 +7,10 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.commands.train.compression.compression_training_utils import parse_d_model
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer import \
-  LinearCompressedTracrTransformer, \
-  linear_compression_initialization_options
+    LinearCompressedTracrTransformer, \
+    linear_compression_initialization_options
 from circuits_benchmark.training.compression.linear_compressed_tracr_transformer_trainer import \
-  LinearCompressedTracrTransformerTrainer
+    LinearCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 

@@ -4,7 +4,7 @@ import numpy as np
 import torch as t
 
 from circuits_benchmark.commands.train.compression import linear_compression, \
-  non_linear_compression
+    non_linear_compression
 from circuits_benchmark.commands.train.compression.linear_compression import train_linear_compression
 from circuits_benchmark.commands.train.compression.non_linear_compression import train_non_linear_compression
 from circuits_benchmark.commands.train.iit import iit_train

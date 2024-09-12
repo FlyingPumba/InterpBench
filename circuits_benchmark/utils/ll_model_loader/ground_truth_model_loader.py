@@ -3,7 +3,6 @@ from typing import Optional, Tuple
 from iit.utils.correspondence import Correspondence
 from transformer_lens import HookedTransformer
 
-from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
 
 

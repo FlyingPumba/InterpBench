@@ -1,5 +1,3 @@
-from transformer_lens import HookedTransformerConfig
-
 compression_ratio_map = {
     "5": 1.8,
     "18": 1.6,

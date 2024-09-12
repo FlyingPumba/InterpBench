@@ -2,12 +2,13 @@ import random
 from math import ceil, floor
 from typing import Set
 
+from tracr.rasp import rasp
+
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.common_programs import shift_by
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.vocabs import TRACR_PAD, TRACR_BOS
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
-from tracr.rasp import rasp
 
 
 class Case1(TracrBenchmarkCase):

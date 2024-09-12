@@ -15,7 +15,7 @@ from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.docstring.utils import AllDataThings
 from subnetwork_probing.masked_transformer import CircuitStartingPointType, EdgeLevelMaskedTransformer
 from subnetwork_probing.train import NodeLevelMaskedTransformer, iterative_correspondence_from_mask, \
-  proportion_of_binary_scores
+    proportion_of_binary_scores
 from transformer_lens import HookedTransformer
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
@@ -23,7 +23,7 @@ from circuits_benchmark.commands.common_args import add_common_args, add_evaluat
 from circuits_benchmark.metrics.validation_metrics import l2_metric
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_eval import evaluate_hypothesis_circuit, build_from_acdc_correspondence, \
-  CircuitEvalResult
+    CircuitEvalResult
 from circuits_benchmark.utils.edge_sp import train_edge_sp, save_edges
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
 from circuits_benchmark.utils.node_sp import train_sp

@@ -2,12 +2,12 @@ import logging
 import unittest
 
 import jax
+from tracr.compiler import compiling
+from tracr.rasp import rasp
 
 from circuits_benchmark.benchmark.common_programs import make_reverse
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
-from tracr.compiler import compiling
-from tracr.rasp import rasp
 
 # The default of float16 can lead to discrepancies between outputs of
 # the compiled model and the RASP program.

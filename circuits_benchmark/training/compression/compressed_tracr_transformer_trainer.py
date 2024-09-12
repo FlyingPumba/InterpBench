@@ -14,7 +14,7 @@ from torch.nn import Parameter
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.metrics.iia import is_qkv_granularity_hook, regular_intervention_hook_fn
 from circuits_benchmark.metrics.resampling_ablation_loss.resample_ablation_loss import \
-  get_resample_ablation_loss
+    get_resample_ablation_loss
 from circuits_benchmark.metrics.sparsity import get_zero_weights_pct
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.generic_trainer import GenericTrainer

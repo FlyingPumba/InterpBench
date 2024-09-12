@@ -11,7 +11,7 @@ from transformer_lens.hook_points import HookPoint
 from circuits_benchmark.metrics.resampling_ablation_loss.intervention_type import InterventionType
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import \
-  MultiHookActivationMapper
+    MultiHookActivationMapper
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
 

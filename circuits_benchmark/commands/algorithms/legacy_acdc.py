@@ -19,7 +19,7 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
 from circuits_benchmark.utils.circuit.circuit import Circuit
 from circuits_benchmark.utils.circuit.circuit_eval import build_from_acdc_correspondence, evaluate_hypothesis_circuit, \
-  CircuitEvalResult
+    CircuitEvalResult
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader import LLModelLoader
 from circuits_benchmark.utils.project_paths import get_default_output_dir
 

@@ -12,11 +12,11 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.compression.activation_mapper.autoencoder_mapper import AutoEncoderMapper
 from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import \
-  MultiHookActivationMapper
+    MultiHookActivationMapper
 from circuits_benchmark.training.compression.autencoder import AutoEncoder
 from circuits_benchmark.training.compression.autoencoder_trainer import AutoEncoderTrainer
 from circuits_benchmark.training.compression.causally_compressed_tracr_transformer_trainer import \
-  CausallyCompressedTracrTransformerTrainer
+    CausallyCompressedTracrTransformerTrainer
 from circuits_benchmark.training.training_args import TrainingArgs
 from circuits_benchmark.utils.iit.iit_dataset_batch import IITDatasetBatch
 

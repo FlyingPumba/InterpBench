@@ -2,7 +2,7 @@ from enum import Enum
 
 from circuits_benchmark.training.compression.activation_mapper.activation_mapper import ActivationMapper
 from circuits_benchmark.training.compression.activation_mapper.multi_hook_activation_mapper import \
-  MultiHookActivationMapper
+    MultiHookActivationMapper
 
 
 class InterventionType(Enum):

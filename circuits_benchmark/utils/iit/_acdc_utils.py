@@ -1,10 +1,11 @@
 from typing import Tuple
 
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.utils.circuit.circuit import Circuit, CircuitNode
-from iit.utils.nodes import LLNode
 from iit.utils import index
 from iit.utils.correspondence import Correspondence
+from iit.utils.nodes import LLNode
+
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.utils.circuit.circuit import Circuit, CircuitNode
 from circuits_benchmark.utils.circuit.prepare_circuit import prepare_circuit_for_evaluation
 
 

@@ -1,10 +1,10 @@
 import random
-from typing import Set, Sequence, List
+from typing import Set, List
+
+from tracr.rasp import rasp
 
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from tracr.rasp import rasp
-
 from circuits_benchmark.benchmark.vocabs import TRACR_PAD, TRACR_BOS
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformerBatchInput
 
