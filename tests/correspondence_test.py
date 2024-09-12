@@ -1,6 +1,6 @@
 import random
 
-from circuits_benchmark.utils.circleci import is_running_in_circleci
+from circuits_benchmark.utils.circleci import is_running_in_circleci, get_circleci_cases_percentage
 from circuits_benchmark.utils.get_cases import get_cases
 
 
@@ -9,8 +9,8 @@ class TestCorrespondence:
         cases = get_cases()
 
         if is_running_in_circleci():
-            # randomly select 25% of the cases to run on CircleCI (no replacement)
-            cases = random.sample(cases, int(0.25 * len(cases)))
+            # randomly select a subset of the cases to run on CircleCI (no replacement)
+            cases = random.sample(cases, int(get_circleci_cases_percentage() * len(cases)))
 
         for case in cases:
             corr = case.get_correspondence()

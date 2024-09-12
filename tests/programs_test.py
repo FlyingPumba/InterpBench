@@ -15,7 +15,7 @@ from circuits_benchmark.benchmark.cases.case_8 import make_token_replacer
 from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor, detect_pattern
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
-from circuits_benchmark.utils.circleci import is_running_in_circleci
+from circuits_benchmark.utils.circleci import is_running_in_circleci, get_circleci_cases_percentage
 from circuits_benchmark.utils.get_cases import get_cases
 
 
@@ -122,8 +122,8 @@ class ProgramsTest(unittest.TestCase):
         cases = get_cases()
 
         if is_running_in_circleci():
-            # randomly select 25% of the cases to run on CircleCI (no replacement)
-            cases = random.sample(cases, int(0.25 * len(cases)))
+            # randomly select a subset of the cases to run on CircleCI (no replacement)
+            cases = random.sample(cases, int(get_circleci_cases_percentage() * len(cases)))
 
         for case in cases:
             if not isinstance(case, TracrBenchmarkCase):
