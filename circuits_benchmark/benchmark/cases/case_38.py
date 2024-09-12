@@ -8,17 +8,17 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case38(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_alternation_checker(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_alternation_checker(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Checks if tokens alternate between two types."
+    def get_task_description(self) -> str:
+        return "Checks if tokens alternate between two types."
 
-  def supports_causal_masking(self) -> bool:
-    return False
+    def supports_causal_masking(self) -> bool:
+        return False
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_ascii_letters_vocab(count=3)
+    def get_vocab(self) -> Set:
+        return vocabs.get_ascii_letters_vocab(count=3)
 
 
 def make_token_alternation_checker(sop: rasp.SOp) -> rasp.SOp:

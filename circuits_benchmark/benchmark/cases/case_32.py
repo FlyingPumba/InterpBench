@@ -8,14 +8,14 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case32(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_boundary_detector(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_boundary_detector(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Detects the boundaries between different types of tokens in a sequence."
+    def get_task_description(self) -> str:
+        return "Detects the boundaries between different types of tokens in a sequence."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_words_vocab(min_chars=4, max_words=10)
+    def get_vocab(self) -> Set:
+        return vocabs.get_words_vocab(min_chars=4, max_words=10)
 
 
 def make_token_boundary_detector(sop: rasp.SOp) -> rasp.SOp:

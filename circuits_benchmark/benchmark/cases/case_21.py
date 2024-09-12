@@ -8,11 +8,11 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case21(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_unique_token_extractor(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_unique_token_extractor(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Extract unique tokens from a string"
+    def get_task_description(self) -> str:
+        return "Extract unique tokens from a string"
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_ascii_letters_vocab(count=3)
+    def get_vocab(self) -> Set:
+        return vocabs.get_ascii_letters_vocab(count=3)

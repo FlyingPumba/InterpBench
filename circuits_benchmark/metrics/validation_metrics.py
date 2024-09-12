@@ -12,63 +12,64 @@ def kl_divergence(
     base_model_probs_last_seq_element_only: bool = False,
     return_one_element: bool = True,
 ) -> torch.Tensor:
-  # Note: we want base_model_probs_last_seq_element_only to remain False by default, because when the Docstring
-  # circuit uses this, it already takes the last position before passing it in.
+    # Note: we want base_model_probs_last_seq_element_only to remain False by default, because when the Docstring
+    # circuit uses this, it already takes the last position before passing it in.
 
-  if last_seq_element_only:
-    logits = logits[:, -1, :]
+    if last_seq_element_only:
+        logits = logits[:, -1, :]
 
-  if base_model_probs_last_seq_element_only:
-    base_model_logprobs = base_model_logprobs[:, -1, :]
+    if base_model_probs_last_seq_element_only:
+        base_model_logprobs = base_model_logprobs[:, -1, :]
 
-  logprobs = F.log_softmax(logits, dim=-1)
-  kl_div = F.kl_div(logprobs, base_model_logprobs, log_target=True, reduction="none").sum(dim=-1)
+    logprobs = F.log_softmax(logits, dim=-1)
+    kl_div = F.kl_div(logprobs, base_model_logprobs, log_target=True, reduction="none").sum(dim=-1)
 
-  if mask_repeat_candidates is not None:
-    assert kl_div.shape == mask_repeat_candidates.shape, (kl_div.shape, mask_repeat_candidates.shape)
-    answer = kl_div[mask_repeat_candidates]
-  elif not last_seq_element_only:
-    assert kl_div.ndim == 2, kl_div.shape
-    answer = kl_div.view(-1)
-  else:
-    answer = kl_div
+    if mask_repeat_candidates is not None:
+        assert kl_div.shape == mask_repeat_candidates.shape, (kl_div.shape, mask_repeat_candidates.shape)
+        answer = kl_div[mask_repeat_candidates]
+    elif not last_seq_element_only:
+        assert kl_div.ndim == 2, kl_div.shape
+        answer = kl_div.view(-1)
+    else:
+        answer = kl_div
 
-  if return_one_element:
-    return answer.mean()
+    if return_one_element:
+        return answer.mean()
 
-  return answer
+    return answer
 
 
 def l2_metric(new_output: torch.Tensor,
               baseline_output: torch.Tensor,
               is_categorical: bool = True,
               discard_bos_token: bool = True):
-  assert new_output.shape == baseline_output.shape, (new_output.shape, baseline_output.shape)
+    assert new_output.shape == baseline_output.shape, (new_output.shape, baseline_output.shape)
 
-  if discard_bos_token:
-    new_output = new_output[:, 1:]
-    baseline_output = baseline_output[:, 1:]
+    if discard_bos_token:
+        new_output = new_output[:, 1:]
+        baseline_output = baseline_output[:, 1:]
 
-  if not is_categorical:
-    # then the output is numerical, and we retain only the output for the first logit.
-    new_output = new_output[:, :, 0]
-    baseline_output = baseline_output[:, :, 0]
+    if not is_categorical:
+        # then the output is numerical, and we retain only the output for the first logit.
+        new_output = new_output[:, :, 0]
+        baseline_output = baseline_output[:, :, 0]
 
-  return ((new_output - baseline_output) ** 2).mean()
+    return ((new_output - baseline_output) ** 2).mean()
+
 
 def kl_metric(new_output: torch.Tensor,
               baseline_output: torch.Tensor,
               is_categorical: bool = True,
               discard_bos_token: bool = True):
-  assert new_output.shape == baseline_output.shape, (new_output.shape, baseline_output.shape)
+    assert new_output.shape == baseline_output.shape, (new_output.shape, baseline_output.shape)
 
-  if discard_bos_token:
-    new_output = new_output[:, 1:]
-    baseline_output = baseline_output[:, 1:]
+    if discard_bos_token:
+        new_output = new_output[:, 1:]
+        baseline_output = baseline_output[:, 1:]
 
-  if not is_categorical:
-    raise NotImplementedError("KL divergence is only implemented for categorical outputs.")
-  # print(new_output.shape, baseline_output.shape)
-  return torch.nn.functional.kl_div(torch.nn.functional.log_softmax(new_output, dim=-1),
-                                     torch.nn.functional.softmax(baseline_output, dim=-1),
-                                     reduction='mean')
+    if not is_categorical:
+        raise NotImplementedError("KL divergence is only implemented for categorical outputs.")
+    # print(new_output.shape, baseline_output.shape)
+    return torch.nn.functional.kl_div(torch.nn.functional.log_softmax(new_output, dim=-1),
+                                      torch.nn.functional.softmax(baseline_output, dim=-1),
+                                      reduction='mean')

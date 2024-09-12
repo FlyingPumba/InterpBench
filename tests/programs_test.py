@@ -194,8 +194,13 @@ class ProgramsTest(unittest.TestCase):
 
         assert program([1, 2, 3, 3, 2, 1]) == ["increasing", "increasing", "constant", "decreasing", "decreasing", None]
         assert program([1, 1, 1, 1, 1, 1]) == ["constant", "constant", "constant", "constant", "constant", None]
-        assert program([1, 2, 3, 4, 5, 6]) == ["increasing", "increasing", "increasing", "increasing", "increasing", None]
-        assert program([6, 5, 4, 3, 2, 1]) == ["decreasing", "decreasing", "decreasing", "decreasing", "decreasing", None]
-        assert program([1, 2, 3, 2, 1, 2]) == ["increasing", "increasing", "decreasing", "decreasing", "increasing", None]
-        assert program([1, 2, 3, 2, 3, 2]) == ["increasing", "increasing", "decreasing", "increasing", "decreasing", None]
-        assert program([2, 0, 0, 0, 1, 0, 1, 1, 0]) == ['decreasing', 'constant', 'constant', 'increasing', 'decreasing', 'increasing', 'constant', 'decreasing', None]
+        assert program([1, 2, 3, 4, 5, 6]) == ["increasing", "increasing", "increasing", "increasing", "increasing",
+                                               None]
+        assert program([6, 5, 4, 3, 2, 1]) == ["decreasing", "decreasing", "decreasing", "decreasing", "decreasing",
+                                               None]
+        assert program([1, 2, 3, 2, 1, 2]) == ["increasing", "increasing", "decreasing", "decreasing", "increasing",
+                                               None]
+        assert program([1, 2, 3, 2, 3, 2]) == ["increasing", "increasing", "decreasing", "increasing", "decreasing",
+                                               None]
+        assert program([2, 0, 0, 0, 1, 0, 1, 1, 0]) == ['decreasing', 'constant', 'constant', 'increasing',
+                                                        'decreasing', 'increasing', 'constant', 'decreasing', None]

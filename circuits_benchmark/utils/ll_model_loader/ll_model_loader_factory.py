@@ -9,14 +9,15 @@ from circuits_benchmark.utils.ll_model_loader.siit_model_loader import SIITModel
 
 
 def get_ll_model_loader_from_args(case: BenchmarkCase, args: Namespace) -> LLModelLoader:
-  return get_ll_model_loader(
-      case,
-      args.natural,
-      args.tracr,
-      args.interp_bench,
-      args.siit_weights,
-      args.load_from_wandb
-  )
+    return get_ll_model_loader(
+        case,
+        args.natural,
+        args.tracr,
+        args.interp_bench,
+        args.siit_weights,
+        args.load_from_wandb
+    )
+
 
 def get_ll_model_loader(
     case: BenchmarkCase,

@@ -7,20 +7,20 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case8(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_replacer(rasp.tokens, "findme", "-")
+    def get_program(self) -> rasp.SOp:
+        return make_token_replacer(rasp.tokens, "findme", "-")
 
-  def get_task_description(self) -> str:
-    return "Replaces a specific token with another one."
+    def get_task_description(self) -> str:
+        return "Replaces a specific token with another one."
 
-  def get_vocab(self) -> Set:
-    vocab = vocabs.get_words_vocab()
-    vocab.add("findme")
-    vocab.add("-")
-    return vocab
+    def get_vocab(self) -> Set:
+        vocab = vocabs.get_words_vocab()
+        vocab.add("findme")
+        vocab.add("-")
+        return vocab
 
-  def is_trivial(self) -> bool:
-      return True
+    def is_trivial(self) -> bool:
+        return True
 
 
 def make_token_replacer(sop: rasp.SOp, target: str, replacement: str) -> rasp.SOp:

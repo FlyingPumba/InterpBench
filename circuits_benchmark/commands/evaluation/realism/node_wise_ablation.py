@@ -113,7 +113,8 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
         hl_model = IITHLModel(hl_model, eval_mode=True)
 
     ll_model_loader = get_ll_model_loader_from_args(case, args)
-    _, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir, same_size=args.same_size)
+    _, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir,
+                                                                   same_size=args.same_size)
     ll_model.eval()
     ll_model.requires_grad_(False)
 
@@ -175,7 +176,7 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
             )
         )
         project = "node_realism_same_size" if args.same_size else "node_realism"
-        
+
         wandb.init(
             project=project,
             group=group,

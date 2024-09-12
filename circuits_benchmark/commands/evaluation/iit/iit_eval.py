@@ -55,6 +55,7 @@ def setup_args_parser(subparsers):
         "--use-wandb", action="store_true", help="Use wandb for logging"
     )
 
+
 def get_node_effects(
     case: BenchmarkCase,
     model_pair: BaseModelPair,
@@ -120,7 +121,8 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         hl_model = IITHLModel(hl_model, eval_mode=True)
 
     ll_model_loader = get_ll_model_loader_from_args(case, args)
-    hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir, same_size=args.same_size)
+    hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir,
+                                                                            same_size=args.same_size)
     ll_model.eval()
     ll_model.requires_grad_(False)
 

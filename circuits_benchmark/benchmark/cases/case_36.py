@@ -6,17 +6,17 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case36(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_emoji_sentiment_classifier(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_emoji_sentiment_classifier(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Classifies each token as 'positive', 'negative', or 'neutral' based on emojis."
+    def get_task_description(self) -> str:
+        return "Classifies each token as 'positive', 'negative', or 'neutral' based on emojis."
 
-  def get_vocab(self) -> Set:
-    return {"😊", "😢", "📘"}
+    def get_vocab(self) -> Set:
+        return {"😊", "😢", "📘"}
 
-  def is_trivial(self) -> bool:
-      return True
+    def is_trivial(self) -> bool:
+        return True
 
 
 def make_emoji_sentiment_classifier(sop: rasp.SOp) -> rasp.SOp:

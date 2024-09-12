@@ -3,7 +3,7 @@ from iit.utils import index
 
 
 class TracrModelPair(StrictIITModelPair):
-  @staticmethod
-  def get_label_idxs():
-    # Discard from all batches the first position, which is for the BOS token
-    return index.Ix[:, 1:]
+    @staticmethod
+    def get_label_idxs():
+        # Discard from all batches the first position, which is for the BOS token
+        return index.Ix[:, 1:]

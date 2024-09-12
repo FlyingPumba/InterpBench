@@ -3,14 +3,15 @@ from transformers import PreTrainedModel, PretrainedConfig
 
 
 class LLModelConfig(PretrainedConfig):
-    def __init__(self, cfg: HookedTransformerConfig, 
-                 task: str, 
+    def __init__(self, cfg: HookedTransformerConfig,
+                 task: str,
                  tracr: bool = True,
                  **kwargs):
         super().__init__(**kwargs)
         self.cfg = cfg.to_dict()
         self.task = task
         self.tracr = False
+
 
 class TLModel(PreTrainedModel):
     def __init__(

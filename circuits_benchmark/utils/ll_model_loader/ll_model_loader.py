@@ -7,17 +7,17 @@ from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 
 
 class LLModelLoader(object):
-  def __init__(self, case: BenchmarkCase):
-    self.case = case
+    def __init__(self, case: BenchmarkCase):
+        self.case = case
 
-  def load_ll_model_and_correspondence(
-      self,
-      device: str,
-      output_dir: Optional[str] = None,
-      same_size: bool = False,
-      *args, **kwargs
-  ) -> Tuple[Correspondence, HookedTransformer]:
-    raise NotImplementedError()
+    def load_ll_model_and_correspondence(
+        self,
+        device: str,
+        output_dir: Optional[str] = None,
+        same_size: bool = False,
+        *args, **kwargs
+    ) -> Tuple[Correspondence, HookedTransformer]:
+        raise NotImplementedError()
 
-  def get_output_suffix(self):
-    raise NotImplementedError()
+    def get_output_suffix(self):
+        raise NotImplementedError()

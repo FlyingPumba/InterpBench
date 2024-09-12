@@ -15,26 +15,28 @@ from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
 
 @dataclass
 class CircuitEvalNodesResult:
-  true_positive: Set[CircuitNode]
-  false_positive: Set[CircuitNode]
-  false_negative: Set[CircuitNode]
-  true_negative: Set[CircuitNode]
-  tpr: float
-  fpr: float
+    true_positive: Set[CircuitNode]
+    false_positive: Set[CircuitNode]
+    false_negative: Set[CircuitNode]
+    true_negative: Set[CircuitNode]
+    tpr: float
+    fpr: float
+
 
 @dataclass
 class CircuitEvalEdgesResult:
-  true_positive: Set[CircuitNode]
-  false_positive: Set[CircuitNode]
-  false_negative: Set[CircuitNode]
-  true_negative: Set[CircuitNode]
-  tpr: float
-  fpr: float
+    true_positive: Set[CircuitNode]
+    false_positive: Set[CircuitNode]
+    false_negative: Set[CircuitNode]
+    true_negative: Set[CircuitNode]
+    tpr: float
+    fpr: float
+
 
 @dataclass
 class CircuitEvalResult:
-  nodes: CircuitEvalNodesResult
-  edges: CircuitEvalEdgesResult
+    nodes: CircuitEvalNodesResult
+    edges: CircuitEvalEdgesResult
 
 
 def calculate_fpr_and_tpr(
@@ -45,112 +47,111 @@ def calculate_fpr_and_tpr(
     promote_to_heads: bool = True,
     print_summary: bool = True,
 ) -> CircuitEvalResult:
-  processed_true_circuit = prepare_circuit_for_evaluation(true_circuit, promote_to_heads)
-  processed_hypothesis_circuit = prepare_circuit_for_evaluation(hypothesis_circuit, promote_to_heads)
-  processed_full_circuit = prepare_circuit_for_evaluation(full_circuit, promote_to_heads)
+    processed_true_circuit = prepare_circuit_for_evaluation(true_circuit, promote_to_heads)
+    processed_hypothesis_circuit = prepare_circuit_for_evaluation(hypothesis_circuit, promote_to_heads)
+    processed_full_circuit = prepare_circuit_for_evaluation(full_circuit, promote_to_heads)
 
-  all_nodes = set(processed_full_circuit.nodes)
-  true_nodes = set(processed_true_circuit.nodes)
-  hypothesis_nodes = set(processed_hypothesis_circuit.nodes)
+    all_nodes = set(processed_full_circuit.nodes)
+    true_nodes = set(processed_true_circuit.nodes)
+    hypothesis_nodes = set(processed_hypothesis_circuit.nodes)
 
+    # calculate nodes false positives and false negatives
 
-  # calculate nodes false positives and false negatives
+    assert hypothesis_nodes.issubset(
+        all_nodes), f"hypothesis nodes contain the following nodes that are not in the full circuit: {hypothesis_nodes - all_nodes}"
+    assert true_nodes.issubset(
+        all_nodes), f"true nodes contain the following nodes that are not in the full circuit: {true_nodes - all_nodes}"
 
-  assert hypothesis_nodes.issubset(
-    all_nodes), f"hypothesis nodes contain the following nodes that are not in the full circuit: {hypothesis_nodes - all_nodes}"
-  assert true_nodes.issubset(
-    all_nodes), f"true nodes contain the following nodes that are not in the full circuit: {true_nodes - all_nodes}"
+    false_positive_nodes = hypothesis_nodes - true_nodes
+    false_negative_nodes = true_nodes - hypothesis_nodes
+    true_positive_nodes = hypothesis_nodes & true_nodes
+    true_negative_nodes = all_nodes - (hypothesis_nodes | true_nodes)
 
-  false_positive_nodes = hypothesis_nodes - true_nodes
-  false_negative_nodes = true_nodes - hypothesis_nodes
-  true_positive_nodes = hypothesis_nodes & true_nodes
-  true_negative_nodes = all_nodes - (hypothesis_nodes | true_nodes)
+    if verbose:
+        print("\nNodes analysis:")
+        print(f" - False Positives: {sorted(false_positive_nodes)}")
+        print(f" - False Negatives: {sorted(false_negative_nodes)}")
+        print(f" - True Positives: {sorted(true_positive_nodes)}")
+        print(f" - True Negatives: {sorted(true_negative_nodes)}")
 
-  if verbose:
-    print("\nNodes analysis:")
-    print(f" - False Positives: {sorted(false_positive_nodes)}")
-    print(f" - False Negatives: {sorted(false_negative_nodes)}")
-    print(f" - True Positives: {sorted(true_positive_nodes)}")
-    print(f" - True Negatives: {sorted(true_negative_nodes)}")
+    # calculate edges false positives and false negatives
+    hypothesis_edges = set(processed_hypothesis_circuit.edges)
+    true_edges = set(processed_true_circuit.edges)
+    all_edges = set(processed_full_circuit.edges)
 
-  # calculate edges false positives and false negatives
-  hypothesis_edges = set(processed_hypothesis_circuit.edges)
-  true_edges = set(processed_true_circuit.edges)
-  all_edges = set(processed_full_circuit.edges)
+    assert hypothesis_edges.issubset(
+        all_edges), f"hypothesis edges contain the following edges that are not in the full circuit: {hypothesis_edges - all_edges}, hypothesis edges: {hypothesis_edges}, all edges: {all_edges}"
+    assert true_edges.issubset(
+        all_edges), f"true edges contain the following edges that are not in the full circuit: {true_edges - all_edges}"
 
-
-  assert hypothesis_edges.issubset(
-    all_edges), f"hypothesis edges contain the following edges that are not in the full circuit: {hypothesis_edges - all_edges}, hypothesis edges: {hypothesis_edges}, all edges: {all_edges}"
-  assert true_edges.issubset(
-    all_edges), f"true edges contain the following edges that are not in the full circuit: {true_edges - all_edges}"
-
-  false_positive_edges = (hypothesis_edges - true_edges) & all_edges
-  false_negative_edges = true_edges - hypothesis_edges
-  true_positive_edges = hypothesis_edges & true_edges
-  true_negative_edges = all_edges - (
+    false_positive_edges = (hypothesis_edges - true_edges) & all_edges
+    false_negative_edges = true_edges - hypothesis_edges
+    true_positive_edges = hypothesis_edges & true_edges
+    true_negative_edges = all_edges - (
         hypothesis_edges | true_edges)  # == (all_edges - hypothesis_edges) & (all_edges - true_edges)
 
-  if verbose:
-    print("\nEdges analysis:")
-    print(f" - False Positives: {sorted(false_positive_edges)}")
-    print(f" - False Negatives: {sorted(false_negative_edges)}")
-    print(f" - True Positives: {sorted(true_positive_edges)}")
-    print(f" - True Negatives: {sorted(true_negative_edges)}")
+    if verbose:
+        print("\nEdges analysis:")
+        print(f" - False Positives: {sorted(false_positive_edges)}")
+        print(f" - False Negatives: {sorted(false_negative_edges)}")
+        print(f" - True Positives: {sorted(true_positive_edges)}")
+        print(f" - True Negatives: {sorted(true_negative_edges)}")
 
-  # print FP and TP rates for nodes and edges as summary
-  make_summary = lambda *args, **kwargs: print(*args, **kwargs) if print_summary else None
-  if verbose:
-    make_summary("\n\n-------------------\n\nhypothesis_edges", hypothesis_edges, "\n-----------\n")
-    make_summary("true_edges", true_edges, "\n-----------\n")
-    make_summary("all_edges", all_edges, "\n\n-------------------\n\n")
-  make_summary(f"\nSummary:")
+    # print FP and TP rates for nodes and edges as summary
+    make_summary = lambda *args, **kwargs: print(*args, **kwargs) if print_summary else None
+    if verbose:
+        make_summary("\n\n-------------------\n\nhypothesis_edges", hypothesis_edges, "\n-----------\n")
+        make_summary("true_edges", true_edges, "\n-----------\n")
+        make_summary("all_edges", all_edges, "\n\n-------------------\n\n")
+    make_summary(f"\nSummary:")
 
-  if len(true_positive_nodes | false_negative_nodes) == 0:
-    nodes_tpr = "N/A"
-    make_summary(f" - Nodes TP rate: N/A")
-  else:
-    nodes_tpr = len(true_positive_nodes) / len(true_positive_nodes | false_negative_nodes)
-    make_summary(f" - Nodes TP rate: {nodes_tpr}")
+    if len(true_positive_nodes | false_negative_nodes) == 0:
+        nodes_tpr = "N/A"
+        make_summary(f" - Nodes TP rate: N/A")
+    else:
+        nodes_tpr = len(true_positive_nodes) / len(true_positive_nodes | false_negative_nodes)
+        make_summary(f" - Nodes TP rate: {nodes_tpr}")
 
-  if len(false_positive_nodes | true_negative_nodes) == 0:
-    nodes_fpr = "N/A"
-    make_summary(f" - Nodes FP rate: N/A")
-  else:
-    nodes_fpr = len(false_positive_nodes) / len(false_positive_nodes | true_negative_nodes)
-    make_summary(f" - Nodes FP rate: {nodes_fpr}")
+    if len(false_positive_nodes | true_negative_nodes) == 0:
+        nodes_fpr = "N/A"
+        make_summary(f" - Nodes FP rate: N/A")
+    else:
+        nodes_fpr = len(false_positive_nodes) / len(false_positive_nodes | true_negative_nodes)
+        make_summary(f" - Nodes FP rate: {nodes_fpr}")
 
-  if len(true_positive_edges | false_negative_edges) == 0:
-    edges_tpr = "N/A"
-    make_summary(f" - Edges TP rate: N/A")
-  else:
-    edges_tpr = len(true_positive_edges) / len(true_positive_edges | false_negative_edges)
-    make_summary(f" - Edges TP rate: {edges_tpr}")
+    if len(true_positive_edges | false_negative_edges) == 0:
+        edges_tpr = "N/A"
+        make_summary(f" - Edges TP rate: N/A")
+    else:
+        edges_tpr = len(true_positive_edges) / len(true_positive_edges | false_negative_edges)
+        make_summary(f" - Edges TP rate: {edges_tpr}")
 
-  if len(false_positive_edges | true_negative_edges) == 0:
-    edges_fpr = "N/A"
-    make_summary(f" - Edges FP rate: N/A")
-  else:
-    edges_fpr = len(false_positive_edges) / len(false_positive_edges | true_negative_edges)
-    make_summary(f" - Edges FP rate: {edges_fpr}")
+    if len(false_positive_edges | true_negative_edges) == 0:
+        edges_fpr = "N/A"
+        make_summary(f" - Edges FP rate: N/A")
+    else:
+        edges_fpr = len(false_positive_edges) / len(false_positive_edges | true_negative_edges)
+        make_summary(f" - Edges FP rate: {edges_fpr}")
 
-  return CircuitEvalResult(
-    nodes=CircuitEvalNodesResult(
-      true_positive=true_positive_nodes,
-      false_positive=false_positive_nodes,
-      false_negative=false_negative_nodes,
-      true_negative=true_negative_nodes,
-      tpr=nodes_tpr,
-      fpr=nodes_fpr,
-    ),
-    edges=CircuitEvalEdgesResult(
-      true_positive=true_positive_edges,
-      false_positive=false_positive_edges,
-      false_negative=false_negative_edges,
-      true_negative=true_negative_edges,
-      tpr=edges_tpr,
-      fpr=edges_fpr,
-    ),
-  )
+    return CircuitEvalResult(
+        nodes=CircuitEvalNodesResult(
+            true_positive=true_positive_nodes,
+            false_positive=false_positive_nodes,
+            false_negative=false_negative_nodes,
+            true_negative=true_negative_nodes,
+            tpr=nodes_tpr,
+            fpr=nodes_fpr,
+        ),
+        edges=CircuitEvalEdgesResult(
+            true_positive=true_positive_edges,
+            false_positive=false_positive_edges,
+            false_negative=false_negative_edges,
+            true_negative=true_negative_edges,
+            tpr=edges_tpr,
+            fpr=edges_fpr,
+        ),
+    )
+
 
 def evaluate_hypothesis_circuit(
     hypothesis_circuit: Circuit,
@@ -161,20 +162,20 @@ def evaluate_hypothesis_circuit(
     use_embeddings: bool = True,
     print_summary: bool = True,
 ) -> CircuitEvalResult:
-  full_corr = TLACDCCorrespondence.setup_from_model(
-    ll_model, use_pos_embed=use_embeddings
-  )
-  full_circuit = build_from_acdc_correspondence(full_corr)
+    full_corr = TLACDCCorrespondence.setup_from_model(
+        ll_model, use_pos_embed=use_embeddings
+    )
+    full_circuit = build_from_acdc_correspondence(full_corr)
 
-  if gt_circuit is None:
-    if "ioi" in case.get_name():
-      gt_circuit = case.get_ll_gt_circuit(corr=hl_ll_corr)
-    else:
-      gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads, case)
+    if gt_circuit is None:
+        if "ioi" in case.get_name():
+            gt_circuit = case.get_ll_gt_circuit(corr=hl_ll_corr)
+        else:
+            gt_circuit = get_gt_circuit(hl_ll_corr, full_circuit, ll_model.cfg.n_heads, case)
 
-  return calculate_fpr_and_tpr(
-    hypothesis_circuit, gt_circuit, full_circuit, print_summary=print_summary
-  )
+    return calculate_fpr_and_tpr(
+        hypothesis_circuit, gt_circuit, full_circuit, print_summary=print_summary
+    )
 
 
 def build_from_acdc_correspondence(corr: TLACDCCorrespondence) -> Circuit:

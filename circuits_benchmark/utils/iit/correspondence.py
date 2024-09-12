@@ -12,14 +12,15 @@ from tracr.craft.transformers import SeriesWithResiduals, MLP, MultiAttentionHea
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.utils.iit.tracr_hl_node import TracrHLNode
 
-TracrHLNodeMappingInfo = Tuple[int, Literal["attn", "mlp"], Optional[int | TorchIndex]]  # (layer, attn_or_mlp, head_index)
+TracrHLNodeMappingInfo = Tuple[
+    int, Literal["attn", "mlp"], Optional[int | TorchIndex]]  # (layer, attn_or_mlp, head_index)
 
 # TODO: We shouldn't define overrides using basis directions as keys, since sometimes Tracr uses multiple HL nodes for
 #  the same basis.
 tracr_corr_override_info: Dict[str, Dict[Tuple[str, Optional[str]], TracrHLNodeMappingInfo]] = {
     "3": {
-            ("is_x_3", None): {(0, "mlp", index.Ix[[None]])},
-            ("frac_prevs_1", None): {(1, "attn", index.Ix[:, :, 2, :])},
+        ("is_x_3", None): {(0, "mlp", index.Ix[[None]])},
+        ("frac_prevs_1", None): {(1, "attn", index.Ix[:, :, 2, :])},
     }
 }
 
@@ -53,6 +54,7 @@ class TracrCorrespondence(Correspondence):
         basis directions are output by which components) and an optional mapping overriding the default Tracr info
          (e.g., to map specific basis directions to specific components).
         """
+
         def hook_name(loc, style) -> str:
             layer, attn_or_mlp, unit = loc
             assert attn_or_mlp in ["attn", "mlp"], ValueError(
@@ -84,11 +86,11 @@ class TracrCorrespondence(Correspondence):
 
             for hl_loc in hl_locs:
                 hl_node = TracrHLNode(
-                            hook_name(hl_loc, hook_name_style),
-                            label=basis_dir.name,
-                            num_classes=0,  # TODO: get num_classes
-                            idx=idx(hl_loc),
-                        )
+                    hook_name(hl_loc, hook_name_style),
+                    label=basis_dir.name,
+                    num_classes=0,  # TODO: get num_classes
+                    idx=idx(hl_loc),
+                )
 
                 ll_nodes = set()
                 if tracr_corr_override is None:
@@ -149,7 +151,6 @@ class TracrCorrespondence(Correspondence):
             else:
                 raise ValueError(f"Unknown block type {type(block)}")
             print()
-
 
     @classmethod
     def build_tracr_base_corr(

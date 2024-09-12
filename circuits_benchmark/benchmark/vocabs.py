@@ -5,16 +5,17 @@ from typing import Set
 TRACR_BOS = "BOS"
 TRACR_PAD = "PAD"
 
+
 def get_ascii_letters_vocab(count=len(string.ascii_lowercase)) -> Set:
-  return set(string.ascii_lowercase[:count])
+    return set(string.ascii_lowercase[:count])
 
 
 def get_str_digits_vocab(count=len(string.digits)) -> Set:
-  return set(string.digits[:count])
+    return set(string.digits[:count])
 
 
 def get_int_digits_vocab(count=len(string.digits)) -> Set:
-  return set([int(d) for d in get_str_digits_vocab(count=count)])
+    return set([int(d) for d in get_str_digits_vocab(count=count)])
 
 
 def get_str_numbers_vocab(min=0, max=20) -> Set:

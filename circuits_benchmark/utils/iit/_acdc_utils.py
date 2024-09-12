@@ -37,6 +37,7 @@ def convert_LLNode_to_CircuitNodes(
         circuit_nodes.append(CircuitNode(ll_node.name, i))
     return circuit_nodes
 
+
 def find_corresponding_ll_node(
     hl_node: CircuitNode, hl_ll_corr: Correspondence
 ) -> set[LLNode] | None:
@@ -90,11 +91,11 @@ def map_tracr_edges_to_ll_edges(
                 new_ll_to_nodes.extend(
                     convert_LLNode_to_CircuitNodes(node, n_heads)
                 )
-        
+
         # if the tracr's edge points to the leaf node, map it to the ll_leaf_node
         if v is None and e[1] == tracr_leaf_node:
             new_ll_to_nodes = [ll_leaf_node]
-        
+
         # make all possible edges
         new_edges = [(f, t) for f in new_ll_from_nodes for t in new_ll_to_nodes]
         all_edges.extend(new_edges)
@@ -113,7 +114,7 @@ def get_gt_circuit(
     """
     if not promote_to_heads:
         raise NotImplementedError("Only promote_to_heads=True is supported")
-    
+
     circuit = full_circuit.copy()
     circuit = prepare_circuit_for_evaluation(circuit, promote_to_heads)
     circuit_leaf_node = circuit.get_result_node()
@@ -128,8 +129,10 @@ def get_gt_circuit(
     )
     edges_to_remove = set(circuit.edges) - set(edges_to_keep)
     assert edges_to_remove.issubset(set(circuit.edges)), RuntimeError("Some edges to remove are not in the circuit")
-    assert set(edges_to_keep).issubset(set(circuit.edges)), RuntimeError(f"Some edges to keep are not in the circuit: {set(edges_to_keep) - set(circuit.edges)}")
-    assert set(edges_to_keep) | edges_to_remove == set(circuit.edges), RuntimeError(f"Some edges are missing in the circuit: {set(edges_to_keep) | edges_to_remove - set(circuit.edges)}")
+    assert set(edges_to_keep).issubset(set(circuit.edges)), RuntimeError(
+        f"Some edges to keep are not in the circuit: {set(edges_to_keep) - set(circuit.edges)}")
+    assert set(edges_to_keep) | edges_to_remove == set(circuit.edges), RuntimeError(
+        f"Some edges are missing in the circuit: {set(edges_to_keep) | edges_to_remove - set(circuit.edges)}")
 
     for edge in edges_to_remove:
         # print(f"Removing edge {edge}")
@@ -139,14 +142,17 @@ def get_gt_circuit(
     nodes_to_remove = set()
     for node in circuit.nodes:
         if not list(circuit.successors(node)) and node != circuit_leaf_node:
-            assert list(circuit.predecessors(node)) == [], RuntimeError("Found two leaf nodes in the circuit. This should not happen.")
+            assert list(circuit.predecessors(node)) == [], RuntimeError(
+                "Found two leaf nodes in the circuit. This should not happen.")
             nodes_to_remove.add(node)
-    
+
     for node in nodes_to_remove:
         circuit.remove_node(node)
-    
-    assert prepare_circuit_for_evaluation(circuit, promote_to_heads).nodes == circuit.nodes, RuntimeError("Some nodes were not removed from the circuit")
-    assert prepare_circuit_for_evaluation(circuit, promote_to_heads).edges == circuit.edges, RuntimeError("Some edges were not removed from the circuit")
+
+    assert prepare_circuit_for_evaluation(circuit, promote_to_heads).nodes == circuit.nodes, RuntimeError(
+        "Some nodes were not removed from the circuit")
+    assert prepare_circuit_for_evaluation(circuit, promote_to_heads).edges == circuit.edges, RuntimeError(
+        "Some edges were not removed from the circuit")
     assert len(circuit.edges) > 0, RuntimeError("No edges left in the circuit")
     assert len(circuit.nodes) > 0, RuntimeError("No nodes left in the circuit")
     return circuit

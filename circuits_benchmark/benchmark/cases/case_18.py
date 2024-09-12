@@ -8,17 +8,17 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case18(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_frequency_classifier(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_frequency_classifier(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Classify each token based on its frequency as 'rare', 'common', or 'frequent'."
+    def get_task_description(self) -> str:
+        return "Classify each token based on its frequency as 'rare', 'common', or 'frequent'."
 
-  def supports_causal_masking(self) -> bool:
-    return False
+    def supports_causal_masking(self) -> bool:
+        return False
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_ascii_letters_vocab(count=5)
+    def get_vocab(self) -> Set:
+        return vocabs.get_ascii_letters_vocab(count=5)
 
 
 def make_token_frequency_classifier(sop: rasp.SOp) -> rasp.SOp:

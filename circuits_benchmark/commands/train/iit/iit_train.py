@@ -202,7 +202,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         # TODO: save the config
         ll_model_cfg = model_pair.ll_model.cfg
         ll_model_cfg_dict = ll_model_cfg.to_dict()
-        
+
         pickle.dump(ll_model_cfg_dict, open(f"{save_dir}/ll_model_cfg_{weight_int}.pkl", "wb"))
 
         if use_wandb:
@@ -215,6 +215,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             )
             wandb.save(f"{save_dir}/*", base_path=output_dir)
             wandb.finish()
+
 
 def train_model(
     case: BenchmarkCase,

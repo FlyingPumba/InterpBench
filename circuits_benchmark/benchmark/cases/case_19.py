@@ -8,17 +8,17 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case19(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_sequential_duplicate_removal(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_sequential_duplicate_removal(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Removes consecutive duplicate tokens from a sequence."
+    def get_task_description(self) -> str:
+        return "Removes consecutive duplicate tokens from a sequence."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_ascii_letters_vocab(count=3)
+    def get_vocab(self) -> Set:
+        return vocabs.get_ascii_letters_vocab(count=3)
 
-  def get_max_seq_len(self) -> int:
-    return 15
+    def get_max_seq_len(self) -> int:
+        return 15
 
 
 def make_sequential_duplicate_removal(sop: rasp.SOp) -> rasp.SOp:

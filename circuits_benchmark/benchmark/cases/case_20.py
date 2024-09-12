@@ -7,17 +7,17 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case20(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_spam_message_detector(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_spam_message_detector(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Detect spam messages based on appearance of spam keywords."
+    def get_task_description(self) -> str:
+        return "Detect spam messages based on appearance of spam keywords."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_words_vocab().union({"spam", "offer", "click", "now"})
+    def get_vocab(self) -> Set:
+        return vocabs.get_words_vocab().union({"spam", "offer", "click", "now"})
 
-  def is_trivial(self) -> bool:
-      return True
+    def is_trivial(self) -> bool:
+        return True
 
 
 def make_spam_message_detector(sop: rasp.SOp) -> rasp.SOp:

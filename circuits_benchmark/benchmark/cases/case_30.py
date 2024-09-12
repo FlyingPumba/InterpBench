@@ -7,14 +7,14 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case30(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_numeric_range_tagging(rasp.tokens, 10, 20)
+    def get_program(self) -> rasp.SOp:
+        return make_numeric_range_tagging(rasp.tokens, 10, 20)
 
-  def get_task_description(self) -> str:
-    return "Tags numeric tokens in a sequence based on whether they fall within a given range."
+    def get_task_description(self) -> str:
+        return "Tags numeric tokens in a sequence based on whether they fall within a given range."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_str_numbers_vocab(min=0, max=30)
+    def get_vocab(self) -> Set:
+        return vocabs.get_str_numbers_vocab(min=0, max=30)
 
 
 def make_numeric_range_tagging(sop: rasp.SOp, lower_bound: int, upper_bound: int) -> rasp.SOp:

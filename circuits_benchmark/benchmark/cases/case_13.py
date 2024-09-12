@@ -8,20 +8,20 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case13(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_trend_analysis(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_trend_analysis(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Analyzes the trend (increasing, decreasing, constant) of numeric tokens."
+    def get_task_description(self) -> str:
+        return "Analyzes the trend (increasing, decreasing, constant) of numeric tokens."
 
-  def supports_causal_masking(self) -> bool:
-    return False
+    def supports_causal_masking(self) -> bool:
+        return False
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_int_digits_vocab(count=3)
+    def get_vocab(self) -> Set:
+        return vocabs.get_int_digits_vocab(count=3)
 
-  def supports_causal_masking(self) -> bool:
-    return False
+    def supports_causal_masking(self) -> bool:
+        return False
 
 
 def make_token_trend_analysis(sop: rasp.SOp) -> rasp.SOp:

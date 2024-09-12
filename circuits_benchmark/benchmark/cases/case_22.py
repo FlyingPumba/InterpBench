@@ -8,20 +8,20 @@ from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case22(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_sorting_by_length(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_sorting_by_length(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Sort words in a sequence by their length."
+    def get_task_description(self) -> str:
+        return "Sort words in a sequence by their length."
 
-  def supports_causal_masking(self) -> bool:
-    return False
+    def supports_causal_masking(self) -> bool:
+        return False
 
-  def get_vocab(self) -> Set:
-      return vocabs.get_words_vocab()
+    def get_vocab(self) -> Set:
+        return vocabs.get_words_vocab()
 
-  def get_max_seq_len(self) -> int:
-    return 10
+    def get_max_seq_len(self) -> int:
+        return 10
 
 
 def make_token_sorting_by_length(sop: rasp.SOp) -> rasp.SOp:

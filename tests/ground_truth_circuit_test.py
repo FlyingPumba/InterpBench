@@ -8,21 +8,21 @@ from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
 
 class TestGroundTruthCircuit:
 
-  def test_gt_circuit_for_all_cases(self):
-    cases = get_cases()
-    cases = [case for case in cases if not isinstance(case, CaseIOI)] # remove ioi cases
+    def test_gt_circuit_for_all_cases(self):
+        cases = get_cases()
+        cases = [case for case in cases if not isinstance(case, CaseIOI)]  # remove ioi cases
 
-    for case in cases:
-      full_corr = TLACDCCorrespondence.setup_from_model(case.get_ll_model())
-      full_circuit = build_from_acdc_correspondence(corr=full_corr)
+        for case in cases:
+            full_corr = TLACDCCorrespondence.setup_from_model(case.get_ll_model())
+            full_circuit = build_from_acdc_correspondence(corr=full_corr)
 
-      corr = case.get_correspondence()
+            corr = case.get_correspondence()
 
-      gt_circuit = get_gt_circuit(
-        hl_ll_corr=corr,
-        full_circuit=full_circuit,
-        n_heads=case.get_ll_model().cfg.n_heads,
-        case=case,
-      )
+            gt_circuit = get_gt_circuit(
+                hl_ll_corr=corr,
+                full_circuit=full_circuit,
+                n_heads=case.get_ll_model().cfg.n_heads,
+                case=case,
+            )
 
-      assert len(gt_circuit.edges) > 0, f"Case {case} has no edges in gt_circuit"
+            assert len(gt_circuit.edges) > 0, f"Case {case} has no edges in gt_circuit"
