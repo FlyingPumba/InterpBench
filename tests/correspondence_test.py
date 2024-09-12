@@ -9,8 +9,8 @@ class TestCorrespondence:
         cases = get_cases()
 
         if is_running_in_circleci():
-            # randomly select 10% of the cases to run on CircleCI (no replacement)
-            cases = random.sample(cases, int(0.10 * len(cases)))
+            # randomly select 25% of the cases to run on CircleCI (no replacement)
+            cases = random.sample(cases, int(0.25 * len(cases)))
 
         for case in cases:
             corr = case.get_correspondence()

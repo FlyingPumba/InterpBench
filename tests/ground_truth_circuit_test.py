@@ -1,6 +1,9 @@
+import random
+
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 
 from circuits_benchmark.benchmark.cases.case_ioi import CaseIOI
+from circuits_benchmark.utils.circleci import is_running_in_circleci
 from circuits_benchmark.utils.circuit.circuit_eval import build_from_acdc_correspondence
 from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.utils.iit._acdc_utils import get_gt_circuit
@@ -12,11 +15,16 @@ class TestGroundTruthCircuit:
         cases = get_cases()
         cases = [case for case in cases if not isinstance(case, CaseIOI)]  # remove ioi cases
 
+        if is_running_in_circleci():
+            # randomly select 25% of the cases to run on CircleCI (no replacement)
+            cases = random.sample(cases, int(0.25 * len(cases)))
+
         for case in cases:
             full_corr = TLACDCCorrespondence.setup_from_model(case.get_ll_model())
             full_circuit = build_from_acdc_correspondence(corr=full_corr)
 
             corr = case.get_correspondence()
+            assert corr is not None
 
             gt_circuit = get_gt_circuit(
                 hl_ll_corr=corr,
