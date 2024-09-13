@@ -1,10 +1,11 @@
-import os
 import json
+import os
 import pickle
 
+import huggingface_hub as hf
 import mlcroissant as mlc
 import pandas as pd
-import huggingface_hub as hf
+from huggingface_hub import list_repo_files
 from transformer_lens import HookedTransformerConfig
 
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
@@ -39,30 +40,31 @@ def build_metadata():
   write_benchmark_metadata_croissant(metadata, df_cases_info)
 
 
+def flatten_dict_in_place(d):
+  """Converts all list values to comma separated strings, and recursively flattens all nested dictionaries."""
+  keys = list(d.keys())
+  for k in keys:
+    v = d[k]
+    if isinstance(v, dict):
+      flatten_dict_in_place(v)
+      nested_keys = list(v.keys())
+      for nested_k in nested_keys:
+        nested_v = v[nested_k]
+        d[f"{k}.{nested_k}"] = nested_v
+      del d[k]
+    elif isinstance(v, list):
+      d[k] = ",".join(map(str, v))
+
 def write_cases_metadata(cases_info):
   # flatten transformer_cfg and training_args, and remove files and vocab
   for case_info in cases_info:
-    if "training_args" in case_info:
-      training_arg_keys = case_info["training_args"].keys()
-      for key in training_arg_keys:
-        if key == "scheduler_val_metric":
-          # convert to comma separated string
-          case_info[f"training_args.{key}"] = ",".join(case_info["training_args"][key])
-        else:
-          case_info[f"training_args.{key}"] = case_info["training_args"][key]
-      del case_info["training_args"]
-
-    if "transformer_cfg" in case_info:
-      cfg_keys = case_info["transformer_cfg"].keys()
-      for key in cfg_keys:
-        case_info[f"transformer_cfg.{key}"] = case_info["transformer_cfg"][key]
-      del case_info["transformer_cfg"]
-
     if "files" in case_info:
       del case_info["files"]
 
     if "vocab" in case_info:
       del case_info["vocab"]
+
+    flatten_dict_in_place(case_info)
 
   # delete keys that have None value in all cases
   keys_to_delete = []
@@ -185,14 +187,17 @@ def build_case_info(case_id, files_per_case):
 
 def get_files_per_case_in_hf():
   files_per_case = {}
-  for file_info in hf.list_files_info(hf_repo_id):
-    path = file_info.path
+  # Get the list of files in the repository
+  file_paths = list_repo_files(hf_repo_id)
+
+  for path in file_paths:
     if "/" in path:
       case_id = path.split("/")[0]
       file_name = path.split("/")[-1]
       if case_id not in files_per_case:
         files_per_case[case_id] = []
       files_per_case[case_id].append(file_name)
+
   return files_per_case
 
 
