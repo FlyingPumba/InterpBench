@@ -8,12 +8,11 @@ from typing import Optional
 import numpy as np
 import torch
 import wandb
-from tqdm import tqdm
-
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.TLACDCEdge import EdgeType
 from acdc.docstring.utils import AllDataThings
 from subnetwork_probing.masked_transformer import EdgeLevelMaskedTransformer
+from tqdm import tqdm
 
 
 def save_edges(corr: TLACDCCorrespondence, fname: str):
@@ -72,7 +71,7 @@ def train_edge_sp(
     else:
         validation_patch_data = all_task_things.validation_patch_data
         test_patch_data = all_task_things.test_patch_data
-    
+
     for epoch in tqdm(range(epochs)):  # tqdm.notebook.tqdm(range(epochs)):
         masked_model.train()
         trainer.zero_grad()
@@ -109,8 +108,8 @@ def train_edge_sp(
                         "nodes_tpr": result.nodes.tpr,
                         "edges_fpr": result.edges.fpr,
                         "edges_tpr": result.edges.tpr,
-                        }
-                    )
+                    }
+                )
 
     # Save edges to create data for plots later
     corr = masked_model.get_edge_level_correspondence_from_masks()

@@ -1,31 +1,36 @@
 from typing import Set
 
-from circuits_benchmark.benchmark import vocabs
-from circuits_benchmark.benchmark.common_programs import shift_by
-from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from tracr.rasp import rasp
+
+from circuits_benchmark.benchmark import vocabs
+from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 
 
 class Case8(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_sequential_gap_filler(rasp.tokens, "-")
+    def get_program(self) -> rasp.SOp:
+        return make_token_replacer(rasp.tokens, "findme", "-")
 
-  def get_task_description(self) -> str:
-    return "Fills gaps between tokens with a specified filler."
+    def get_task_description(self) -> str:
+        return "Replaces a specific token with another one."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_words_vocab()
+    def get_vocab(self) -> Set:
+        vocab = vocabs.get_words_vocab()
+        vocab.add("findme")
+        vocab.add("-")
+        return vocab
+
+    def is_trivial(self) -> bool:
+        return True
 
 
-def make_sequential_gap_filler(sop: rasp.SOp, filler: str) -> rasp.SOp:
+def make_token_replacer(sop: rasp.SOp, target: str, replacement: str) -> rasp.SOp:
     """
-    Fills gaps between tokens with a specified filler.
+    Returns a program that replaces a target token with a replacement token
 
     Example usage:
-      gap_filler = make_sequential_gap_filler(rasp.tokens, "-")
-      gap_filler(["word1", None, "word3"])
+      replacer = make_token_replacer(rasp.tokens, "findme", "-")
+      replacer(["word1", "findme", "word3"])
       >> ["word1", "-", "word3"]
     """
-    next_token = shift_by(-1, sop)
-    gap_filler = rasp.SequenceMap(lambda x, y: filler if x is None and y is not None else x, sop, next_token)
-    return gap_filler
+    replaced = rasp.Map(lambda x: replacement if x == target else x, sop)
+    return replaced

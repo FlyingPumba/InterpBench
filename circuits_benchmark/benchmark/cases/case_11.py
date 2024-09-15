@@ -1,19 +1,23 @@
 from typing import Set
 
+from tracr.rasp import rasp
+
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from tracr.rasp import rasp
 
 
 class Case11(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_word_count_by_length(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_word_count_by_length(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Counts the number of words in a sequence based on their length."
+    def get_task_description(self) -> str:
+        return "Counts the number of words in a sequence based on their length."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_words_vocab()
+    def get_vocab(self) -> Set:
+        return vocabs.get_words_vocab()
+
+    def is_trivial(self) -> bool:
+        return True
 
 
 def make_word_count_by_length(sop: rasp.SOp) -> rasp.SOp:

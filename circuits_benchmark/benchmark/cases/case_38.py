@@ -1,20 +1,24 @@
 from typing import Set
 
+from tracr.rasp import rasp
+
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.common_programs import shift_by
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from tracr.rasp import rasp
 
 
 class Case38(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_alternation_checker(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_alternation_checker(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Checks if tokens alternate between two types."
+    def get_task_description(self) -> str:
+        return "Checks if tokens alternate between two types."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_ascii_letters_vocab(count=3)
+    def supports_causal_masking(self) -> bool:
+        return False
+
+    def get_vocab(self) -> Set:
+        return vocabs.get_ascii_letters_vocab(count=3)
 
 
 def make_token_alternation_checker(sop: rasp.SOp) -> rasp.SOp:

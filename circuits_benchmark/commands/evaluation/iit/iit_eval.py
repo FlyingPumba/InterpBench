@@ -3,13 +3,6 @@ from typing import Literal
 
 import numpy as np
 import torch as t
-
-from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
-from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
-from circuits_benchmark.transformers.hooked_tracr_transformer import (
-    HookedTracrTransformer,
-)
-from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from iit.model_pairs.base_model_pair import BaseModelPair
 from iit.utils import IITDataset
 from iit.utils.eval_ablations import (
@@ -19,6 +12,13 @@ from iit.utils.eval_ablations import (
     save_result,
     Categorical_Metric,
 )
+
+from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
+from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
+from circuits_benchmark.transformers.hooked_tracr_transformer import (
+    HookedTracrTransformer,
+)
+from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader_from_args
 
 
@@ -54,6 +54,7 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--use-wandb", action="store_true", help="Use wandb for logging"
     )
+
 
 def get_node_effects(
     case: BenchmarkCase,
@@ -120,7 +121,8 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
         hl_model = IITHLModel(hl_model, eval_mode=True)
 
     ll_model_loader = get_ll_model_loader_from_args(case, args)
-    hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir, same_size=args.same_size)
+    hl_ll_corr, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir,
+                                                                            same_size=args.same_size)
     ll_model.eval()
     ll_model.requires_grad_(False)
 

@@ -8,12 +8,12 @@ from argparse import Namespace
 import numpy as np
 import torch as t
 import wandb
+from iit.utils.iit_dataset import train_test_split, IITDataset
 
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
-from iit.utils.iit_dataset import train_test_split, IITDataset
 
 
 def setup_args_parser(subparsers):
@@ -50,10 +50,25 @@ def setup_args_parser(subparsers):
         "--lr", type=float, default=1e-3, help="Learning rate"
     )
     parser.add_argument(
-        "--clip-grad-norm", type=float, default=1.0, help="Clip grad norm"
+        "--clip-grad-norm", type=float, default=0.1, help="Clip grad norm"
     )
     parser.add_argument(
         "--num-samples", type=int, default=12000, help="Number of samples"
+    )
+    parser.add_argument(
+        "--scheduler-val-metric", nargs="+", default=["val/accuracy", "val/IIA", "val/strict_accuracy"],
+        help="Scheduler validation metrics"
+    )
+    parser.add_argument(
+        "--siit-sampling", type=str, choices=["individual", "sample_all", "all"], default="individual",
+        help="SIIT sampling mode"
+    )
+    parser.add_argument(
+        "--val-iia-sampling", type=str, choices=["random", "all"], default="random",
+        help="Val IIA sampling mode"
+    )
+    parser.add_argument(
+        "--lr-scheduler", type=str, choices=["", "plateau", "linear"], default="", help="LR scheduler"
     )
 
     parser.add_argument(
@@ -145,6 +160,10 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "batch_size": {"values": [args.batch_size]},
                 "include_mlp": {"values": [args.include_mlp]},
                 "detach_while_caching": {"values": [not args.backprop_on_cache]},
+                "scheduler_val_metric": {"values": [args.scheduler_val_metric]},
+                "siit_sampling": {"values": [args.siit_sampling]},
+                "val_iia_sampling": {"values": [args.val_iia_sampling]},
+                "final_lr": {"values": [args.final_lr]},
             },
         }
         sweep_id = wandb.sweep(
@@ -156,7 +175,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
     else:
         config = {
             "atol": 0.05,
-            "lr": 1e-2,
+            "lr": args.lr,
             "use_single_loss": args.use_single_loss,
             "iit_weight": args.iit_weight,
             "behavior_weight": args.behavior_weight,
@@ -164,15 +183,18 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "epochs": args.epochs,
             "act_fn": "gelu",
             "wandb_suffix": args.wandb_suffix,
-            "device": "cpu" if args.device == "cpu" else "cuda",
-            "clip_grad_norm": 0.1,
-            "lr_scheduler": "",
+            "device": "cpu" if args.device == "cpu" else "cuda" if t.cuda.is_available() else "cpu",
+            "clip_grad_norm": args.clip_grad_norm,
+            "lr_scheduler": args.lr_scheduler,
             "model_pair": args.model_pair,
             "same_size": args.same_size,
             "seed": args.seed,
             "batch_size": args.batch_size,
             "include_mlp": args.include_mlp,
             "detach_while_caching": not args.backprop_on_cache,
+            "scheduler_val_metric": args.scheduler_val_metric,
+            "siit_sampling": args.siit_sampling,
+            "val_iia_sampling": args.val_iia_sampling,
         }
 
         args = argparse.Namespace(**config)
@@ -202,7 +224,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         # TODO: save the config
         ll_model_cfg = model_pair.ll_model.cfg
         ll_model_cfg_dict = ll_model_cfg.to_dict()
-        
+
         pickle.dump(ll_model_cfg_dict, open(f"{save_dir}/ll_model_cfg_{weight_int}.pkl", "wb"))
 
         if use_wandb:
@@ -216,6 +238,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             wandb.save(f"{save_dir}/*", base_path=output_dir)
             wandb.finish()
 
+
 def train_model(
     case: BenchmarkCase,
     args: Namespace,
@@ -228,6 +251,7 @@ def train_model(
     lr_scheduler_map = {
         "": None,
         "plateau": t.optim.lr_scheduler.ReduceLROnPlateau,
+        "linear": t.optim.lr_scheduler.LambdaLR
     }
 
     training_args = {
@@ -244,6 +268,9 @@ def train_model(
         "strict_weight": args.strict_weight,
         "use_single_loss": args.use_single_loss,
         "detach_while_caching": args.detach_while_caching,
+        "scheduler_val_metric": args.scheduler_val_metric,
+        "siit_sampling": args.siit_sampling,
+        "val_IIA_sampling": args.val_iia_sampling,
     }
 
     ll_model = case.get_ll_model(same_size=args.same_size)
@@ -253,7 +280,7 @@ def train_model(
         hl_model = IITHLModel(hl_model, eval_mode=False)
         hl_model.to(args.device)
 
-    hl_ll_corr = case.get_correspondence(include_mlp=args.include_mlp)
+    hl_ll_corr = case.get_correspondence(include_mlp=args.include_mlp, same_size=args.same_size)
 
     model_pair = case.build_model_pair(
         training_args=training_args,

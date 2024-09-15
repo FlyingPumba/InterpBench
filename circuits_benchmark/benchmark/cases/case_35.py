@@ -1,19 +1,23 @@
 from typing import Set
 
+from tracr.rasp import rasp
+
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from tracr.rasp import rasp
 
 
 class Case35(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_capitalization_alternator(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_capitalization_alternator(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Alternates capitalization of each character in words."
+    def get_task_description(self) -> str:
+        return "Alternates capitalization of each character in words."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_words_vocab()
+    def get_vocab(self) -> Set:
+        return vocabs.get_words_vocab()
+
+    def is_trivial(self) -> bool:
+        return True
 
 
 def make_token_capitalization_alternator(sop: rasp.SOp) -> rasp.SOp:
@@ -25,6 +29,7 @@ def make_token_capitalization_alternator(sop: rasp.SOp) -> rasp.SOp:
       capitalization_alternator(["hello", "world"])
       >> ["HeLlO", "WoRlD"]
     """
+
     def alternate_capitalization(word):
         return ''.join(c.upper() if i % 2 == 0 else c.lower() for i, c in enumerate(word))
 

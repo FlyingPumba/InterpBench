@@ -1,9 +1,13 @@
 import pickle
 from argparse import Namespace
 
+import wandb
+from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
+from iit.utils import IITDataset, index
+from iit.utils.eval_ablations import get_circuit_score, get_mean_cache
+from iit.utils.nodes import LLNode
 from transformer_lens import HookedTransformer
 
-import wandb
 from circuits_benchmark.benchmark.benchmark_case import BenchmarkCase
 from circuits_benchmark.commands.common_args import add_common_args, add_evaluation_common_ags
 from circuits_benchmark.transformers.hooked_tracr_transformer import HookedTracrTransformer
@@ -12,11 +16,8 @@ from circuits_benchmark.utils.circuit.circuit_eval import CircuitEvalResult
 from circuits_benchmark.utils.circuit.circuit_node import CircuitNode
 from circuits_benchmark.utils.iit.iit_hl_model import IITHLModel
 from circuits_benchmark.utils.iit.wandb_loader import load_circuit_from_wandb
-from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import LLModelLoader, get_ll_model_loader_from_args
-from iit.model_pairs.iit_behavior_model_pair import IITBehaviorModelPair
-from iit.model_pairs.nodes import LLNode
-from iit.utils import IITDataset, index
-from iit.utils.eval_ablations import get_circuit_score, get_mean_cache
+from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import LLModelLoader, \
+    get_ll_model_loader_from_args
 
 
 def setup_args_parser(subparsers):
@@ -49,6 +50,9 @@ def setup_args_parser(subparsers):
         "--use-wandb",
         action="store_true",
         help="Use wandb for logging",
+    )
+    parser.add_argument(
+        "--use-iit-model", action="store_true", help="Use IIT model instead of SIIT model"
     )
 
 
@@ -109,7 +113,8 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
         hl_model = IITHLModel(hl_model, eval_mode=True)
 
     ll_model_loader = get_ll_model_loader_from_args(case, args)
-    _, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir, same_size=args.same_size)
+    _, ll_model = ll_model_loader.load_ll_model_and_correspondence(args.device, output_dir=output_dir,
+                                                                   same_size=args.same_size)
     ll_model.eval()
     ll_model.requires_grad_(False)
 
@@ -171,7 +176,7 @@ def run_nodewise_ablation(case: BenchmarkCase, args: Namespace):
             )
         )
         project = "node_realism_same_size" if args.same_size else "node_realism"
-        
+
         wandb.init(
             project=project,
             group=group,

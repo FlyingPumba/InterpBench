@@ -1,20 +1,21 @@
 from typing import Set
 
+from tracr.rasp import rasp
+
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.common_programs import shift_by
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from tracr.rasp import rasp
 
 
 class Case32(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_boundary_detector(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_boundary_detector(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Detects the boundaries between different types of tokens in a sequence."
+    def get_task_description(self) -> str:
+        return "Detects the boundaries between different types of tokens in a sequence."
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_words_vocab(min_chars=4, max_words=10)
+    def get_vocab(self) -> Set:
+        return vocabs.get_words_vocab(min_chars=4, max_words=10)
 
 
 def make_token_boundary_detector(sop: rasp.SOp) -> rasp.SOp:

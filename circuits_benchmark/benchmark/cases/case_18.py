@@ -1,23 +1,24 @@
 from typing import Set
 
+from tracr.rasp import rasp
+
 from circuits_benchmark.benchmark import vocabs
 from circuits_benchmark.benchmark.common_programs import make_hist, make_length
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
-from tracr.rasp import rasp
 
 
 class Case18(TracrBenchmarkCase):
-  def get_program(self) -> rasp.SOp:
-    return make_token_frequency_classifier(rasp.tokens)
+    def get_program(self) -> rasp.SOp:
+        return make_token_frequency_classifier(rasp.tokens)
 
-  def get_task_description(self) -> str:
-    return "Classify each token based on its frequency as 'rare', 'common', or 'frequent'."
+    def get_task_description(self) -> str:
+        return "Classify each token based on its frequency as 'rare', 'common', or 'frequent'."
 
-  def supports_causal_masking(self) -> bool:
-    return False
+    def supports_causal_masking(self) -> bool:
+        return False
 
-  def get_vocab(self) -> Set:
-    return vocabs.get_ascii_letters_vocab(count=5)
+    def get_vocab(self) -> Set:
+        return vocabs.get_ascii_letters_vocab(count=5)
 
 
 def make_token_frequency_classifier(sop: rasp.SOp) -> rasp.SOp:

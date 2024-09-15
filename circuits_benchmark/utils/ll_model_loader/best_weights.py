@@ -20,10 +20,10 @@ def get_best_weight(case_name: str, individual=False):
     elif "ioi" in str(case_name):
         if individual:
             return {
-            'iit': 1.0,
-            'strict': 0.4,
-            'behavior': 1.0,
-        }
+                'iit': 1.0,
+                'strict': 0.4,
+                'behavior': 1.0,
+            }
         return "100_100_40"
     else:
         ind_weights = {
@@ -35,4 +35,3 @@ def get_best_weight(case_name: str, individual=False):
     if individual:
         return ind_weights
     return str(int(ind_weights['strict'] * 1000 + ind_weights['behavior'] * 100 + ind_weights['iit'] * 10))
-    
