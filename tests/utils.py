@@ -16,7 +16,6 @@ def setup_iit_models():
                                                         "iit",
                                                         "-i=3",
                                                         "--epochs=0",
-                                                        "--early-stop",
                                                         "-s=0",
                                                         "-iit=0",
                                                         "--num-samples=10",
@@ -31,7 +30,6 @@ def setup_iit_models():
                                                         "iit",
                                                         "-i=3",
                                                         "--epochs=0",
-                                                        "--early-stop",
                                                         "--num-samples=10",
                                                         "--device=cpu"])
         train.run(args)
