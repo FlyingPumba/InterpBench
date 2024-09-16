@@ -49,6 +49,7 @@ def build_commands():
                 f"--seed={seed}",
                 f"--wandb-project={wandb_project}",
                 f"--use-wandb",
+                "--save-model-to-wandb",
             ]
 
             if all("--wandb-name=" not in part for part in command):
