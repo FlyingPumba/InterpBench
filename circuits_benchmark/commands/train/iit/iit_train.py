@@ -176,6 +176,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         wandb.agent(sweep_id, main)
     else:
         config = {
+            "output_dir": args.output_dir,
             "atol": 0.05,
             "lr": args.lr,
             "use_single_loss": args.use_single_loss,
