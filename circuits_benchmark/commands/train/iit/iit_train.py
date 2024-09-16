@@ -212,21 +212,25 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
         save_dir = f"{output_dir}/ll_models/{case.get_name()}"
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        weights_suffix = f"iit_{args.iit_weight}_b_{args.behavior_weight}_s_{args.strict_weight}"
+        weight_int = int(
+            args.iit_weight * 10
+            + args.behavior_weight * 100
+            + args.strict_weight * 1000
+        )
 
         t.save(
             model_pair.ll_model.state_dict(),
-            f"{save_dir}/ll_model_{weights_suffix}.pth",
+            f"{save_dir}/ll_model_{weight_int}.pth",
         )
 
         # save training args, config
-        with open(f"{save_dir}/meta_{weights_suffix}.json", "w") as f:
+        with open(f"{save_dir}/meta_{weight_int}.json", "w") as f:
             json.dump(config, f)
 
         # Save the config
         ll_model_cfg = model_pair.ll_model.cfg
         ll_model_cfg_dict = ll_model_cfg.to_dict()
-        pickle.dump(ll_model_cfg_dict, open(f"{save_dir}/ll_model_cfg_{weights_suffix}.pkl", "wb"))
+        pickle.dump(ll_model_cfg_dict, open(f"{save_dir}/ll_model_cfg_{weight_int}.pkl", "wb"))
 
         # Dump ground truth edges
         gt_circuit = case.get_ll_gt_circuit()
