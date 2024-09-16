@@ -48,6 +48,7 @@ def build_commands():
                 f"--epochs={epochs}",
                 f"--seed={seed}",
                 f"--wandb-project={wandb_project}",
+                f"--use-wandb",
             ]
 
             if all("--wandb-name=" not in part for part in command):
