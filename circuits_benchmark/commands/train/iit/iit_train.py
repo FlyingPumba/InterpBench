@@ -45,6 +45,9 @@ def setup_args_parser(subparsers):
         "--epochs", type=int, default=2000, help="Number of epochs"
     )
     parser.add_argument(
+        "--early-stop-accuracy-threshold", type=float, default=99.5, help="Early stop accuracy threshold"
+    )
+    parser.add_argument(
         "--batch-size", type=int, default=256, help="Batch size"
     )
     parser.add_argument(
@@ -153,6 +156,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
                 "behavior_weight": {"values": [0.5, 1.0]},
                 "strict_weight": {"values": [0.0, 0.2, 0.5, 1.0, 1.5]},
                 "epochs": {"values": [args.epochs]},
+                "early_stop_accuracy_threshold": {"values": [args.early_stop_accuracy_threshold]},
                 "act_fn": {"values": ["relu", "gelu"]},
                 "clip_grad_norm": {"values": [10, 1.0, 0.1, 0.05]},
                 "lr_scheduler": {"values": ["plateau", ""]},
@@ -184,6 +188,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "behavior_weight": args.behavior_weight,
             "strict_weight": args.strict_weight,
             "epochs": args.epochs,
+            "early_stop_accuracy_threshold": args.early_stop_accuracy_threshold,
             "act_fn": "gelu",
             "use_wandb": args.use_wandb,
             "wandb_project": args.wandb_project,
@@ -265,6 +270,7 @@ def train_model(
         "clip_grad_norm": args.clip_grad_norm,
         "lr_scheduler": lr_scheduler_map[args.lr_scheduler],
         "early_stop": True,
+        "early_stop_accuracy_threshold": args.early_stop_accuracy_threshold,
         # specific iit training args
         "behavior_weight": args.behavior_weight,
         "iit_weight": args.iit_weight,
