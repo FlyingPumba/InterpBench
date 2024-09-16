@@ -184,6 +184,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "strict_weight": args.strict_weight,
             "epochs": args.epochs,
             "act_fn": "gelu",
+            "use_wandb": args.use_wandb,
             "wandb_project": args.wandb_project,
             "wandb_name": args.wandb_name,
             "device": "cpu" if args.device == "cpu" else "cuda" if t.cuda.is_available() else "cpu",
