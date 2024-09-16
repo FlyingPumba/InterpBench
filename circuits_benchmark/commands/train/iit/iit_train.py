@@ -193,6 +193,7 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "use_wandb": args.use_wandb,
             "wandb_project": args.wandb_project,
             "wandb_name": args.wandb_name,
+            "save_model_to_wandb": args.save_model_to_wandb,
             "device": "cpu" if args.device == "cpu" else "cuda" if t.cuda.is_available() else "cpu",
             "clip_grad_norm": args.clip_grad_norm,
             "lr_scheduler": args.lr_scheduler,
