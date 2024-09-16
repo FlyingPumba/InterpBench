@@ -167,6 +167,12 @@ def build_case_info(case_id, files_per_case):
     if "wandb_suffix" in training_args:
       del training_args["wandb_suffix"]
 
+    if "wandb_name" in training_args:
+      del training_args["wandb_name"]
+
+    if "wandb_project" in training_args:
+      del training_args["wandb_project"]
+
     case_info["training_args"] = training_args
     case_info["training_args_file_url"] = f"https://huggingface.co/{hf_repo_id}/blob/main/{case_id}/{meta_json_file_name}"
 

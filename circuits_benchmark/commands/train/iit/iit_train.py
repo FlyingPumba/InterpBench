@@ -137,7 +137,8 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             return
         config = {
             **wandb.config,
-            "wandb_suffix": args.wandb_suffix,
+            "wandb_project": args.wandb_project,
+            "wandb_name": args.wandb_name,
             "device": "cpu" if args.device == "cpu" else "cuda",
         }
         train_model(case, config, use_wandb=True)
@@ -185,7 +186,8 @@ def run_iit_train(case: BenchmarkCase, args: Namespace):
             "strict_weight": args.strict_weight,
             "epochs": args.epochs,
             "act_fn": "gelu",
-            "wandb_suffix": args.wandb_suffix,
+            "wandb_project": args.wandb_project,
+            "wandb_name": args.wandb_name,
             "device": "cpu" if args.device == "cpu" else "cuda" if t.cuda.is_available() else "cpu",
             "clip_grad_norm": args.clip_grad_norm,
             "lr_scheduler": args.lr_scheduler,
