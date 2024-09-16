@@ -24,7 +24,7 @@ class TestGroundTruthCircuit:
             full_circuit = build_from_acdc_correspondence(corr=full_corr)
 
             corr = case.get_correspondence()
-            assert corr is not None
+            assert corr is not None, f"Case {case} has no correspondence"
 
             gt_circuit = get_gt_circuit(
                 hl_ll_corr=corr,
