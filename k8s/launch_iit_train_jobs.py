@@ -46,7 +46,7 @@ def build_commands():
                 "--val-iia-sampling=all",
                 "--lr-scheduler=linear",
                 f"--epochs={epochs}",
-                "--early-stop-accuracy-threshold=99.9"
+                "--early-stop-accuracy-threshold=99.9",
                 f"--seed={seed}",
                 f"--wandb-project={wandb_project}",
                 f"--use-wandb",
