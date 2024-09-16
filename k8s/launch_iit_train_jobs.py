@@ -27,7 +27,7 @@ def build_commands():
     # filter out cases that are in the metadata
     cases = [case for case in all_cases if case.get_name() not in hf_cases]
     seeds = [67]
-    epochs = 100
+    epochs = 1000
 
     commands = []
     for case in cases:
