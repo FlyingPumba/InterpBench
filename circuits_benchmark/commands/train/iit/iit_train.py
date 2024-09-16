@@ -78,7 +78,10 @@ def setup_args_parser(subparsers):
         "--wandb_entity", type=str, required=False, help="Wandb entity"
     )
     parser.add_argument(
-        "--wandb-suffix", type=str, default="", help="Wandb suffix"
+        "--wandb-project", type=str, default="", help="Wandb project"
+    )
+    parser.add_argument(
+        "--wandb-name", type=str, default="", help="Wandb name"
     )
     parser.add_argument(
         "--save-model-to-wandb", action="store_true", help="Save model to wandb"
@@ -304,7 +307,8 @@ def train_model(
         test_dataset,
         epochs=args.epochs,
         use_wandb=use_wandb,
-        wandb_name_suffix=args.wandb_suffix,
+        wandb_project=args.wandb_project,
+        wandb_name=args.wandb_name,
     )
     print("Done training")
 
