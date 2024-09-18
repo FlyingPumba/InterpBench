@@ -33,4 +33,11 @@ spec:
                 key: api-key
           - name: WANDB_DISABLE_SERVICE
             value: "true"
-      restartPolicy: Never
+      restartPolicy: Never  # Do not restart on failure of the main command
+  backoffLimit: 0  # Do not retry if the main command errors
+  # But *do* make the Job create another Pod if it gets preempted by something else.
+  podFailurePolicy:
+    rules:
+    - action: Ignore
+      onPodConditions:
+      - type: DisruptionTarget
