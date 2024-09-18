@@ -26,7 +26,7 @@ def build_commands():
 
     # filter out cases that are in the metadata
     cases = [case for case in all_cases if case.get_name() not in hf_cases]
-    seeds = [67]
+    seeds = [76]
     epochs = 1000
 
     commands = []
@@ -46,7 +46,7 @@ def build_commands():
                 "--val-iia-sampling=all",
                 "--lr-scheduler=linear",
                 f"--epochs={epochs}",
-                "--early-stop-accuracy-threshold=99.9",
+                "--early-stop-accuracy-threshold=100",
                 f"--seed={seed}",
                 f"--wandb-project={wandb_project}",
                 f"--use-wandb",
