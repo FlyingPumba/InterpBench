@@ -32,7 +32,7 @@ def build_commands():
     commands = []
     for case in cases:
         for seed in seeds:
-            wandb_project = f"iit-train"
+            wandb_project = f"iit-train-100"
 
             command = [
                 ".venv/bin/python", "main.py",
@@ -65,7 +65,7 @@ def create_jobs() -> List[str]:
     jobs = []
 
     cpu = 4
-    memory = "8Gi"
+    memory = "10Gi"
     gpu = 1
 
     if gpu == 0:
