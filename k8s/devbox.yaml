@@ -24,7 +24,7 @@ spec:
           requests:
             cpu: 14
           limits:
-            memory: "60G"
+            memory: "30G"
             nvidia.com/gpu: 1
         env:
           - name: WANDB_API_KEY
