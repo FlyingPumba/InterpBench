@@ -6,5 +6,13 @@ class NaturalModelLoader(SIITModelLoader):
 
     def __init__(self,
                  case,
-                 load_from_wandb: bool | None = False):
-        super().__init__(case, "100", load_from_wandb=load_from_wandb)
+                 load_from_wandb: bool | None = False,
+                 wandb_project: str | None = None,
+                 wandb_name: str | None = None):
+        super().__init__(
+            case,
+            "100",
+            load_from_wandb=load_from_wandb,
+            wandb_project=wandb_project,
+            wandb_name=wandb_name
+        )

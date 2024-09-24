@@ -7,10 +7,18 @@ def load_model_from_wandb(
     output_dir: str = "./results",
     return_file_without_downloading: bool = False,
     same_size: bool = False,
+    wandb_project: str | None = None,
+    wandb_name: str | None = None
 ):
     api = wandb.Api()
+
     project = f"iit_models{'_same_size' if same_size else ''}"
     name = f"case_{case_index}_weight_{weights}"
+    if wandb_project is not None:
+        project = wandb_project
+    if wandb_name is not None:
+        name = wandb_name
+
     model_file_name = f"ll_model_{weights}.pt"
     cfg_file_name = f"ll_model_cfg_{weights}.pkl"
     runs = api.runs(project)

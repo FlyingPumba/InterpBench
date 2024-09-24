@@ -16,10 +16,14 @@ class SIITModelLoader(LLModelLoader):
     def __init__(self,
                  case: BenchmarkCase,
                  weights: str | None = None,
-                 load_from_wandb: bool | None = False):
+                 load_from_wandb: bool | None = False,
+                 wandb_project: str | None = None,
+                 wandb_name: str | None = None):
         super().__init__(case)
         self.weights = weights
         self.load_from_wandb = load_from_wandb
+        self.wandb_project = wandb_project
+        self.wandb_name = wandb_name
 
         if self.weights is None or self.weights == "best":
             print(f"Getting best weights for {self.case.get_name()}")
@@ -54,7 +58,12 @@ class SIITModelLoader(LLModelLoader):
         if self.load_from_wandb:
             try:
                 load_model_from_wandb(
-                    self.case.get_name(), self.weights, output_dir, same_size=same_size
+                    self.case.get_name(),
+                    self.weights,
+                    output_dir,
+                    same_size=same_size,
+                    wandb_project=self.wandb_project,
+                    wandb_name=self.wandb_name
                 )
             except FileNotFoundError:
                 raise FileNotFoundError(
