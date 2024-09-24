@@ -1,4 +1,5 @@
 import random
+import traceback
 
 import numpy as np
 import torch as t
@@ -38,11 +39,16 @@ def run(args):
         t.manual_seed(seed)
         random.seed(seed)
 
-        if training_type == "linear-compression":
-            train_linear_compression(case, args)
-        elif training_type == "non-linear-compression":
-            train_non_linear_compression(case, args)
-        elif training_type == "iit":
-            iit_train.run_iit_train(case, args)
-        else:
-            raise ValueError(f"Unknown training: {training_type}")
+        try:
+            if training_type == "linear-compression":
+                train_linear_compression(case, args)
+            elif training_type == "non-linear-compression":
+                train_non_linear_compression(case, args)
+            elif training_type == "iit":
+                iit_train.run_iit_train(case, args)
+            else:
+                raise ValueError(f"Unknown training: {training_type}")
+        except Exception as e:
+            print(f" >>> Failed to run {training_type} training on case {case}:")
+            traceback.print_exc()
+            continue

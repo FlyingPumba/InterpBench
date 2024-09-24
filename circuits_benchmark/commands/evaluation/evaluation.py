@@ -1,4 +1,5 @@
 import random
+import traceback
 
 import numpy as np
 import torch as t
@@ -31,11 +32,16 @@ def run(args):
         t.manual_seed(seed)
         random.seed(seed)
 
-        if evaluation_type == "iit":
-            iit_eval.run_iit_eval(case, args)
-        elif evaluation_type == "node_realism":
-            node_wise_ablation.run_nodewise_ablation(case, args)
-        elif evaluation_type == "gt_node_realism":
-            gt_circuit_node_wise_ablation.run_nodewise_ablation(case, args)
-        else:
-            raise ValueError(f"Unknown evaluation: {evaluation_type}")
+        try:
+            if evaluation_type == "iit":
+                iit_eval.run_iit_eval(case, args)
+            elif evaluation_type == "node_realism":
+                node_wise_ablation.run_nodewise_ablation(case, args)
+            elif evaluation_type == "gt_node_realism":
+                gt_circuit_node_wise_ablation.run_nodewise_ablation(case, args)
+            else:
+                raise ValueError(f"Unknown evaluation: {evaluation_type}")
+        except Exception as e:
+            print(f" >>> Failed to run {evaluation_type} evaluation on case {case}:")
+            traceback.print_exc()
+            continue
