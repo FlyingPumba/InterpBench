@@ -15,7 +15,9 @@ def get_ll_model_loader_from_args(case: BenchmarkCase, args: Namespace) -> LLMod
         args.tracr,
         args.interp_bench,
         args.siit_weights,
-        args.load_from_wandb
+        args.load_from_wandb,
+        args.load_wandb_project,
+        args.load_wandb_name,
     )
 
 
@@ -26,6 +28,8 @@ def get_ll_model_loader(
     interp_bench: bool = False,
     siit_weights: str | None = None,
     load_from_wandb: bool = False,
+    wandb_project: str | None = None,
+    wandb_name: str | None = None,
 ) -> LLModelLoader:
     assert (
         not (natural and tracr)
@@ -34,7 +38,12 @@ def get_ll_model_loader(
     ), "Only one of natural, tracr, interp_bench can be set"
 
     if natural:
-        return NaturalModelLoader(case, load_from_wandb=load_from_wandb)
+        return NaturalModelLoader(
+            case,
+            load_from_wandb=load_from_wandb,
+            wandb_project=wandb_project,
+            wandb_name=wandb_name
+        )
 
     if tracr:
         return GroundTruthModelLoader(case)
@@ -42,4 +51,10 @@ def get_ll_model_loader(
     if interp_bench:
         return InterpBenchModelLoader(case)
 
-    return SIITModelLoader(case, weights=siit_weights, load_from_wandb=load_from_wandb)
+    return SIITModelLoader(
+        case,
+        weights=siit_weights,
+        load_from_wandb=load_from_wandb,
+        wandb_project=wandb_project,
+        wandb_name=wandb_name
+    )
