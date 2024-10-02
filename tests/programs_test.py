@@ -11,7 +11,7 @@ from circuits_benchmark.benchmark.cases.case_13 import make_token_trend_analysis
 from circuits_benchmark.benchmark.cases.case_28 import make_token_mirroring
 from circuits_benchmark.benchmark.cases.case_32 import make_token_boundary_detector
 from circuits_benchmark.benchmark.cases.case_38 import make_token_alternation_checker
-from circuits_benchmark.benchmark.cases.case_8 import make_token_replacer
+from circuits_benchmark.benchmark.cases.case_90 import make_token_replacer
 from circuits_benchmark.benchmark.common_programs import make_unique_token_extractor, detect_pattern
 from circuits_benchmark.benchmark.tracr_benchmark_case import TracrBenchmarkCase
 from circuits_benchmark.benchmark.vocabs import TRACR_BOS, TRACR_PAD
