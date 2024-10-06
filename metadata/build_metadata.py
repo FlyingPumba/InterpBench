@@ -21,14 +21,23 @@ PANDAS_TO_CROISSANT_VALUE_TYPE = {
     "bool": mlc.DataType.BOOL
 }
 
+LOCAL_REPO = "/home/ivan/src/InterpBench"
+build_for_local_repo = True
+
 
 def build_metadata():
   metadata = load_benchmark_base_metadata()
   cases_info = []
 
-  files_per_case = get_files_per_case_in_hf()
-  case_ids = files_per_case.keys()
-  print(f"Found {len(case_ids)} cases in Hugging Face")
+  if not build_for_local_repo:
+    files_per_case = get_files_per_case_in_hf()
+    case_ids = files_per_case.keys()
+    print(f"Found {len(case_ids)} cases in Hugging Face")
+  else:
+    # Case ids are the directories in the local repo
+    case_ids = [d for d in os.listdir(LOCAL_REPO) if os.path.isdir(os.path.join(LOCAL_REPO, d)) and d != ".git"]
+    files_per_case = {case_id: os.listdir(f"{LOCAL_REPO}/{case_id}") for case_id in case_ids}
+    print(f"Found {len(case_ids)} cases in local repo")
 
   for case_id in case_ids:
     case_info = build_case_info(case_id, files_per_case)
@@ -135,14 +144,19 @@ def build_case_info(case_id, files_per_case):
   if cfg_pkl_file_name not in files_per_case[case_id]:
     print(f"WARNING: No cfg pkl file found for case {case_id}")
   else:
-    with hf_fs.open(f"{hf_repo_id}/{case_id}/{cfg_pkl_file_name}", 'rb') as f:
-      cfg = pickle.load(f)
-      if isinstance(cfg, dict):
-        cfg_dict = cfg
-      elif isinstance(cfg, HookedTransformerConfig):
-        cfg_dict = cfg.to_dict()
-      else:
-        raise ValueError(f"Unknown type for cfg: {type(cfg)}")
+    if not build_for_local_repo:
+      with hf_fs.open(f"{hf_repo_id}/{case_id}/{cfg_pkl_file_name}", 'rb') as f:
+        cfg = pickle.load(f)
+    else:
+      with open(f"{LOCAL_REPO}/{case_id}/{cfg_pkl_file_name}", 'rb') as f:
+        cfg = pickle.load(f)
+
+    if isinstance(cfg, dict):
+      cfg_dict = cfg
+    elif isinstance(cfg, HookedTransformerConfig):
+      cfg_dict = cfg.to_dict()
+    else:
+      raise ValueError(f"Unknown type for cfg: {type(cfg)}")
 
     cfg_dict["dtype"] = str(cfg_dict["dtype"])
     if "original_architecture" in cfg_dict and cfg_dict["original_architecture"] is not None:
@@ -158,7 +172,12 @@ def build_case_info(case_id, files_per_case):
   if meta_json_file_name not in files_per_case[case_id]:
     print(f"WARNING: No meta json file found for case {case_id}")
   else:
-    training_args_str = hf_fs.read_text(f"{hf_repo_id}/{case_id}/{meta_json_file_name}")
+    if not build_for_local_repo:
+      training_args_str = hf_fs.read_text(f"{hf_repo_id}/{case_id}/{meta_json_file_name}")
+    else:
+      with open(f"{LOCAL_REPO}/{case_id}/{meta_json_file_name}", 'r') as f:
+        training_args_str = f.read()
+
     training_args = json.loads(training_args_str)
 
     if "device" in training_args:
