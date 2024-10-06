@@ -6,8 +6,8 @@ import sys
 import os
 
 if __name__ == "__main__":
-  if len(sys.argv) != 3:
-    raise ValueError("Usage: python download_wandb_artifact.py <project_name> <accuracy_threshold>")
+  if len(sys.argv) < 3:
+    raise ValueError("Usage: python download_wandb_artifact.py <project_name> <accuracy_threshold> [case_id]")
 
   output_dir = "/home/ivan/src/InterpBench"
   if not os.path.exists(output_dir):
@@ -17,6 +17,12 @@ if __name__ == "__main__":
   project_name = sys.argv[1]
   acc_threshold = float(sys.argv[2])
   overwrite_existing = True
+
+  # check if we have optional filter for case_id
+  case_id_filter = None
+  if len(sys.argv) == 4:
+    case_id_filter = sys.argv[3]
+    print(f"Filtering for case_id {case_id_filter}")
 
   api = wandb.Api()
   runs = api.runs(project_name)
@@ -28,6 +34,10 @@ if __name__ == "__main__":
     if not run.name.startswith("case-"):
       raise ValueError(f"Run name {run.name} does not start with 'case-'")
     case_id = run.name.split("-")[1]
+
+    # check if we need to filter by case_id
+    if case_id_filter is not None and case_id != case_id_filter:
+      continue
 
     # are test metrics good enough?
     if run.summary["val/accuracy"] < acc_threshold or run.summary["val/IIA"] < acc_threshold or run.summary["val/strict_accuracy"] < acc_threshold:
