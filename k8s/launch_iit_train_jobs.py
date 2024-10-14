@@ -27,20 +27,23 @@ def build_commands():
     # filter out cases that are in the metadata
     cases = [case for case in all_cases if case.get_name() not in hf_cases]
     seeds = [92]
-    epochs = 1000
+    epochs = 3000
+    siit_weight = 1
+    iit_weight = 0.4
+    behavior_weight = 0.4
 
     commands = []
     for case in cases:
         for seed in seeds:
-            wandb_project = f"iit-train-seed-{seed}-siit-weigth-0.7"
+            wandb_project = f"iit-train-seed-{seed}-s-{siit_weight}-iit-{iit_weight}-b-{behavior_weight}"
 
             command = [
                 ".venv/bin/python", "main.py",
                 "train", "iit",
                 f"-i={case.get_name()}",
-                "-s=0.7",
-                "-b=0.4",
-                "-iit=1",
+                f"-s={siit_weight}",
+                f"-b={behavior_weight}",
+                f"-iit={iit_weight}",
                 "--use-single-loss",
                 "--siit-sampling=sample_all",
                 "--val-iia-sampling=all",
