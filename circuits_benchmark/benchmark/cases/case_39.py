@@ -15,7 +15,7 @@ class Case39(TracrBenchmarkCase):
         return make_frac_prevs(is_x)
 
     def get_task_description(self) -> str:
-        return "Returns the fraction of 'x' in the input up to the i-th position for all i."
+        return "Returns the fraction of 'x' in the input up to the i-th position for all i (longer sequence length)."
 
     def get_vocab(self) -> Set:
         some_letters = vocabs.get_ascii_letters_vocab()
