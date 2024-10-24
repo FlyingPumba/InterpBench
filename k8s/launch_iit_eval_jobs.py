@@ -57,7 +57,7 @@ def create_jobs() -> List[str]:
     jobs = []
 
     cpu = 4
-    memory = "10Gi"
+    memory = "25Gi"
     gpu = 1
 
     if gpu == 0:
