@@ -54,6 +54,12 @@ def setup_args_parser(subparsers):
     parser.add_argument(
         "--use-wandb", action="store_true", help="Use wandb for logging"
     )
+    parser.add_argument(
+        "--wandb-project", type=str, default=None, help="Wandb project to log to"
+    )
+    parser.add_argument(
+        "--wandb-name", type=str, default=None, help="Wandb name to log to"
+    )
 
 
 def get_node_effects(
@@ -146,14 +152,23 @@ def run_iit_eval(case: BenchmarkCase, args: Namespace):
 
     if args.use_wandb:
         import wandb
+
+        wandb_project = args.wandb_project
+        if wandb_project is None:
+            wandb_project = f"node_effect{'_same_size' if args.same_size else ''}"
+
+        wandb_name = args.wandb_name
+        if wandb_name is None:
+            wandb_name = f"case_{case.get_name()}_{ll_model_loader.get_output_suffix()}{suffix}"
+
         wandb.init(
-            project=f"node_effect{'_same_size' if args.same_size else ''}",
+            project=wandb_project,
+            name=wandb_name,
             tags=[
                 f"case_{case.get_name()}",
                 f"{ll_model_loader.get_output_suffix()}",
                 f"metric{suffix}",
             ],
-            name=f"case_{case.get_name()}_{ll_model_loader.get_output_suffix()}{suffix}",
         )
         wandb.log(metric_collection.to_dict())
         wandb.save(f"{output_dir}/ll_models/{case.get_name()}/*")
