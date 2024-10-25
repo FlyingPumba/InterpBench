@@ -39,7 +39,7 @@ def build_commands():
                 f"--seed={seed}",
                 "--max-len=5000",
                 f"--use-wandb",
-                f"--wandb-project=iit-eval",
+                f"--wandb-project=iit-eval-seed-{seed}-max-len-5K",
                 f"--wandb-name=case-{case.get_name()}",
             ]
 
