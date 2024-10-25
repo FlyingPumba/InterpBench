@@ -37,9 +37,9 @@ def build_commands():
                 f"-i={case.get_name()}",
                 "--interp-bench",
                 f"--seed={seed}",
-                "--max-len=5000",
+                "--max-len=4000",
                 f"--use-wandb",
-                f"--wandb-project=iit-eval-seed-{seed}-max-len-5K",
+                f"--wandb-project=iit-eval-seed-{seed}-max-len-4K",
                 f"--wandb-name=case-{case.get_name()}",
             ]
 
