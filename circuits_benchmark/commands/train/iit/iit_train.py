@@ -283,6 +283,12 @@ def train_model(
         "val_IIA_sampling": args.val_iia_sampling,
     }
 
+    if training_args["lr_scheduler"] == "plateau":
+        training_args["scheduler_kwargs"] = {
+            "patience": 30,
+            "factor": 0.5,
+        }
+
     ll_model = case.get_ll_model(same_size=args.same_size)
 
     hl_model = case.get_hl_model()
