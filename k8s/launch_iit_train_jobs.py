@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import random
 import subprocess
 import sys
 from pathlib import Path
@@ -25,17 +26,17 @@ def build_commands():
     hf_cases = [d["case_id"] for d in metadata["cases"]]
 
     # filter out cases that are in the metadata
-    cases = [case for case in all_cases if case.get_name() not in hf_cases]
-    seeds = [92]
-    epochs = 3000
-    siit_weight = 1
-    iit_weight = 0.4
-    behavior_weight = 0.4
+    cases = [case for case in all_cases if "13" == case.get_name()]
+    seeds = [random.randint(0, 1000) for _ in range(10)]
+    epochs = 5000
+    siit_weight = 0.8
+    iit_weight = 1
+    behavior_weight = 0.8
 
     commands = []
     for case in cases:
         for seed in seeds:
-            wandb_project = f"iit-train-seed-{seed}-s-{siit_weight}-iit-{iit_weight}-b-{behavior_weight}"
+            wandb_project = f"iit-train-case-13"
 
             command = [
                 ".venv/bin/python", "main.py",
@@ -47,7 +48,7 @@ def build_commands():
                 "--use-single-loss",
                 "--siit-sampling=sample_all",
                 "--val-iia-sampling=all",
-                "--lr-scheduler=linear",
+                "--lr-scheduler=plateau",
                 f"--epochs={epochs}",
                 "--early-stop-accuracy-threshold=99.9",
                 f"--seed={seed}",
