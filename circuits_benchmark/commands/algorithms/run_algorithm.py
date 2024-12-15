@@ -1,6 +1,6 @@
 import traceback
 
-from circuits_benchmark.commands.algorithms import acdc, legacy_acdc, eap, sp
+from circuits_benchmark.commands.algorithms import acdc, legacy_acdc, eap, sp, edge_pruning
 from circuits_benchmark.utils.get_cases import get_cases
 from circuits_benchmark.utils.ll_model_loader.ll_model_loader_factory import get_ll_model_loader_from_args
 
@@ -15,6 +15,7 @@ def setup_args_parser(subparsers):
     acdc.ACDCRunner.setup_subparser(run_subparsers)
     sp.SPRunner.setup_subparser(run_subparsers)
     eap.EAPRunner.setup_subparser(run_subparsers)
+    edge_pruning.EdgePruningRunner.setup_subparser(run_subparsers)
 
 
 def run(args):
@@ -32,6 +33,8 @@ def run(args):
                 sp.SPRunner(case, args=args).run_using_model_loader(ll_model_loader)
             elif args.algorithm == "eap":
                 eap.EAPRunner(case, args=args).run_using_model_loader(ll_model_loader)
+            elif args.algorithm == "edge_pruning":
+                edge_pruning.EdgePruningRunner(case, args=args).run_using_model_loader(ll_model_loader)
             else:
                 raise ValueError(f"Unknown algorithm: {args.algorithm}")
         except Exception as e:
